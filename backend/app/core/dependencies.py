@@ -1,2 +1,14 @@
-"""全局依赖注入：get_db, get_current_user, require_admin"""
-# TODO
+"""FastAPI 全局依赖。"""
+from collections.abc import Generator
+
+from sqlalchemy.orm import Session
+
+from app.db.session import SessionLocal
+
+
+def get_db() -> Generator[Session, None, None]:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
