@@ -1,5 +1,7 @@
 """FastAPI 应用入口，注册所有路由。"""
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,7 +18,14 @@ from app.visualize.router import router as visualize_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-app = FastAPI(title="单细胞ANN检索系统", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    init_db()
+    yield
+
+
+app = FastAPI(title="单细胞ANN检索系统", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,11 +43,6 @@ app.include_router(search_router,    prefix="/api/search",    tags=["检索"])
 app.include_router(visualize_router, prefix="/api/visualize", tags=["可视化"])
 app.include_router(benchmark_router, prefix="/api/benchmark", tags=["性能评测"])
 app.include_router(export_router,    prefix="/api/export",    tags=["导出"])
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    init_db()
 
 
 @app.get("/api/health", tags=["健康"])
