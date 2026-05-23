@@ -1,0 +1,2 @@
+DEFAULT_K = 10
+MAX_K = 100

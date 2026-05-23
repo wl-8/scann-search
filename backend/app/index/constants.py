@@ -1,0 +1,6 @@
+ALGO_FLAT = "flat"
+ALGO_HNSW = "hnsw"
+ALGO_IVF = "ivf"
+ALGO_PQ = "pq"
+ALGO_IVF_PQ = "ivf_pq"
+ALGO_IVF_HNSW = "ivf_hnsw"

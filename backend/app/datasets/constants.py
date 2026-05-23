@@ -1,0 +1,5 @@
+STATUS_UPLOADING = "uploading"
+STATUS_PROCESSING = "processing"
+STATUS_READY = "ready"
+STATUS_ERROR = "error"
+STATUS_DELETED = "deleted"

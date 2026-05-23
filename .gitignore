@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.env
+.venv/
+venv/
+
+# Data
+data/uploads/
+data/indexes/
+*.h5ad
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
