@@ -1,19 +1,52 @@
 # Python
 __pycache__/
 *.py[cod]
-*.env
+*.pyo
+*.pyd
+.Python
+
+# 虚拟环境
 .venv/
 venv/
+env/
 
-# Data
+# 环境变量
+.env
+.env.*
+!.env.example
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 数据文件
 data/uploads/
 data/indexes/
 *.h5ad
+*.npy
+*.npz
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
 
 # Node
 node_modules/
 dist/
+.next/
+*.local
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
