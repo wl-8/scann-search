@@ -1,8 +1,8 @@
 """检索业务逻辑：top-k + 条件过滤。
 
-过滤策略采用 **post-filter**：先用 ANN 召回 k*oversample 个候选，再按 obs 等值过滤截到 k。
-工程上简单稳定；在选择度高（大多数细胞符合条件）时 recall 接近无过滤。
-低选择度场景下 oversample 调大；后续可加 pre-filter / hybrid 作为算法改进加分点。
+过滤策略采用 **post-filter**：先用 ANN 召回 k*oversample 个候选，再按 obs 字段过滤截到 k。
+oversample 可由调用方指定；不指定时根据过滤条件在数据集中的选择率自动推断，
+避免低选择率条件（罕见细胞类型）召回不足、高选择率条件浪费算力。
 """
 from __future__ import annotations
 
@@ -37,6 +37,7 @@ def search_by_cell(db: Session, req: SearchByCellRequest) -> SearchResponse:
         raise CellNotFound(req.cell_id, ds.id) from e
 
     query_vec = vectors[row]
+    oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
     return _execute_search(
         db=db,
         index_obj=idx_obj,
@@ -44,8 +45,8 @@ def search_by_cell(db: Session, req: SearchByCellRequest) -> SearchResponse:
         query_vec=query_vec,
         k=req.k,
         filters=req.filters,
-        oversample=req.oversample,
-        exclude_row=row,  # 查询自身在结果里没意义，剔除
+        oversample=oversample,
+        exclude_row=row,
     )
 
 
@@ -57,6 +58,7 @@ def search_by_vector(db: Session, req: SearchByVectorRequest) -> SearchResponse:
     if query_vec.shape[0] != ds.vector_dim:
         raise InvalidQueryVector(query_vec.shape[0], ds.vector_dim)
 
+    oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
     return _execute_search(
         db=db,
         index_obj=idx_obj,
@@ -64,8 +66,32 @@ def search_by_vector(db: Session, req: SearchByVectorRequest) -> SearchResponse:
         query_vec=query_vec,
         k=req.k,
         filters=req.filters,
-        oversample=req.oversample,
+        oversample=oversample,
     )
+
+
+# ---------- 自适应 oversample ----------
+
+def _auto_oversample(ds, filters: SearchFilter | None, k: int) -> int:
+    """根据过滤条件在数据集中的选择率估算 oversample。
+
+    仅对 equals 字段做统计（gte/lte 无法从 value_counts 推断），
+    估算结果保守偏大，上限 500，下限 2。
+    """
+    if filters is None or not filters.equals:
+        return 2  # 无过滤条件，稍微多取一点用于剔除查询自身
+
+    stats = ds_service.value_counts(ds)
+    selectivity = 1.0
+    for col, allowed in filters.equals.items():
+        col_counts = stats.get(col, {})
+        total = sum(col_counts.values()) or 1
+        hit = sum(col_counts.get(v, 0) for v in allowed)
+        selectivity *= hit / total
+
+    selectivity = max(selectivity, 0.005)  # 防止极端稀疏条件导致 oversample 爆炸
+    needed = math.ceil(1.0 / selectivity)  # 期望命中 k 个有效 hit 需要多取 1/selectivity 倍
+    return min(max(needed, 2), 500)
 
 
 # ---------- 核心 ----------

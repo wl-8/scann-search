@@ -24,8 +24,12 @@ class SearchByCellRequest(BaseModel):
     cell_id: str
     k: int = Field(default=DEFAULT_K, ge=1, le=MAX_K)
     filters: SearchFilter | None = None
-    # 过滤模式：post=召回 k*oversample 后过滤；不指定则按系统默认 post
-    oversample: int = Field(default=10, ge=1, le=100, description="post-filter 时多召回的倍数")
+    oversample: int | None = Field(
+        default=None,
+        ge=1,
+        le=500,
+        description="post-filter 多召回倍数；None 时根据过滤条件选择率自动推断",
+    )
 
 
 class SearchByVectorRequest(BaseModel):
@@ -33,7 +37,7 @@ class SearchByVectorRequest(BaseModel):
     vector: list[float]
     k: int = Field(default=DEFAULT_K, ge=1, le=MAX_K)
     filters: SearchFilter | None = None
-    oversample: int = Field(default=10, ge=1, le=100)
+    oversample: int | None = Field(default=None, ge=1, le=500)
 
     @model_validator(mode="after")
     def _check_vector(self) -> "SearchByVectorRequest":
