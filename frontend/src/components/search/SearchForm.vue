@@ -30,24 +30,14 @@
 				</a-col>
 
 				<a-col :span="12">
-					<a-form-item label="索引类型">
-						<a-select v-model:value="state.indexType">
-							<a-select-option value="HNSW">HNSW</a-select-option>
-							<a-select-option value="IVF">IVF</a-select-option>
-							<a-select-option value="PQ">PQ</a-select-option>
-							<a-select-option value="IVF+PQ">IVF+PQ</a-select-option>
-							<a-select-option value="IVF+HNSW">IVF+HNSW</a-select-option>
-						</a-select>
+					<a-form-item label="过滤字段">
+						<a-input v-model:value="state.filterColumn" placeholder="例如: cell_type / disease" />
 					</a-form-item>
 				</a-col>
 
 				<a-col :span="12">
-					<a-form-item label="距离度量">
-						<a-select v-model:value="state.metric">
-							<a-select-option value="cosine">cosine</a-select-option>
-							<a-select-option value="euclidean">euclidean</a-select-option>
-							<a-select-option value="inner_product">inner_product</a-select-option>
-						</a-select>
+					<a-form-item label="过滤值">
+						<a-input v-model:value="state.filterValue" placeholder="例如: T-cell / normal" />
 					</a-form-item>
 				</a-col>
 
@@ -58,8 +48,8 @@
 				</a-col>
 
 				<a-col :span="12">
-					<a-form-item label="过滤：细胞类型" name="filters.cell_type">
-						<a-input v-model:value="state.filters.cell_type" placeholder="例如: T-cell" />
+					<a-form-item label="过滤召回倍数" name="oversample">
+						<a-input-number v-model:value="state.oversample" :min="1" :max="100" style="width:100%" />
 					</a-form-item>
 				</a-col>
 
@@ -80,9 +70,10 @@ const props = withDefaults(defineProps<{ modelValue: SearchPayload & { filters: 
 	modelValue: () => ({
 		queryType: "id",
 		query: "",
-		indexType: "HNSW",
-		metric: "cosine",
 		k: 10,
+		oversample: 10,
+		filterColumn: "",
+		filterValue: "",
 		filters: { cell_type: "" },
 	}),
 })
@@ -140,7 +131,7 @@ async function handleSubmit() {
 	}
 }
 
-const { queryType, query, indexType, metric, k, filters } = toRefs(state)
+const { queryType, query, k, oversample, filterColumn, filterValue, filters } = toRefs(state)
 </script>
 
 <style scoped>

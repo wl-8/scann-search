@@ -4,9 +4,10 @@ const props = withDefaults(defineProps(), {
     modelValue: () => ({
         queryType: "id",
         query: "",
-        indexType: "HNSW",
-        metric: "cosine",
         k: 10,
+        oversample: 10,
+        filterColumn: "",
+        filterValue: "",
         filters: { cell_type: "" },
     }),
 });
@@ -49,15 +50,16 @@ async function handleSubmit() {
         message.error("表单校验未通过，请检查输入");
     }
 }
-const { queryType, query, indexType, metric, k, filters } = toRefs(state);
+const { queryType, query, k, oversample, filterColumn, filterValue, filters } = toRefs(state);
 debugger; /* PartiallyEnd: #3632/scriptSetup.vue */
 const __VLS_withDefaultsArg = (function (t) { return t; })({
     modelValue: () => ({
         queryType: "id",
         query: "",
-        indexType: "HNSW",
-        metric: "cosine",
         k: 10,
+        oversample: 10,
+        filterColumn: "",
+        filterValue: "",
         filters: { cell_type: "" },
     }),
 });
@@ -238,252 +240,168 @@ const __VLS_59 = {}.AFormItem;
 /** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
 // @ts-ignore
 const __VLS_60 = __VLS_asFunctionalComponent(__VLS_59, new __VLS_59({
-    label: "索引类型",
+    label: "过滤字段",
 }));
 const __VLS_61 = __VLS_60({
-    label: "索引类型",
+    label: "过滤字段",
 }, ...__VLS_functionalComponentArgsRest(__VLS_60));
 __VLS_62.slots.default;
-const __VLS_63 = {}.ASelect;
-/** @type {[typeof __VLS_components.ASelect, typeof __VLS_components.aSelect, typeof __VLS_components.ASelect, typeof __VLS_components.aSelect, ]} */ ;
-// @ts-ignore
-const __VLS_64 = __VLS_asFunctionalComponent(__VLS_63, new __VLS_63({
-    value: (__VLS_ctx.state.indexType),
-}));
-const __VLS_65 = __VLS_64({
-    value: (__VLS_ctx.state.indexType),
-}, ...__VLS_functionalComponentArgsRest(__VLS_64));
-__VLS_66.slots.default;
-const __VLS_67 = {}.ASelectOption;
-/** @type {[typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, ]} */ ;
-// @ts-ignore
-const __VLS_68 = __VLS_asFunctionalComponent(__VLS_67, new __VLS_67({
-    value: "HNSW",
-}));
-const __VLS_69 = __VLS_68({
-    value: "HNSW",
-}, ...__VLS_functionalComponentArgsRest(__VLS_68));
-__VLS_70.slots.default;
-var __VLS_70;
-const __VLS_71 = {}.ASelectOption;
-/** @type {[typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, ]} */ ;
-// @ts-ignore
-const __VLS_72 = __VLS_asFunctionalComponent(__VLS_71, new __VLS_71({
-    value: "IVF",
-}));
-const __VLS_73 = __VLS_72({
-    value: "IVF",
-}, ...__VLS_functionalComponentArgsRest(__VLS_72));
-__VLS_74.slots.default;
-var __VLS_74;
-const __VLS_75 = {}.ASelectOption;
-/** @type {[typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, ]} */ ;
-// @ts-ignore
-const __VLS_76 = __VLS_asFunctionalComponent(__VLS_75, new __VLS_75({
-    value: "PQ",
-}));
-const __VLS_77 = __VLS_76({
-    value: "PQ",
-}, ...__VLS_functionalComponentArgsRest(__VLS_76));
-__VLS_78.slots.default;
-var __VLS_78;
-const __VLS_79 = {}.ASelectOption;
-/** @type {[typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, ]} */ ;
-// @ts-ignore
-const __VLS_80 = __VLS_asFunctionalComponent(__VLS_79, new __VLS_79({
-    value: "IVF+PQ",
-}));
-const __VLS_81 = __VLS_80({
-    value: "IVF+PQ",
-}, ...__VLS_functionalComponentArgsRest(__VLS_80));
-__VLS_82.slots.default;
-var __VLS_82;
-const __VLS_83 = {}.ASelectOption;
-/** @type {[typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, ]} */ ;
-// @ts-ignore
-const __VLS_84 = __VLS_asFunctionalComponent(__VLS_83, new __VLS_83({
-    value: "IVF+HNSW",
-}));
-const __VLS_85 = __VLS_84({
-    value: "IVF+HNSW",
-}, ...__VLS_functionalComponentArgsRest(__VLS_84));
-__VLS_86.slots.default;
-var __VLS_86;
-var __VLS_66;
-var __VLS_62;
-var __VLS_58;
-const __VLS_87 = {}.ACol;
-/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
-// @ts-ignore
-const __VLS_88 = __VLS_asFunctionalComponent(__VLS_87, new __VLS_87({
-    span: (12),
-}));
-const __VLS_89 = __VLS_88({
-    span: (12),
-}, ...__VLS_functionalComponentArgsRest(__VLS_88));
-__VLS_90.slots.default;
-const __VLS_91 = {}.AFormItem;
-/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
-// @ts-ignore
-const __VLS_92 = __VLS_asFunctionalComponent(__VLS_91, new __VLS_91({
-    label: "距离度量",
-}));
-const __VLS_93 = __VLS_92({
-    label: "距离度量",
-}, ...__VLS_functionalComponentArgsRest(__VLS_92));
-__VLS_94.slots.default;
-const __VLS_95 = {}.ASelect;
-/** @type {[typeof __VLS_components.ASelect, typeof __VLS_components.aSelect, typeof __VLS_components.ASelect, typeof __VLS_components.aSelect, ]} */ ;
-// @ts-ignore
-const __VLS_96 = __VLS_asFunctionalComponent(__VLS_95, new __VLS_95({
-    value: (__VLS_ctx.state.metric),
-}));
-const __VLS_97 = __VLS_96({
-    value: (__VLS_ctx.state.metric),
-}, ...__VLS_functionalComponentArgsRest(__VLS_96));
-__VLS_98.slots.default;
-const __VLS_99 = {}.ASelectOption;
-/** @type {[typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, ]} */ ;
-// @ts-ignore
-const __VLS_100 = __VLS_asFunctionalComponent(__VLS_99, new __VLS_99({
-    value: "cosine",
-}));
-const __VLS_101 = __VLS_100({
-    value: "cosine",
-}, ...__VLS_functionalComponentArgsRest(__VLS_100));
-__VLS_102.slots.default;
-var __VLS_102;
-const __VLS_103 = {}.ASelectOption;
-/** @type {[typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, ]} */ ;
-// @ts-ignore
-const __VLS_104 = __VLS_asFunctionalComponent(__VLS_103, new __VLS_103({
-    value: "euclidean",
-}));
-const __VLS_105 = __VLS_104({
-    value: "euclidean",
-}, ...__VLS_functionalComponentArgsRest(__VLS_104));
-__VLS_106.slots.default;
-var __VLS_106;
-const __VLS_107 = {}.ASelectOption;
-/** @type {[typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, typeof __VLS_components.ASelectOption, typeof __VLS_components.aSelectOption, ]} */ ;
-// @ts-ignore
-const __VLS_108 = __VLS_asFunctionalComponent(__VLS_107, new __VLS_107({
-    value: "inner_product",
-}));
-const __VLS_109 = __VLS_108({
-    value: "inner_product",
-}, ...__VLS_functionalComponentArgsRest(__VLS_108));
-__VLS_110.slots.default;
-var __VLS_110;
-var __VLS_98;
-var __VLS_94;
-var __VLS_90;
-const __VLS_111 = {}.ACol;
-/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
-// @ts-ignore
-const __VLS_112 = __VLS_asFunctionalComponent(__VLS_111, new __VLS_111({
-    span: (12),
-}));
-const __VLS_113 = __VLS_112({
-    span: (12),
-}, ...__VLS_functionalComponentArgsRest(__VLS_112));
-__VLS_114.slots.default;
-const __VLS_115 = {}.AFormItem;
-/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
-// @ts-ignore
-const __VLS_116 = __VLS_asFunctionalComponent(__VLS_115, new __VLS_115({
-    label: "Top-K",
-    name: "k",
-}));
-const __VLS_117 = __VLS_116({
-    label: "Top-K",
-    name: "k",
-}, ...__VLS_functionalComponentArgsRest(__VLS_116));
-__VLS_118.slots.default;
-const __VLS_119 = {}.AInputNumber;
-/** @type {[typeof __VLS_components.AInputNumber, typeof __VLS_components.aInputNumber, ]} */ ;
-// @ts-ignore
-const __VLS_120 = __VLS_asFunctionalComponent(__VLS_119, new __VLS_119({
-    value: (__VLS_ctx.state.k),
-    min: (1),
-    max: (100),
-    ...{ style: {} },
-}));
-const __VLS_121 = __VLS_120({
-    value: (__VLS_ctx.state.k),
-    min: (1),
-    max: (100),
-    ...{ style: {} },
-}, ...__VLS_functionalComponentArgsRest(__VLS_120));
-var __VLS_118;
-var __VLS_114;
-const __VLS_123 = {}.ACol;
-/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
-// @ts-ignore
-const __VLS_124 = __VLS_asFunctionalComponent(__VLS_123, new __VLS_123({
-    span: (12),
-}));
-const __VLS_125 = __VLS_124({
-    span: (12),
-}, ...__VLS_functionalComponentArgsRest(__VLS_124));
-__VLS_126.slots.default;
-const __VLS_127 = {}.AFormItem;
-/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
-// @ts-ignore
-const __VLS_128 = __VLS_asFunctionalComponent(__VLS_127, new __VLS_127({
-    label: "过滤：细胞类型",
-    name: "filters.cell_type",
-}));
-const __VLS_129 = __VLS_128({
-    label: "过滤：细胞类型",
-    name: "filters.cell_type",
-}, ...__VLS_functionalComponentArgsRest(__VLS_128));
-__VLS_130.slots.default;
-const __VLS_131 = {}.AInput;
+const __VLS_63 = {}.AInput;
 /** @type {[typeof __VLS_components.AInput, typeof __VLS_components.aInput, ]} */ ;
 // @ts-ignore
-const __VLS_132 = __VLS_asFunctionalComponent(__VLS_131, new __VLS_131({
-    value: (__VLS_ctx.state.filters.cell_type),
-    placeholder: "例如: T-cell",
+const __VLS_64 = __VLS_asFunctionalComponent(__VLS_63, new __VLS_63({
+    value: (__VLS_ctx.state.filterColumn),
+    placeholder: "例如: cell_type / disease",
 }));
-const __VLS_133 = __VLS_132({
-    value: (__VLS_ctx.state.filters.cell_type),
-    placeholder: "例如: T-cell",
-}, ...__VLS_functionalComponentArgsRest(__VLS_132));
-var __VLS_130;
-var __VLS_126;
-const __VLS_135 = {}.ACol;
+const __VLS_65 = __VLS_64({
+    value: (__VLS_ctx.state.filterColumn),
+    placeholder: "例如: cell_type / disease",
+}, ...__VLS_functionalComponentArgsRest(__VLS_64));
+var __VLS_62;
+var __VLS_58;
+const __VLS_67 = {}.ACol;
 /** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
 // @ts-ignore
-const __VLS_136 = __VLS_asFunctionalComponent(__VLS_135, new __VLS_135({
+const __VLS_68 = __VLS_asFunctionalComponent(__VLS_67, new __VLS_67({
+    span: (12),
+}));
+const __VLS_69 = __VLS_68({
+    span: (12),
+}, ...__VLS_functionalComponentArgsRest(__VLS_68));
+__VLS_70.slots.default;
+const __VLS_71 = {}.AFormItem;
+/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
+// @ts-ignore
+const __VLS_72 = __VLS_asFunctionalComponent(__VLS_71, new __VLS_71({
+    label: "过滤值",
+}));
+const __VLS_73 = __VLS_72({
+    label: "过滤值",
+}, ...__VLS_functionalComponentArgsRest(__VLS_72));
+__VLS_74.slots.default;
+const __VLS_75 = {}.AInput;
+/** @type {[typeof __VLS_components.AInput, typeof __VLS_components.aInput, ]} */ ;
+// @ts-ignore
+const __VLS_76 = __VLS_asFunctionalComponent(__VLS_75, new __VLS_75({
+    value: (__VLS_ctx.state.filterValue),
+    placeholder: "例如: T-cell / normal",
+}));
+const __VLS_77 = __VLS_76({
+    value: (__VLS_ctx.state.filterValue),
+    placeholder: "例如: T-cell / normal",
+}, ...__VLS_functionalComponentArgsRest(__VLS_76));
+var __VLS_74;
+var __VLS_70;
+const __VLS_79 = {}.ACol;
+/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
+// @ts-ignore
+const __VLS_80 = __VLS_asFunctionalComponent(__VLS_79, new __VLS_79({
+    span: (12),
+}));
+const __VLS_81 = __VLS_80({
+    span: (12),
+}, ...__VLS_functionalComponentArgsRest(__VLS_80));
+__VLS_82.slots.default;
+const __VLS_83 = {}.AFormItem;
+/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
+// @ts-ignore
+const __VLS_84 = __VLS_asFunctionalComponent(__VLS_83, new __VLS_83({
+    label: "Top-K",
+    name: "k",
+}));
+const __VLS_85 = __VLS_84({
+    label: "Top-K",
+    name: "k",
+}, ...__VLS_functionalComponentArgsRest(__VLS_84));
+__VLS_86.slots.default;
+const __VLS_87 = {}.AInputNumber;
+/** @type {[typeof __VLS_components.AInputNumber, typeof __VLS_components.aInputNumber, ]} */ ;
+// @ts-ignore
+const __VLS_88 = __VLS_asFunctionalComponent(__VLS_87, new __VLS_87({
+    value: (__VLS_ctx.state.k),
+    min: (1),
+    max: (100),
+    ...{ style: {} },
+}));
+const __VLS_89 = __VLS_88({
+    value: (__VLS_ctx.state.k),
+    min: (1),
+    max: (100),
+    ...{ style: {} },
+}, ...__VLS_functionalComponentArgsRest(__VLS_88));
+var __VLS_86;
+var __VLS_82;
+const __VLS_91 = {}.ACol;
+/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
+// @ts-ignore
+const __VLS_92 = __VLS_asFunctionalComponent(__VLS_91, new __VLS_91({
+    span: (12),
+}));
+const __VLS_93 = __VLS_92({
+    span: (12),
+}, ...__VLS_functionalComponentArgsRest(__VLS_92));
+__VLS_94.slots.default;
+const __VLS_95 = {}.AFormItem;
+/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
+// @ts-ignore
+const __VLS_96 = __VLS_asFunctionalComponent(__VLS_95, new __VLS_95({
+    label: "过滤召回倍数",
+    name: "oversample",
+}));
+const __VLS_97 = __VLS_96({
+    label: "过滤召回倍数",
+    name: "oversample",
+}, ...__VLS_functionalComponentArgsRest(__VLS_96));
+__VLS_98.slots.default;
+const __VLS_99 = {}.AInputNumber;
+/** @type {[typeof __VLS_components.AInputNumber, typeof __VLS_components.aInputNumber, ]} */ ;
+// @ts-ignore
+const __VLS_100 = __VLS_asFunctionalComponent(__VLS_99, new __VLS_99({
+    value: (__VLS_ctx.state.oversample),
+    min: (1),
+    max: (100),
+    ...{ style: {} },
+}));
+const __VLS_101 = __VLS_100({
+    value: (__VLS_ctx.state.oversample),
+    min: (1),
+    max: (100),
+    ...{ style: {} },
+}, ...__VLS_functionalComponentArgsRest(__VLS_100));
+var __VLS_98;
+var __VLS_94;
+const __VLS_103 = {}.ACol;
+/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
+// @ts-ignore
+const __VLS_104 = __VLS_asFunctionalComponent(__VLS_103, new __VLS_103({
     span: (24),
     ...{ style: {} },
 }));
-const __VLS_137 = __VLS_136({
+const __VLS_105 = __VLS_104({
     span: (24),
     ...{ style: {} },
-}, ...__VLS_functionalComponentArgsRest(__VLS_136));
-__VLS_138.slots.default;
-const __VLS_139 = {}.AButton;
+}, ...__VLS_functionalComponentArgsRest(__VLS_104));
+__VLS_106.slots.default;
+const __VLS_107 = {}.AButton;
 /** @type {[typeof __VLS_components.AButton, typeof __VLS_components.aButton, typeof __VLS_components.AButton, typeof __VLS_components.aButton, ]} */ ;
 // @ts-ignore
-const __VLS_140 = __VLS_asFunctionalComponent(__VLS_139, new __VLS_139({
+const __VLS_108 = __VLS_asFunctionalComponent(__VLS_107, new __VLS_107({
     ...{ 'onClick': {} },
     type: "primary",
 }));
-const __VLS_141 = __VLS_140({
+const __VLS_109 = __VLS_108({
     ...{ 'onClick': {} },
     type: "primary",
-}, ...__VLS_functionalComponentArgsRest(__VLS_140));
-let __VLS_143;
-let __VLS_144;
-let __VLS_145;
-const __VLS_146 = {
+}, ...__VLS_functionalComponentArgsRest(__VLS_108));
+let __VLS_111;
+let __VLS_112;
+let __VLS_113;
+const __VLS_114 = {
     onClick: (__VLS_ctx.handleSubmit)
 };
-__VLS_142.slots.default;
-var __VLS_142;
-var __VLS_138;
+__VLS_110.slots.default;
+var __VLS_110;
+var __VLS_106;
 var __VLS_18;
 var __VLS_8;
 var __VLS_3;

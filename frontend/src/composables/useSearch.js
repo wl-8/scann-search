@@ -9,11 +9,23 @@ export function useSearch() {
         try {
             const resp = await searchApi.search(payload);
             const elapsed = Math.round(performance.now() - start);
-            // backend expected shape: { items: [], total: number } or { results: [] }
-            const results = resp?.items ?? resp?.results ?? [];
-            const total = resp?.total ?? results.length;
+            const hits = resp?.hits ?? [];
+            const results = hits.length
+                ? hits.map((hit) => ({
+                    rank: hit.rank,
+                    id: hit.cell_id,
+                    score: hit.distance,
+                    distance: hit.distance,
+                    row_index: hit.row_index,
+                    cell_type: hit.obs?.cell_type ?? hit.obs?.CellType ?? "-",
+                    dataset: `dataset_${resp.dataset_id}`,
+                    metadata: hit.obs ?? {},
+                    obs: hit.obs ?? {},
+                }))
+                : resp?.items ?? resp?.results ?? [];
+            const total = resp?.n_returned ?? resp?.total ?? results.length;
             loading.value = false;
-            return { results, elapsed, total };
+            return { results, elapsed: Math.round(resp?.latency_ms ?? elapsed), total, raw: resp };
         }
         catch (err) {
             // fallback to local mock when backend unreachable
