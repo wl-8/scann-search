@@ -18,6 +18,16 @@ const columns = [
     { title: "Updated", dataIndex: "updatedAt", key: "updatedAt" },
     { title: "Action", key: "action", slots: { customRender: "action" } },
 ];
+function statusClass(status) {
+    const normalized = status.toLowerCase();
+    if (normalized === "ready" || normalized === "uploaded")
+        return "status-badge--ready";
+    if (normalized === "indexed")
+        return "status-badge--indexed";
+    if (normalized === "processing" || normalized === "uploading")
+        return "status-badge--processing";
+    return "status-badge--default";
+}
 function onUploaded(file) {
     datasets.value.unshift({
         name: file.name,
@@ -39,6 +49,23 @@ debugger; /* PartiallyEnd: #3632/scriptSetup.vue */
 const __VLS_ctx = {};
 let __VLS_components;
 let __VLS_directives;
+/** @type {__VLS_StyleScopedClasses['dataset-page']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-page']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-page__header']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-page__header']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-table-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-table-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-table-thead']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-table-tbody']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['icon-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['icon-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-page__header']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-page']} */ ;
 // CSS variable injection 
 // CSS variable injection end 
 /** @type {[typeof AppLayout, typeof AppLayout, ]} */ ;
@@ -50,14 +77,25 @@ __VLS_2.slots.default;
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "dataset-page" },
 });
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "dataset-page__header" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "dataset-page__eyebrow" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.h2, __VLS_intrinsicElements.h2)({});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({});
 const __VLS_4 = {}.ARow;
 /** @type {[typeof __VLS_components.ARow, typeof __VLS_components.aRow, typeof __VLS_components.ARow, typeof __VLS_components.aRow, ]} */ ;
 // @ts-ignore
 const __VLS_5 = __VLS_asFunctionalComponent(__VLS_4, new __VLS_4({
     gutter: (16),
+    ...{ class: "dataset-grid" },
 }));
 const __VLS_6 = __VLS_5({
     gutter: (16),
+    ...{ class: "dataset-grid" },
 }, ...__VLS_functionalComponentArgsRest(__VLS_5));
 __VLS_7.slots.default;
 const __VLS_8 = {}.ACol;
@@ -104,9 +142,13 @@ const __VLS_23 = {}.ACard;
 /** @type {[typeof __VLS_components.ACard, typeof __VLS_components.aCard, typeof __VLS_components.ACard, typeof __VLS_components.aCard, ]} */ ;
 // @ts-ignore
 const __VLS_24 = __VLS_asFunctionalComponent(__VLS_23, new __VLS_23({
+    ...{ class: "dataset-table-card" },
+    bordered: (false),
     title: "数据集列表",
 }));
 const __VLS_25 = __VLS_24({
+    ...{ class: "dataset-table-card" },
+    bordered: (false),
     title: "数据集列表",
 }, ...__VLS_functionalComponentArgsRest(__VLS_24));
 __VLS_26.slots.default;
@@ -114,37 +156,54 @@ const __VLS_27 = {}.ATable;
 /** @type {[typeof __VLS_components.ATable, typeof __VLS_components.aTable, typeof __VLS_components.ATable, typeof __VLS_components.aTable, ]} */ ;
 // @ts-ignore
 const __VLS_28 = __VLS_asFunctionalComponent(__VLS_27, new __VLS_27({
+    ...{ class: "dataset-table" },
     columns: (__VLS_ctx.columns),
     dataSource: (__VLS_ctx.datasets),
     rowKey: "name",
     pagination: (false),
+    rowClassName: (() => 'dataset-row'),
 }));
 const __VLS_29 = __VLS_28({
+    ...{ class: "dataset-table" },
     columns: (__VLS_ctx.columns),
     dataSource: (__VLS_ctx.datasets),
     rowKey: "name",
     pagination: (false),
+    rowClassName: (() => 'dataset-row'),
 }, ...__VLS_functionalComponentArgsRest(__VLS_28));
 __VLS_30.slots.default;
 {
     const { bodyCell: __VLS_thisSlot } = __VLS_30.slots;
     const [{ column, record }] = __VLS_getSlotParams(__VLS_thisSlot);
+    if (column.key === 'status') {
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "status-badge" },
+            ...{ class: (__VLS_ctx.statusClass(record.status)) },
+        });
+        (record.status);
+    }
     if (column.key === 'action') {
         const __VLS_31 = {}.ASpace;
         /** @type {[typeof __VLS_components.ASpace, typeof __VLS_components.aSpace, typeof __VLS_components.ASpace, typeof __VLS_components.aSpace, ]} */ ;
         // @ts-ignore
-        const __VLS_32 = __VLS_asFunctionalComponent(__VLS_31, new __VLS_31({}));
-        const __VLS_33 = __VLS_32({}, ...__VLS_functionalComponentArgsRest(__VLS_32));
+        const __VLS_32 = __VLS_asFunctionalComponent(__VLS_31, new __VLS_31({
+            size: (8),
+        }));
+        const __VLS_33 = __VLS_32({
+            size: (8),
+        }, ...__VLS_functionalComponentArgsRest(__VLS_32));
         __VLS_34.slots.default;
         const __VLS_35 = {}.AButton;
         /** @type {[typeof __VLS_components.AButton, typeof __VLS_components.aButton, typeof __VLS_components.AButton, typeof __VLS_components.aButton, ]} */ ;
         // @ts-ignore
         const __VLS_36 = __VLS_asFunctionalComponent(__VLS_35, new __VLS_35({
             ...{ 'onClick': {} },
+            ...{ class: "icon-button icon-button--view" },
             size: "small",
         }));
         const __VLS_37 = __VLS_36({
             ...{ 'onClick': {} },
+            ...{ class: "icon-button icon-button--view" },
             size: "small",
         }, ...__VLS_functionalComponentArgsRest(__VLS_36));
         let __VLS_39;
@@ -158,6 +217,18 @@ __VLS_30.slots.default;
             }
         };
         __VLS_38.slots.default;
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
+            viewBox: "0 0 24 24",
+            'aria-hidden': "true",
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+            d: "M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z",
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.circle)({
+            cx: "12",
+            cy: "12",
+            r: "2.75",
+        });
         var __VLS_38;
         const __VLS_43 = {}.APopconfirm;
         /** @type {[typeof __VLS_components.APopconfirm, typeof __VLS_components.aPopconfirm, typeof __VLS_components.APopconfirm, typeof __VLS_components.aPopconfirm, ]} */ ;
@@ -185,14 +256,30 @@ __VLS_30.slots.default;
         /** @type {[typeof __VLS_components.AButton, typeof __VLS_components.aButton, typeof __VLS_components.AButton, typeof __VLS_components.aButton, ]} */ ;
         // @ts-ignore
         const __VLS_52 = __VLS_asFunctionalComponent(__VLS_51, new __VLS_51({
+            ...{ class: "icon-button icon-button--delete" },
             size: "small",
-            danger: true,
         }));
         const __VLS_53 = __VLS_52({
+            ...{ class: "icon-button icon-button--delete" },
             size: "small",
-            danger: true,
         }, ...__VLS_functionalComponentArgsRest(__VLS_52));
         __VLS_54.slots.default;
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
+            viewBox: "0 0 24 24",
+            'aria-hidden': "true",
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+            d: "M3 6h18",
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+            d: "M8 6V4.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5V6",
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+            d: "M7 6l1 13h8l1-13",
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+            d: "M10 10v6M14 10v6",
+        });
         var __VLS_54;
         var __VLS_46;
         var __VLS_34;
@@ -221,6 +308,16 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.pre, __VLS_intrinsicElements.p
 var __VLS_58;
 var __VLS_2;
 /** @type {__VLS_StyleScopedClasses['dataset-page']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-page__header']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-page__eyebrow']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-grid']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-table-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['dataset-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['status-badge']} */ ;
+/** @type {__VLS_StyleScopedClasses['icon-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['icon-button--view']} */ ;
+/** @type {__VLS_StyleScopedClasses['icon-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['icon-button--delete']} */ ;
 var __VLS_dollars;
 const __VLS_self = (await import('vue')).defineComponent({
     setup() {
@@ -231,6 +328,7 @@ const __VLS_self = (await import('vue')).defineComponent({
             detailOpen: detailOpen,
             activeDataset: activeDataset,
             columns: columns,
+            statusClass: statusClass,
             onUploaded: onUploaded,
             viewDetail: viewDetail,
             removeDataset: removeDataset,

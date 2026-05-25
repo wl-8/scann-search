@@ -66,6 +66,42 @@ const __VLS_withDefaultsArg = (function (t) { return t; })({
 const __VLS_ctx = {};
 let __VLS_components;
 let __VLS_directives;
+/** @type {__VLS_StyleScopedClasses['search-card__head']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-card__head']} */ ;
+/** @type {__VLS_StyleScopedClasses['form-section']} */ ;
+/** @type {__VLS_StyleScopedClasses['form-section']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-input']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-input']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-input-number']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-select-selector']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-input']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-select-selector']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-input-number-focused']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-input-number-input']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['submit-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['submit-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-card__head']} */ ;
+/** @type {__VLS_StyleScopedClasses['radio-group']} */ ;
 // CSS variable injection 
 // CSS variable injection end 
 const __VLS_0 = {}.ACard;
@@ -73,12 +109,23 @@ const __VLS_0 = {}.ACard;
 // @ts-ignore
 const __VLS_1 = __VLS_asFunctionalComponent(__VLS_0, new __VLS_0({
     ...{ class: "search-card" },
+    bordered: (false),
 }));
 const __VLS_2 = __VLS_1({
     ...{ class: "search-card" },
+    bordered: (false),
 }, ...__VLS_functionalComponentArgsRest(__VLS_1));
 var __VLS_4 = {};
 __VLS_3.slots.default;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "search-card__head" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "search-card__kicker" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({});
 const __VLS_5 = {}.AForm;
 /** @type {[typeof __VLS_components.AForm, typeof __VLS_components.aForm, typeof __VLS_components.AForm, typeof __VLS_components.aForm, ]} */ ;
 // @ts-ignore
@@ -107,6 +154,12 @@ const __VLS_12 = {
 /** @type {typeof __VLS_ctx.formRef} */ ;
 var __VLS_13 = {};
 __VLS_8.slots.default;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "form-section" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "form-section__title" },
+});
 const __VLS_15 = {}.ARow;
 /** @type {[typeof __VLS_components.ARow, typeof __VLS_components.aRow, typeof __VLS_components.ARow, typeof __VLS_components.aRow, ]} */ ;
 // @ts-ignore
@@ -144,9 +197,11 @@ const __VLS_27 = {}.ARadioGroup;
 // @ts-ignore
 const __VLS_28 = __VLS_asFunctionalComponent(__VLS_27, new __VLS_27({
     value: (__VLS_ctx.state.queryType),
+    ...{ class: "radio-group" },
 }));
 const __VLS_29 = __VLS_28({
     value: (__VLS_ctx.state.queryType),
+    ...{ class: "radio-group" },
 }, ...__VLS_functionalComponentArgsRest(__VLS_28));
 __VLS_30.slots.default;
 const __VLS_31 = {}.ARadio;
@@ -202,10 +257,12 @@ if (__VLS_ctx.state.queryType === 'id') {
     // @ts-ignore
     const __VLS_48 = __VLS_asFunctionalComponent(__VLS_47, new __VLS_47({
         value: (__VLS_ctx.state.query),
+        ...{ class: "control-input" },
         placeholder: "例如: cell_12345",
     }));
     const __VLS_49 = __VLS_48({
         value: (__VLS_ctx.state.query),
+        ...{ class: "control-input" },
         placeholder: "例如: cell_12345",
     }, ...__VLS_functionalComponentArgsRest(__VLS_48));
 }
@@ -215,183 +272,200 @@ else {
     // @ts-ignore
     const __VLS_52 = __VLS_asFunctionalComponent(__VLS_51, new __VLS_51({
         value: (__VLS_ctx.state.query),
-        rows: "4",
+        ...{ class: "control-input control-input--textarea" },
+        autoSize: ({ minRows: 4, maxRows: 6 }),
         placeholder: "例如: 0.12, -0.03, ...",
     }));
     const __VLS_53 = __VLS_52({
         value: (__VLS_ctx.state.query),
-        rows: "4",
+        ...{ class: "control-input control-input--textarea" },
+        autoSize: ({ minRows: 4, maxRows: 6 }),
         placeholder: "例如: 0.12, -0.03, ...",
     }, ...__VLS_functionalComponentArgsRest(__VLS_52));
 }
 var __VLS_46;
 var __VLS_42;
-const __VLS_55 = {}.ACol;
-/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
+var __VLS_18;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "form-section" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "form-section__title" },
+});
+const __VLS_55 = {}.ARow;
+/** @type {[typeof __VLS_components.ARow, typeof __VLS_components.aRow, typeof __VLS_components.ARow, typeof __VLS_components.aRow, ]} */ ;
 // @ts-ignore
 const __VLS_56 = __VLS_asFunctionalComponent(__VLS_55, new __VLS_55({
-    span: (12),
+    gutter: (16),
 }));
 const __VLS_57 = __VLS_56({
-    span: (12),
+    gutter: (16),
 }, ...__VLS_functionalComponentArgsRest(__VLS_56));
 __VLS_58.slots.default;
-const __VLS_59 = {}.AFormItem;
-/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
+const __VLS_59 = {}.ACol;
+/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
 // @ts-ignore
 const __VLS_60 = __VLS_asFunctionalComponent(__VLS_59, new __VLS_59({
-    label: "过滤字段",
+    span: (12),
 }));
 const __VLS_61 = __VLS_60({
-    label: "过滤字段",
+    span: (12),
 }, ...__VLS_functionalComponentArgsRest(__VLS_60));
 __VLS_62.slots.default;
-const __VLS_63 = {}.AInput;
-/** @type {[typeof __VLS_components.AInput, typeof __VLS_components.aInput, ]} */ ;
+const __VLS_63 = {}.AFormItem;
+/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
 // @ts-ignore
 const __VLS_64 = __VLS_asFunctionalComponent(__VLS_63, new __VLS_63({
-    value: (__VLS_ctx.state.filterColumn),
-    placeholder: "例如: cell_type / disease",
+    label: "过滤字段",
 }));
 const __VLS_65 = __VLS_64({
-    value: (__VLS_ctx.state.filterColumn),
-    placeholder: "例如: cell_type / disease",
+    label: "过滤字段",
 }, ...__VLS_functionalComponentArgsRest(__VLS_64));
-var __VLS_62;
-var __VLS_58;
-const __VLS_67 = {}.ACol;
-/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
-// @ts-ignore
-const __VLS_68 = __VLS_asFunctionalComponent(__VLS_67, new __VLS_67({
-    span: (12),
-}));
-const __VLS_69 = __VLS_68({
-    span: (12),
-}, ...__VLS_functionalComponentArgsRest(__VLS_68));
-__VLS_70.slots.default;
-const __VLS_71 = {}.AFormItem;
-/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
-// @ts-ignore
-const __VLS_72 = __VLS_asFunctionalComponent(__VLS_71, new __VLS_71({
-    label: "过滤值",
-}));
-const __VLS_73 = __VLS_72({
-    label: "过滤值",
-}, ...__VLS_functionalComponentArgsRest(__VLS_72));
-__VLS_74.slots.default;
-const __VLS_75 = {}.AInput;
+__VLS_66.slots.default;
+const __VLS_67 = {}.AInput;
 /** @type {[typeof __VLS_components.AInput, typeof __VLS_components.aInput, ]} */ ;
 // @ts-ignore
+const __VLS_68 = __VLS_asFunctionalComponent(__VLS_67, new __VLS_67({
+    value: (__VLS_ctx.state.filterColumn),
+    ...{ class: "control-input" },
+    placeholder: "例如: cell_type / disease",
+}));
+const __VLS_69 = __VLS_68({
+    value: (__VLS_ctx.state.filterColumn),
+    ...{ class: "control-input" },
+    placeholder: "例如: cell_type / disease",
+}, ...__VLS_functionalComponentArgsRest(__VLS_68));
+var __VLS_66;
+var __VLS_62;
+const __VLS_71 = {}.ACol;
+/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
+// @ts-ignore
+const __VLS_72 = __VLS_asFunctionalComponent(__VLS_71, new __VLS_71({
+    span: (12),
+}));
+const __VLS_73 = __VLS_72({
+    span: (12),
+}, ...__VLS_functionalComponentArgsRest(__VLS_72));
+__VLS_74.slots.default;
+const __VLS_75 = {}.AFormItem;
+/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
+// @ts-ignore
 const __VLS_76 = __VLS_asFunctionalComponent(__VLS_75, new __VLS_75({
-    value: (__VLS_ctx.state.filterValue),
-    placeholder: "例如: T-cell / normal",
+    label: "过滤值",
 }));
 const __VLS_77 = __VLS_76({
-    value: (__VLS_ctx.state.filterValue),
-    placeholder: "例如: T-cell / normal",
+    label: "过滤值",
 }, ...__VLS_functionalComponentArgsRest(__VLS_76));
-var __VLS_74;
-var __VLS_70;
-const __VLS_79 = {}.ACol;
-/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
+__VLS_78.slots.default;
+const __VLS_79 = {}.AInput;
+/** @type {[typeof __VLS_components.AInput, typeof __VLS_components.aInput, ]} */ ;
 // @ts-ignore
 const __VLS_80 = __VLS_asFunctionalComponent(__VLS_79, new __VLS_79({
-    span: (12),
+    value: (__VLS_ctx.state.filterValue),
+    ...{ class: "control-input" },
+    placeholder: "例如: T-cell / normal",
 }));
 const __VLS_81 = __VLS_80({
-    span: (12),
+    value: (__VLS_ctx.state.filterValue),
+    ...{ class: "control-input" },
+    placeholder: "例如: T-cell / normal",
 }, ...__VLS_functionalComponentArgsRest(__VLS_80));
-__VLS_82.slots.default;
-const __VLS_83 = {}.AFormItem;
-/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
+var __VLS_78;
+var __VLS_74;
+const __VLS_83 = {}.ACol;
+/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
 // @ts-ignore
 const __VLS_84 = __VLS_asFunctionalComponent(__VLS_83, new __VLS_83({
-    label: "Top-K",
-    name: "k",
+    span: (12),
 }));
 const __VLS_85 = __VLS_84({
-    label: "Top-K",
-    name: "k",
+    span: (12),
 }, ...__VLS_functionalComponentArgsRest(__VLS_84));
 __VLS_86.slots.default;
-const __VLS_87 = {}.AInputNumber;
-/** @type {[typeof __VLS_components.AInputNumber, typeof __VLS_components.aInputNumber, ]} */ ;
-// @ts-ignore
-const __VLS_88 = __VLS_asFunctionalComponent(__VLS_87, new __VLS_87({
-    value: (__VLS_ctx.state.k),
-    min: (1),
-    max: (100),
-    ...{ style: {} },
-}));
-const __VLS_89 = __VLS_88({
-    value: (__VLS_ctx.state.k),
-    min: (1),
-    max: (100),
-    ...{ style: {} },
-}, ...__VLS_functionalComponentArgsRest(__VLS_88));
-var __VLS_86;
-var __VLS_82;
-const __VLS_91 = {}.ACol;
-/** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
-// @ts-ignore
-const __VLS_92 = __VLS_asFunctionalComponent(__VLS_91, new __VLS_91({
-    span: (12),
-}));
-const __VLS_93 = __VLS_92({
-    span: (12),
-}, ...__VLS_functionalComponentArgsRest(__VLS_92));
-__VLS_94.slots.default;
-const __VLS_95 = {}.AFormItem;
+const __VLS_87 = {}.AFormItem;
 /** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
 // @ts-ignore
-const __VLS_96 = __VLS_asFunctionalComponent(__VLS_95, new __VLS_95({
-    label: "过滤召回倍数",
-    name: "oversample",
+const __VLS_88 = __VLS_asFunctionalComponent(__VLS_87, new __VLS_87({
+    label: "Top-K",
+    name: "k",
 }));
-const __VLS_97 = __VLS_96({
-    label: "过滤召回倍数",
-    name: "oversample",
-}, ...__VLS_functionalComponentArgsRest(__VLS_96));
-__VLS_98.slots.default;
-const __VLS_99 = {}.AInputNumber;
+const __VLS_89 = __VLS_88({
+    label: "Top-K",
+    name: "k",
+}, ...__VLS_functionalComponentArgsRest(__VLS_88));
+__VLS_90.slots.default;
+const __VLS_91 = {}.AInputNumber;
 /** @type {[typeof __VLS_components.AInputNumber, typeof __VLS_components.aInputNumber, ]} */ ;
 // @ts-ignore
-const __VLS_100 = __VLS_asFunctionalComponent(__VLS_99, new __VLS_99({
-    value: (__VLS_ctx.state.oversample),
+const __VLS_92 = __VLS_asFunctionalComponent(__VLS_91, new __VLS_91({
+    value: (__VLS_ctx.state.k),
     min: (1),
     max: (100),
-    ...{ style: {} },
+    ...{ class: "control-number" },
 }));
-const __VLS_101 = __VLS_100({
-    value: (__VLS_ctx.state.oversample),
+const __VLS_93 = __VLS_92({
+    value: (__VLS_ctx.state.k),
     min: (1),
     max: (100),
-    ...{ style: {} },
-}, ...__VLS_functionalComponentArgsRest(__VLS_100));
-var __VLS_98;
-var __VLS_94;
-const __VLS_103 = {}.ACol;
+    ...{ class: "control-number" },
+}, ...__VLS_functionalComponentArgsRest(__VLS_92));
+var __VLS_90;
+var __VLS_86;
+const __VLS_95 = {}.ACol;
 /** @type {[typeof __VLS_components.ACol, typeof __VLS_components.aCol, typeof __VLS_components.ACol, typeof __VLS_components.aCol, ]} */ ;
 // @ts-ignore
+const __VLS_96 = __VLS_asFunctionalComponent(__VLS_95, new __VLS_95({
+    span: (12),
+}));
+const __VLS_97 = __VLS_96({
+    span: (12),
+}, ...__VLS_functionalComponentArgsRest(__VLS_96));
+__VLS_98.slots.default;
+const __VLS_99 = {}.AFormItem;
+/** @type {[typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, typeof __VLS_components.AFormItem, typeof __VLS_components.aFormItem, ]} */ ;
+// @ts-ignore
+const __VLS_100 = __VLS_asFunctionalComponent(__VLS_99, new __VLS_99({
+    label: "过滤召回倍数",
+    name: "oversample",
+}));
+const __VLS_101 = __VLS_100({
+    label: "过滤召回倍数",
+    name: "oversample",
+}, ...__VLS_functionalComponentArgsRest(__VLS_100));
+__VLS_102.slots.default;
+const __VLS_103 = {}.AInputNumber;
+/** @type {[typeof __VLS_components.AInputNumber, typeof __VLS_components.aInputNumber, ]} */ ;
+// @ts-ignore
 const __VLS_104 = __VLS_asFunctionalComponent(__VLS_103, new __VLS_103({
-    span: (24),
-    ...{ style: {} },
+    value: (__VLS_ctx.state.oversample),
+    min: (1),
+    max: (100),
+    ...{ class: "control-number" },
 }));
 const __VLS_105 = __VLS_104({
-    span: (24),
-    ...{ style: {} },
+    value: (__VLS_ctx.state.oversample),
+    min: (1),
+    max: (100),
+    ...{ class: "control-number" },
 }, ...__VLS_functionalComponentArgsRest(__VLS_104));
-__VLS_106.slots.default;
+var __VLS_102;
+var __VLS_98;
+var __VLS_58;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "search-card__footer" },
+});
 const __VLS_107 = {}.AButton;
 /** @type {[typeof __VLS_components.AButton, typeof __VLS_components.aButton, typeof __VLS_components.AButton, typeof __VLS_components.aButton, ]} */ ;
 // @ts-ignore
 const __VLS_108 = __VLS_asFunctionalComponent(__VLS_107, new __VLS_107({
     ...{ 'onClick': {} },
     type: "primary",
+    ...{ class: "submit-button" },
 }));
 const __VLS_109 = __VLS_108({
     ...{ 'onClick': {} },
     type: "primary",
+    ...{ class: "submit-button" },
 }, ...__VLS_functionalComponentArgsRest(__VLS_108));
 let __VLS_111;
 let __VLS_112;
@@ -401,12 +475,26 @@ const __VLS_114 = {
 };
 __VLS_110.slots.default;
 var __VLS_110;
-var __VLS_106;
-var __VLS_18;
 var __VLS_8;
 var __VLS_3;
 /** @type {__VLS_StyleScopedClasses['search-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-card__head']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-card__kicker']} */ ;
 /** @type {__VLS_StyleScopedClasses['search-form']} */ ;
+/** @type {__VLS_StyleScopedClasses['form-section']} */ ;
+/** @type {__VLS_StyleScopedClasses['form-section__title']} */ ;
+/** @type {__VLS_StyleScopedClasses['radio-group']} */ ;
+/** @type {__VLS_StyleScopedClasses['control-input']} */ ;
+/** @type {__VLS_StyleScopedClasses['control-input']} */ ;
+/** @type {__VLS_StyleScopedClasses['control-input--textarea']} */ ;
+/** @type {__VLS_StyleScopedClasses['form-section']} */ ;
+/** @type {__VLS_StyleScopedClasses['form-section__title']} */ ;
+/** @type {__VLS_StyleScopedClasses['control-input']} */ ;
+/** @type {__VLS_StyleScopedClasses['control-input']} */ ;
+/** @type {__VLS_StyleScopedClasses['control-number']} */ ;
+/** @type {__VLS_StyleScopedClasses['control-number']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-card__footer']} */ ;
+/** @type {__VLS_StyleScopedClasses['submit-button']} */ ;
 // @ts-ignore
 var __VLS_14 = __VLS_13;
 var __VLS_dollars;

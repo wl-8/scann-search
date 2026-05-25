@@ -76,32 +76,93 @@ debugger; /* PartiallyEnd: #3632/scriptSetup.vue */
 const __VLS_ctx = {};
 let __VLS_components;
 let __VLS_directives;
+/** @type {__VLS_StyleScopedClasses['search-page']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-page']} */ ;
+/** @type {__VLS_StyleScopedClasses['page-icon']} */ ;
+/** @type {__VLS_StyleScopedClasses['page-header']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-button__icon']} */ ;
 /** @type {__VLS_StyleScopedClasses['results-table']} */ ;
 /** @type {__VLS_StyleScopedClasses['results-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['results-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-table-thead']} */ ;
+/** @type {__VLS_StyleScopedClasses['results-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['results-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['results-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['results-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['empty-state']} */ ;
+/** @type {__VLS_StyleScopedClasses['empty-state']} */ ;
+/** @type {__VLS_StyleScopedClasses['facets-panel']} */ ;
+/** @type {__VLS_StyleScopedClasses['facet-group']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-layout']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-column--form']} */ ;
+/** @type {__VLS_StyleScopedClasses['results-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-page']} */ ;
+/** @type {__VLS_StyleScopedClasses['page-header']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-band']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-input']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-button']} */ ;
 // CSS variable injection 
 // CSS variable injection end 
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "search-page" },
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.h2, __VLS_intrinsicElements.h2)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ style: {} },
+    ...{ class: "page-header" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ style: {} },
+    ...{ class: "page-title" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "page-icon" },
+    'aria-hidden': "true",
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
+    viewBox: "0 0 24 24",
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+    d: "M11 4a7 7 0 105.196 11.688L20 20.5",
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "page-crumb" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.h2, __VLS_intrinsicElements.h2)({});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "page-meta" },
+});
+if (__VLS_ctx.loading) {
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+}
+else if (__VLS_ctx.lastElapsed !== null) {
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+    (__VLS_ctx.lastElapsed);
+    (__VLS_ctx.results.length);
+}
+else {
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+}
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "search-layout" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "search-column search-column--form" },
 });
 const __VLS_0 = {}.ACard;
 /** @type {[typeof __VLS_components.ACard, typeof __VLS_components.aCard, typeof __VLS_components.ACard, typeof __VLS_components.aCard, ]} */ ;
 // @ts-ignore
 const __VLS_1 = __VLS_asFunctionalComponent(__VLS_0, new __VLS_0({
-    title: "后端资源",
-    ...{ style: {} },
+    ...{ class: "resource-card" },
+    bordered: (false),
 }));
 const __VLS_2 = __VLS_1({
-    title: "后端资源",
-    ...{ style: {} },
+    ...{ class: "resource-card" },
+    bordered: (false),
 }, ...__VLS_functionalComponentArgsRest(__VLS_1));
 __VLS_3.slots.default;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "resource-card__title" },
+});
 const __VLS_4 = {}.AForm;
 /** @type {[typeof __VLS_components.AForm, typeof __VLS_components.aForm, typeof __VLS_components.AForm, typeof __VLS_components.aForm, ]} */ ;
 // @ts-ignore
@@ -214,28 +275,46 @@ const __VLS_42 = {
 };
 var __VLS_38;
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ style: {} },
+    ...{ class: "search-column search-column--results" },
 });
 const __VLS_43 = {}.ACard;
 /** @type {[typeof __VLS_components.ACard, typeof __VLS_components.aCard, typeof __VLS_components.ACard, typeof __VLS_components.aCard, ]} */ ;
 // @ts-ignore
-const __VLS_44 = __VLS_asFunctionalComponent(__VLS_43, new __VLS_43({}));
-const __VLS_45 = __VLS_44({}, ...__VLS_functionalComponentArgsRest(__VLS_44));
+const __VLS_44 = __VLS_asFunctionalComponent(__VLS_43, new __VLS_43({
+    ...{ class: "results-card" },
+    bordered: (false),
+}));
+const __VLS_45 = __VLS_44({
+    ...{ class: "results-card" },
+    bordered: (false),
+}, ...__VLS_functionalComponentArgsRest(__VLS_44));
 __VLS_46.slots.default;
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "meta" },
+    ...{ class: "results-card__toolbar" },
 });
-if (__VLS_ctx.loading) {
-    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
-}
-else if (__VLS_ctx.lastElapsed !== null) {
-    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
-    (__VLS_ctx.lastElapsed);
-    (__VLS_ctx.results.length);
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "toolbar-band" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "toolbar-band__group toolbar-band__group--meta" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "toolbar-label" },
+});
+if (__VLS_ctx.selectedIndexId) {
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+        ...{ class: "toolbar-value" },
+    });
+    (__VLS_ctx.selectedIndexId);
 }
 else {
-    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+        ...{ class: "toolbar-value" },
+    });
 }
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "results-card__body" },
+});
 if (!__VLS_ctx.selectedIndexId) {
     const __VLS_47 = {}.AAlert;
     /** @type {[typeof __VLS_components.AAlert, typeof __VLS_components.aAlert, ]} */ ;
@@ -257,6 +336,7 @@ const __VLS_51 = {}.ATable;
 /** @type {[typeof __VLS_components.ATable, typeof __VLS_components.aTable, typeof __VLS_components.ATable, typeof __VLS_components.aTable, ]} */ ;
 // @ts-ignore
 const __VLS_52 = __VLS_asFunctionalComponent(__VLS_51, new __VLS_51({
+    ...{ class: "results-table" },
     columns: (__VLS_ctx.columns),
     dataSource: (__VLS_ctx.results),
     loading: (__VLS_ctx.loading),
@@ -265,6 +345,7 @@ const __VLS_52 = __VLS_asFunctionalComponent(__VLS_51, new __VLS_51({
     bordered: true,
 }));
 const __VLS_53 = __VLS_52({
+    ...{ class: "results-table" },
     columns: (__VLS_ctx.columns),
     dataSource: (__VLS_ctx.results),
     loading: (__VLS_ctx.loading),
@@ -283,11 +364,13 @@ __VLS_54.slots.default;
         bordered: true,
         column: "2",
         size: "small",
+        ...{ class: "result-details" },
     }));
     const __VLS_57 = __VLS_56({
         bordered: true,
         column: "2",
         size: "small",
+        ...{ class: "result-details" },
     }, ...__VLS_functionalComponentArgsRest(__VLS_56));
     __VLS_58.slots.default;
     const __VLS_59 = {}.ADescriptionsItem;
@@ -351,7 +434,7 @@ __VLS_54.slots.default;
     }, ...__VLS_functionalComponentArgsRest(__VLS_76));
     __VLS_78.slots.default;
     __VLS_asFunctionalElement(__VLS_intrinsicElements.pre, __VLS_intrinsicElements.pre)({
-        ...{ style: {} },
+        ...{ class: "details-pre" },
     });
     (JSON.stringify(record.obs ?? record.metadata, null, 2));
     var __VLS_78;
@@ -360,14 +443,45 @@ __VLS_54.slots.default;
 var __VLS_54;
 if (!__VLS_ctx.results.length) {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-        ...{ class: "empty" },
-        ...{ style: {} },
+        ...{ class: "empty-state" },
     });
+    const __VLS_79 = {}.AEmpty;
+    /** @type {[typeof __VLS_components.AEmpty, typeof __VLS_components.aEmpty, ]} */ ;
+    // @ts-ignore
+    const __VLS_80 = __VLS_asFunctionalComponent(__VLS_79, new __VLS_79({
+        description: "尚无结果。请先发起检索。",
+    }));
+    const __VLS_81 = __VLS_80({
+        description: "尚无结果。请先发起检索。",
+    }, ...__VLS_functionalComponentArgsRest(__VLS_80));
 }
 var __VLS_46;
 /** @type {__VLS_StyleScopedClasses['search-page']} */ ;
-/** @type {__VLS_StyleScopedClasses['meta']} */ ;
-/** @type {__VLS_StyleScopedClasses['empty']} */ ;
+/** @type {__VLS_StyleScopedClasses['page-header']} */ ;
+/** @type {__VLS_StyleScopedClasses['page-title']} */ ;
+/** @type {__VLS_StyleScopedClasses['page-icon']} */ ;
+/** @type {__VLS_StyleScopedClasses['page-crumb']} */ ;
+/** @type {__VLS_StyleScopedClasses['page-meta']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-layout']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-column']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-column--form']} */ ;
+/** @type {__VLS_StyleScopedClasses['resource-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['resource-card__title']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-column']} */ ;
+/** @type {__VLS_StyleScopedClasses['search-column--results']} */ ;
+/** @type {__VLS_StyleScopedClasses['results-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['results-card__toolbar']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-band']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-band__group']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-band__group--meta']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-label']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-value']} */ ;
+/** @type {__VLS_StyleScopedClasses['toolbar-value']} */ ;
+/** @type {__VLS_StyleScopedClasses['results-card__body']} */ ;
+/** @type {__VLS_StyleScopedClasses['results-table']} */ ;
+/** @type {__VLS_StyleScopedClasses['result-details']} */ ;
+/** @type {__VLS_StyleScopedClasses['details-pre']} */ ;
+/** @type {__VLS_StyleScopedClasses['empty-state']} */ ;
 var __VLS_dollars;
 const __VLS_self = (await import('vue')).defineComponent({
     setup() {
