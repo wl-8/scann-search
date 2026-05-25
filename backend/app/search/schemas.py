@@ -1,5 +1,5 @@
 """检索模块 Pydantic schema。"""
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -30,6 +30,10 @@ class SearchByCellRequest(BaseModel):
         le=500,
         description="post-filter 多召回倍数；None 时根据过滤条件选择率自动推断",
     )
+    metric: Literal["l2", "cosine"] = Field(
+        default="l2",
+        description="距离度量：l2=欧氏距离，cosine=余弦距离（查询前对向量做 L2 归一化）",
+    )
 
 
 class SearchByVectorRequest(BaseModel):
@@ -38,6 +42,7 @@ class SearchByVectorRequest(BaseModel):
     k: int = Field(default=DEFAULT_K, ge=1, le=MAX_K)
     filters: SearchFilter | None = None
     oversample: int | None = Field(default=None, ge=1, le=500)
+    metric: Literal["l2", "cosine"] = Field(default="l2")
 
     @model_validator(mode="after")
     def _check_vector(self) -> "SearchByVectorRequest":
@@ -58,6 +63,7 @@ class SearchResponse(BaseModel):
     index_id: int
     dataset_id: int
     algorithm: str
+    metric: str
     k: int
     n_returned: int
     latency_ms: float

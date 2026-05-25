@@ -36,7 +36,7 @@ def search_by_cell(db: Session, req: SearchByCellRequest) -> SearchResponse:
     except ValueError as e:
         raise CellNotFound(req.cell_id, ds.id) from e
 
-    query_vec = vectors[row]
+    query_vec = _apply_metric(vectors[row], req.metric)
     oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
     return _execute_search(
         db=db,
@@ -47,6 +47,7 @@ def search_by_cell(db: Session, req: SearchByCellRequest) -> SearchResponse:
         filters=req.filters,
         oversample=oversample,
         exclude_row=row,
+        metric=req.metric,
     )
 
 
@@ -58,6 +59,7 @@ def search_by_vector(db: Session, req: SearchByVectorRequest) -> SearchResponse:
     if query_vec.shape[0] != ds.vector_dim:
         raise InvalidQueryVector(query_vec.shape[0], ds.vector_dim)
 
+    query_vec = _apply_metric(query_vec, req.metric)
     oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
     return _execute_search(
         db=db,
@@ -67,6 +69,7 @@ def search_by_vector(db: Session, req: SearchByVectorRequest) -> SearchResponse:
         k=req.k,
         filters=req.filters,
         oversample=oversample,
+        metric=req.metric,
     )
 
 
@@ -94,6 +97,14 @@ def _auto_oversample(ds, filters: SearchFilter | None, k: int) -> int:
     return min(max(needed, 2), 500)
 
 
+def _apply_metric(vec: np.ndarray, metric: str) -> np.ndarray:
+    """cosine 模式下对查询向量做 L2 归一化，使索引的 L2 距离等价于余弦距离。"""
+    if metric == "cosine":
+        norm = np.linalg.norm(vec)
+        return vec / norm if norm > 1e-8 else vec
+    return vec
+
+
 # ---------- 核心 ----------
 
 def _execute_search(
@@ -105,6 +116,7 @@ def _execute_search(
     filters: SearchFilter | None,
     oversample: int,
     exclude_row: int | None = None,
+    metric: str = "l2",
 ) -> SearchResponse:
     instance = idx_service.load_index_instance(index_obj)
     obs = ds_service.load_obs(dataset)
@@ -132,6 +144,7 @@ def _execute_search(
         index_id=index_obj.id,
         dataset_id=dataset.id,
         algorithm=index_obj.algorithm,
+        metric=metric,
         k=k,
         n_returned=len(hits),
         latency_ms=(t1 - t0) * 1000.0,
