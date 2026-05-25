@@ -1,60 +1,74 @@
 <template>
-	<a-form
-		:model="state"
-		:rules="rules"
-		ref="formRef"
-		layout="vertical"
-		class="search-form"
-		@submit.prevent
-	>
-		<a-form-item label="输入类型" name="queryType">
-			<a-radio-group v-model:value="state.queryType">
-				<a-radio value="id">细胞ID</a-radio>
-				<a-radio value="vector">向量</a-radio>
-			</a-radio-group>
-		</a-form-item>
+	<a-card class="search-card">
+		<a-form
+			:model="state"
+			:rules="rules"
+			ref="formRef"
+			layout="vertical"
+			class="search-form"
+			@submit.prevent
+		>
+			<a-row :gutter="16">
+				<a-col :span="24">
+					<a-form-item label="输入类型" name="queryType">
+						<a-radio-group v-model:value="state.queryType">
+							<a-radio value="id">细胞ID</a-radio>
+							<a-radio value="vector">向量</a-radio>
+						</a-radio-group>
+					</a-form-item>
+				</a-col>
 
-		<a-form-item :label="state.queryType === 'id' ? '细胞ID' : '向量（逗号分隔）'" :name="'query'">
-			<template v-if="state.queryType === 'id'">
-				<a-input v-model:value="state.query" placeholder="例如: cell_12345" />
-			</template>
-			<template v-else>
-				<a-input-textarea v-model:value="state.query" rows="4" placeholder="例如: 0.12, -0.03, ..." />
-			</template>
-		</a-form-item>
+				<a-col :span="24">
+					<a-form-item :label="state.queryType === 'id' ? '细胞ID' : '向量（逗号分隔）'" :name="'query'">
+						<template v-if="state.queryType === 'id'">
+							<a-input v-model:value="state.query" placeholder="例如: cell_12345" />
+						</template>
+						<template v-else>
+							<a-input-textarea v-model:value="state.query" rows="4" placeholder="例如: 0.12, -0.03, ..." />
+						</template>
+					</a-form-item>
+				</a-col>
 
-		<a-form-item label="索引与度量">
-			<div style="display:flex; gap:8px">
-				<a-select v-model:value="state.indexType" style="width:160px">
-					<a-select-option value="HNSW">HNSW</a-select-option>
-					<a-select-option value="IVF">IVF</a-select-option>
-					<a-select-option value="PQ">PQ</a-select-option>
-					<a-select-option value="IVF+PQ">IVF+PQ</a-select-option>
-					<a-select-option value="IVF+HNSW">IVF+HNSW</a-select-option>
-				</a-select>
+				<a-col :span="12">
+					<a-form-item label="索引类型">
+						<a-select v-model:value="state.indexType">
+							<a-select-option value="HNSW">HNSW</a-select-option>
+							<a-select-option value="IVF">IVF</a-select-option>
+							<a-select-option value="PQ">PQ</a-select-option>
+							<a-select-option value="IVF+PQ">IVF+PQ</a-select-option>
+							<a-select-option value="IVF+HNSW">IVF+HNSW</a-select-option>
+						</a-select>
+					</a-form-item>
+				</a-col>
 
-				<a-select v-model:value="state.metric" style="width:160px">
-					<a-select-option value="cosine">cosine</a-select-option>
-					<a-select-option value="euclidean">euclidean</a-select-option>
-					<a-select-option value="inner_product">inner_product</a-select-option>
-				</a-select>
-			</div>
-		</a-form-item>
+				<a-col :span="12">
+					<a-form-item label="距离度量">
+						<a-select v-model:value="state.metric">
+							<a-select-option value="cosine">cosine</a-select-option>
+							<a-select-option value="euclidean">euclidean</a-select-option>
+							<a-select-option value="inner_product">inner_product</a-select-option>
+						</a-select>
+					</a-form-item>
+				</a-col>
 
-		<a-form-item label="Top-K" name="k">
-			<a-input-number v-model:value="state.k" :min="1" :max="100" />
-		</a-form-item>
+				<a-col :span="12">
+					<a-form-item label="Top-K" name="k">
+						<a-input-number v-model:value="state.k" :min="1" :max="100" style="width:100%" />
+					</a-form-item>
+				</a-col>
 
-		<a-form-item label="过滤：细胞类型" name="filters.cell_type">
-			<a-input v-model:value="state.filters.cell_type" placeholder="例如: T-cell" />
-		</a-form-item>
+				<a-col :span="12">
+					<a-form-item label="过滤：细胞类型" name="filters.cell_type">
+						<a-input v-model:value="state.filters.cell_type" placeholder="例如: T-cell" />
+					</a-form-item>
+				</a-col>
 
-		<a-form-item>
-			<div style="display:flex; justify-content:flex-end">
-				<a-button type="primary" @click="handleSubmit">开始检索</a-button>
-			</div>
-		</a-form-item>
-	</a-form>
+				<a-col :span="24" style="text-align:right">
+					<a-button type="primary" @click="handleSubmit">开始检索</a-button>
+				</a-col>
+			</a-row>
+		</a-form>
+	</a-card>
 </template>
 
 <script setup lang="ts">
