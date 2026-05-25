@@ -1,4 +1,4 @@
 ﻿export default [
-  // TODO: /visualize
+  { path: "/visualize", component: () => import("@/views/visualize/VisualizeView.vue"), meta: { requiresAuth: true } },
 ]
 
