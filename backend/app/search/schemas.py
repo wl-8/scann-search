@@ -1,5 +1,5 @@
 """检索模块 Pydantic schema。"""
-from typing import Any, Literal
+from typing import Any, Literal, Annotated
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -69,3 +69,43 @@ class SearchResponse(BaseModel):
     latency_ms: float
     filter_applied: bool
     hits: list[SearchHit]
+
+
+# ---------- 批量查询 ----------
+
+class BatchSearchRequest(BaseModel):
+    """对多个 cell_id 同时检索，结果按指定策略聚合。
+
+    aggregate:
+      ranked      — 按命中频次降序排列，同频次按平均距离升序（默认）
+      union       — 任一查询命中即保留，去重
+      intersection — 所有查询都命中才保留
+    """
+    index_id: int
+    cell_ids: Annotated[list[str], Field(min_length=1, max_length=50)]
+    k: int = Field(default=DEFAULT_K, ge=1, le=MAX_K)
+    filters: SearchFilter | None = None
+    metric: Literal["l2", "cosine"] = "l2"
+    aggregate: Literal["ranked", "union", "intersection"] = "ranked"
+
+
+class BatchHit(BaseModel):
+    rank: int
+    cell_id: str
+    row_index: int
+    hit_count: int       # 被多少个查询命中
+    avg_distance: float
+    obs: dict[str, Any]
+
+
+class BatchSearchResponse(BaseModel):
+    index_id: int
+    dataset_id: int
+    algorithm: str
+    metric: str
+    aggregate: str
+    n_queries: int
+    k: int
+    n_returned: int
+    total_latency_ms: float
+    hits: list[BatchHit]

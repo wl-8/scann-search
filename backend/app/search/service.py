@@ -18,6 +18,9 @@ from app.datasets import service as ds_service
 from app.index import service as idx_service
 from app.search.exceptions import CellNotFound, InvalidQueryVector
 from app.search.schemas import (
+    BatchHit,
+    BatchSearchRequest,
+    BatchSearchResponse,
     SearchByCellRequest,
     SearchByVectorRequest,
     SearchFilter,
@@ -218,3 +221,78 @@ def _jsonable(v: Any) -> Any:
     if v is None:
         return None
     return v if isinstance(v, (str, int, float, bool)) else str(v)
+
+
+# ---------- 批量查询 ----------
+
+def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
+    """对多个 cell_id 同时检索，结果按 aggregate 策略聚合。"""
+    idx_obj = idx_service.get_ready(db, req.index_id)
+    ds = ds_service.get_ready(db, idx_obj.dataset_id)
+    vectors = ds_service.load_vectors(ds)
+    obs = ds_service.load_obs(ds)
+    cell_ids_arr = ds_service.load_cell_ids(ds)
+    instance = idx_service.load_index_instance(idx_obj)
+
+    oversample = _auto_oversample(ds, req.filters, req.k)
+    fetch_k = min(req.k * oversample, idx_obj.n_vectors)
+
+    # row_index → (hit_count, total_distance) 累计
+    from collections import defaultdict
+    accum: dict[int, list[float]] = defaultdict(list)
+
+    t0 = time.perf_counter()
+    for cell_id in req.cell_ids:
+        try:
+            row = ds_service.find_cell_row(ds, cell_id)
+        except ValueError:
+            continue
+        query_vec = _apply_metric(vectors[row], req.metric)
+        rows, dists = instance.search(query_vec, k=fetch_k)
+        for r, d in zip(rows, dists):
+            if r == row:
+                continue  # 排除查询自身
+            if req.filters and not _matches(obs.iloc[r], req.filters):
+                continue
+            accum[r].append(d)
+    total_ms = (time.perf_counter() - t0) * 1000.0
+
+    # 聚合
+    n_queries = len(req.cell_ids)
+    if req.aggregate == "intersection":
+        candidates = {r: ds for r, ds in accum.items() if len(ds) == n_queries}
+    elif req.aggregate == "union":
+        candidates = accum
+    else:  # ranked
+        candidates = accum
+
+    def sort_key(item: tuple[int, list[float]]) -> tuple[int, float]:
+        r, ds = item
+        return (-len(ds), sum(ds) / len(ds))
+
+    sorted_rows = sorted(candidates.items(), key=sort_key)[: req.k]
+
+    hits: list[BatchHit] = []
+    for rank, (r, ds) in enumerate(sorted_rows, start=1):
+        cell_row = obs.iloc[r]
+        hits.append(BatchHit(
+            rank=rank,
+            cell_id=str(cell_ids_arr[r]),
+            row_index=int(r),
+            hit_count=len(ds),
+            avg_distance=float(sum(ds) / len(ds)),
+            obs={col: _jsonable(cell_row[col]) for col in obs.columns},
+        ))
+
+    return BatchSearchResponse(
+        index_id=idx_obj.id,
+        dataset_id=ds.id,
+        algorithm=idx_obj.algorithm,
+        metric=req.metric,
+        aggregate=req.aggregate,
+        n_queries=n_queries,
+        k=req.k,
+        n_returned=len(hits),
+        total_latency_ms=total_ms,
+        hits=hits,
+    )
