@@ -182,7 +182,7 @@ def _query_all(index: BaseANNIndex, queries: np.ndarray, k: int) -> list[list[in
 
 def _drop_self(neighbors: list[list[int]], query_rows: np.ndarray, k: int) -> list[set[int]]:
     out: list[set[int]] = []
-    for rows, qr in zip(neighbors, query_rows.tolist(), strict=True):
+    for rows, qr in zip(neighbors, query_rows.tolist()):
         filtered = [r for r in rows if r != qr][:k]
         out.append(set(filtered))
     return out
@@ -192,7 +192,7 @@ def _recall_at_k(predicted: list[set[int]], truth: list[set[int]]) -> float:
     """sum(|pred ∩ truth|) / sum(|truth|) —— micro-average。"""
     inter = 0
     denom = 0
-    for p, t in zip(predicted, truth, strict=True):
+    for p, t in zip(predicted, truth):
         inter += len(p & t)
         denom += len(t)
     return inter / denom if denom > 0 else 0.0

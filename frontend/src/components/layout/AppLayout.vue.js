@@ -23,6 +23,27 @@ debugger; /* PartiallyEnd: #3632/scriptSetup.vue */
 const __VLS_ctx = {};
 let __VLS_components;
 let __VLS_directives;
+/** @type {__VLS_StyleScopedClasses['sider']} */ ;
+/** @type {__VLS_StyleScopedClasses['sider']} */ ;
+/** @type {__VLS_StyleScopedClasses['sider']} */ ;
+/** @type {__VLS_StyleScopedClasses['sider']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-menu-dark']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-menu-item']} */ ;
+/** @type {__VLS_StyleScopedClasses['sider']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-menu-dark']} */ ;
+/** @type {__VLS_StyleScopedClasses['sider']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-menu-dark']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-menu-item-selected']} */ ;
+/** @type {__VLS_StyleScopedClasses['sider']} */ ;
+/** @type {__VLS_StyleScopedClasses['sider']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-layout-sider-trigger']} */ ;
+/** @type {__VLS_StyleScopedClasses['sider']} */ ;
+/** @type {__VLS_StyleScopedClasses['ant-layout-sider-trigger']} */ ;
+/** @type {__VLS_StyleScopedClasses['logout-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['logout-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['logout-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['header']} */ ;
+/** @type {__VLS_StyleScopedClasses['user-chip__name']} */ ;
 // CSS variable injection 
 // CSS variable injection end 
 const __VLS_0 = {}.ALayout;
@@ -53,7 +74,19 @@ const __VLS_7 = __VLS_6({
 }, ...__VLS_functionalComponentArgsRest(__VLS_6));
 __VLS_8.slots.default;
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "sider-top" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "brand" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "brand__accent" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "brand__muted" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "sider-body" },
 });
 const __VLS_9 = {}.AMenu;
 /** @type {[typeof __VLS_components.AMenu, typeof __VLS_components.aMenu, typeof __VLS_components.AMenu, typeof __VLS_components.aMenu, ]} */ ;
@@ -126,8 +159,12 @@ var __VLS_8;
 const __VLS_33 = {}.ALayout;
 /** @type {[typeof __VLS_components.ALayout, typeof __VLS_components.aLayout, typeof __VLS_components.ALayout, typeof __VLS_components.aLayout, ]} */ ;
 // @ts-ignore
-const __VLS_34 = __VLS_asFunctionalComponent(__VLS_33, new __VLS_33({}));
-const __VLS_35 = __VLS_34({}, ...__VLS_functionalComponentArgsRest(__VLS_34));
+const __VLS_34 = __VLS_asFunctionalComponent(__VLS_33, new __VLS_33({
+    ...{ class: "main-layout" },
+}));
+const __VLS_35 = __VLS_34({
+    ...{ class: "main-layout" },
+}, ...__VLS_functionalComponentArgsRest(__VLS_34));
 __VLS_36.slots.default;
 const __VLS_37 = {}.ALayoutHeader;
 /** @type {[typeof __VLS_components.ALayoutHeader, typeof __VLS_components.aLayoutHeader, typeof __VLS_components.ALayoutHeader, typeof __VLS_components.aLayoutHeader, ]} */ ;
@@ -142,11 +179,25 @@ __VLS_40.slots.default;
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "title" },
 });
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "title__accent" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "title__muted" },
+});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "header-actions" },
 });
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "user-chip" },
+    'aria-label': "当前用户",
+});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
-    ...{ class: "user" },
+    ...{ class: "user-chip__avatar" },
+});
+(__VLS_ctx.auth.user?.username || '22');
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "user-chip__name" },
 });
 (__VLS_ctx.auth.user?.username || 'guest');
 const __VLS_41 = {}.AButton;
@@ -154,11 +205,13 @@ const __VLS_41 = {}.AButton;
 // @ts-ignore
 const __VLS_42 = __VLS_asFunctionalComponent(__VLS_41, new __VLS_41({
     ...{ 'onClick': {} },
-    size: "small",
+    ...{ class: "logout-button" },
+    type: "text",
 }));
 const __VLS_43 = __VLS_42({
     ...{ 'onClick': {} },
-    size: "small",
+    ...{ class: "logout-button" },
+    type: "text",
 }, ...__VLS_functionalComponentArgsRest(__VLS_42));
 let __VLS_45;
 let __VLS_46;
@@ -169,6 +222,17 @@ const __VLS_48 = {
     }
 };
 __VLS_44.slots.default;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
+    viewBox: "0 0 24 24",
+    'aria-hidden': "true",
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+    d: "M10 17l1.4-1.4L8.8 13H20v-2H8.8l2.6-2.6L10 7l-5 5 5 5Z",
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+    d: "M4 5h6V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h6v-2H4V5Z",
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
 var __VLS_44;
 var __VLS_40;
 const __VLS_49 = {}.ALayoutContent;
@@ -187,11 +251,21 @@ var __VLS_36;
 var __VLS_3;
 /** @type {__VLS_StyleScopedClasses['app-layout']} */ ;
 /** @type {__VLS_StyleScopedClasses['sider']} */ ;
+/** @type {__VLS_StyleScopedClasses['sider-top']} */ ;
 /** @type {__VLS_StyleScopedClasses['brand']} */ ;
+/** @type {__VLS_StyleScopedClasses['brand__accent']} */ ;
+/** @type {__VLS_StyleScopedClasses['brand__muted']} */ ;
+/** @type {__VLS_StyleScopedClasses['sider-body']} */ ;
+/** @type {__VLS_StyleScopedClasses['main-layout']} */ ;
 /** @type {__VLS_StyleScopedClasses['header']} */ ;
 /** @type {__VLS_StyleScopedClasses['title']} */ ;
+/** @type {__VLS_StyleScopedClasses['title__accent']} */ ;
+/** @type {__VLS_StyleScopedClasses['title__muted']} */ ;
 /** @type {__VLS_StyleScopedClasses['header-actions']} */ ;
-/** @type {__VLS_StyleScopedClasses['user']} */ ;
+/** @type {__VLS_StyleScopedClasses['user-chip']} */ ;
+/** @type {__VLS_StyleScopedClasses['user-chip__avatar']} */ ;
+/** @type {__VLS_StyleScopedClasses['user-chip__name']} */ ;
+/** @type {__VLS_StyleScopedClasses['logout-button']} */ ;
 /** @type {__VLS_StyleScopedClasses['content']} */ ;
 // @ts-ignore
 var __VLS_54 = __VLS_53;

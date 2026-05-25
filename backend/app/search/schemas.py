@@ -1,5 +1,5 @@
 """检索模块 Pydantic schema。"""
-from typing import Any, Literal, Annotated
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 

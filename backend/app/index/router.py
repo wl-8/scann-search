@@ -6,6 +6,10 @@ GET    /api/index/{id}               详情
 DELETE /api/index/{id}               删除
 GET    /api/index/algorithms         支持的算法列表
 """
+from __future__ import annotations
+
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -30,7 +34,7 @@ def build_index(req: IndexBuildRequest, db: Session = Depends(get_db)) -> IndexR
 
 @router.get("", response_model=list[IndexResponse])
 def list_indexes(
-    dataset_id: int | None = Query(default=None),
+    dataset_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[IndexResponse]:
     return [IndexResponse.model_validate(x) for x in service.list_all(db, dataset_id)]

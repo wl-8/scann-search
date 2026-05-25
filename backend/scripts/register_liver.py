@@ -1,4 +1,4 @@
-"""真实数据冒烟测试：注册 data/liver.h5ad → 建 HNSW → 取 top-10 相似细胞。
+"""真实数据冒烟测试：注册 ../data/liver.h5ad → 建 HNSW → 取 top-10 相似细胞。
 
 直接调 service 层，不走 HTTP；目的是最快验证整条链路 + 给团队当 demo 复现脚本。
 
@@ -35,7 +35,7 @@ from app.search.schemas import SearchByCellRequest, SearchFilter  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("smoke")
 
-LIVER_PATH = Path(r"d:\scann-search\data\liver.h5ad").resolve()
+LIVER_PATH = (ROOT.parent / "data" / "liver.h5ad").resolve()
 DATASET_NAME = "liver"
 
 

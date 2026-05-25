@@ -167,7 +167,7 @@ def _postprocess(
 ) -> list[SearchHit]:
     hits: list[SearchHit] = []
     rank = 0
-    for row, dist in zip(rows, dists, strict=True):
+    for row, dist in zip(rows, dists):
         if exclude_row is not None and row == exclude_row:
             continue
         if filters is not None and not _matches(obs.iloc[row], filters):

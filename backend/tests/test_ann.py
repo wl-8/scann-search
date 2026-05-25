@@ -29,14 +29,27 @@ def _ground_truth(vectors: np.ndarray, queries: np.ndarray, k: int) -> list[set[
 
 
 def _recall(pred: list[set[int]], truth: list[set[int]]) -> float:
-    inter = sum(len(p & t) for p, t in zip(pred, truth, strict=True))
+    inter = sum(len(p & t) for p, t in zip(pred, truth))
     denom = sum(len(t) for t in truth)
     return inter / denom
 
 
-def test_supported_algorithms_includes_flat_and_hnsw() -> None:
-    assert "flat" in SUPPORTED_ALGORITHMS
-    assert "hnsw" in SUPPORTED_ALGORITHMS
+FAISS_ALGORITHMS = ["lsh", "ivf", "pq", "opq", "ivf_pq", "ivf_hnsw"]
+ALL_ALGORITHMS = ["flat", "hnsw", *FAISS_ALGORITHMS]
+
+
+def _small_params(algorithm: str) -> dict[str, int]:
+    if algorithm in {"ivf", "ivf_pq", "ivf_hnsw"}:
+        return {"nlist": 32, "nprobe": 8, "m": 4, "nbits": 4, "M": 8}
+    if algorithm in {"pq", "opq"}:
+        return {"m": 4, "nbits": 4, "niter": 2}
+    if algorithm == "lsh":
+        return {"nbits": 32}
+    return {}
+
+
+def test_supported_algorithms_includes_expected_backend_indexes() -> None:
+    assert tuple(ALL_ALGORITHMS) == SUPPORTED_ALGORITHMS
 
 
 def test_flat_recall_is_perfect() -> None:
@@ -63,32 +76,57 @@ def test_hnsw_recall_high() -> None:
     assert _recall(pred, truth) >= 0.95
 
 
-@pytest.mark.parametrize("algorithm", ["flat", "hnsw"])
+@pytest.mark.parametrize("algorithm", ALL_ALGORITHMS)
 def test_save_load_roundtrip(tmp_path, algorithm) -> None:
     X = _make_data()
     queries = X[:10]
     dim = X.shape[1]
+    params = _small_params(algorithm)
 
-    a = create_index(algorithm, dim=dim)
+    a = create_index(algorithm, dim=dim, **params)
     a.build(X)
     expected = [a.search(q, k=5) for q in queries]
 
     path = tmp_path / f"idx_{algorithm}.bin"
     a.save(str(path))
 
-    b = create_index(algorithm, dim=dim)
+    b = create_index(algorithm, dim=dim, **params)
     b.load(str(path))
 
     actual = [b.search(q, k=5) for q in queries]
-    for (ei, ed), (ai, ad_) in zip(expected, actual, strict=True):
+    for (ei, ed), (ai, ad_) in zip(expected, actual):
         assert ei == ai
         assert np.allclose(ed, ad_, atol=1e-4)
 
 
-@pytest.mark.parametrize("algorithm", ["flat", "hnsw"])
+@pytest.mark.parametrize("algorithm", FAISS_ALGORITHMS)
+def test_faiss_algorithms_build_search_save_load_on_small_data(tmp_path, algorithm) -> None:
+    X = _make_data(n=45)
+    dim = X.shape[1]
+    params = _small_params(algorithm)
+
+    index = create_index(algorithm, dim=dim, **params)
+    index.build(X)
+
+    rows, distances = index.search(X[0], k=10)
+    assert len(rows) == 10
+    assert len(distances) == 10
+    assert set(rows).issubset(set(range(X.shape[0])))
+
+    path = tmp_path / f"small_{algorithm}.bin"
+    index.save(str(path))
+    loaded = create_index(algorithm, dim=dim, **params)
+    loaded.load(str(path))
+
+    loaded_rows, loaded_distances = loaded.search(X[1], k=10)
+    assert len(loaded_rows) == 10
+    assert len(loaded_distances) == 10
+
+
+@pytest.mark.parametrize("algorithm", ALL_ALGORITHMS)
 def test_query_dim_mismatch_raises(algorithm) -> None:
     X = _make_data(d=16)
-    index = create_index(algorithm, dim=16)
+    index = create_index(algorithm, dim=16, **_small_params(algorithm))
     index.build(X)
 
     bad_query = np.zeros(8, dtype=np.float32)
@@ -96,9 +134,9 @@ def test_query_dim_mismatch_raises(algorithm) -> None:
         index.search(bad_query, k=5)
 
 
-@pytest.mark.parametrize("algorithm", ["flat", "hnsw"])
+@pytest.mark.parametrize("algorithm", ALL_ALGORITHMS)
 def test_search_before_build_raises(algorithm) -> None:
-    index = create_index(algorithm, dim=16)
+    index = create_index(algorithm, dim=16, **_small_params(algorithm))
     with pytest.raises(RuntimeError):
         index.search(np.zeros(16, dtype=np.float32), k=5)
 

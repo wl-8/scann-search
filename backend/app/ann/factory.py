@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from app.ann.base import BaseANNIndex
+from app.ann.faiss_indexes import IVFHNSWIndex, IVFPQIndex, LSHIndex, OPQIndex, PQIndex
 from app.ann.flat import FlatL2Index
 from app.ann.hnsw import HNSWIndex
 from app.ann.ivf import IVFFlatIndex
@@ -23,6 +24,9 @@ def create_index(algorithm: str, dim: int | None = None, **params: object) -> Ba
     name = algorithm.lower()
     if name == algo.ALGO_FLAT:
         return FlatL2Index(dim=dim)
+    if name == algo.ALGO_LSH:
+        nbits = params.get("nbits")
+        return LSHIndex(dim=dim, nbits=None if nbits is None else int(nbits))
     if name == algo.ALGO_HNSW:
         return HNSWIndex(
             dim=dim,
@@ -37,7 +41,44 @@ def create_index(algorithm: str, dim: int | None = None, **params: object) -> Ba
             nlist=int(params.get("nlist", IVFFlatIndex.DEFAULT_NLIST)),
             nprobe=int(params.get("nprobe", IVFFlatIndex.DEFAULT_NPROBE)),
         )
+    if name == algo.ALGO_PQ:
+        return PQIndex(
+            dim=dim,
+            m=int(params.get("m", PQIndex.DEFAULT_M)),
+            nbits=int(params.get("nbits", PQIndex.DEFAULT_NBITS)),
+        )
+    if name == algo.ALGO_OPQ:
+        return OPQIndex(
+            dim=dim,
+            m=int(params.get("m", OPQIndex.DEFAULT_M)),
+            nbits=int(params.get("nbits", OPQIndex.DEFAULT_NBITS)),
+            niter=int(params.get("niter", OPQIndex.DEFAULT_NITER)),
+        )
+    if name == algo.ALGO_IVF_PQ:
+        return IVFPQIndex(
+            dim=dim,
+            nlist=int(params.get("nlist", IVFPQIndex.DEFAULT_NLIST)),
+            nprobe=int(params.get("nprobe", IVFPQIndex.DEFAULT_NPROBE)),
+            m=int(params.get("m", IVFPQIndex.DEFAULT_M)),
+            nbits=int(params.get("nbits", IVFPQIndex.DEFAULT_NBITS)),
+        )
+    if name == algo.ALGO_IVF_HNSW:
+        return IVFHNSWIndex(
+            dim=dim,
+            nlist=int(params.get("nlist", IVFHNSWIndex.DEFAULT_NLIST)),
+            nprobe=int(params.get("nprobe", IVFHNSWIndex.DEFAULT_NPROBE)),
+            m=int(params.get("M", IVFHNSWIndex.DEFAULT_M)),
+        )
     raise NotImplementedError(f"算法 {algorithm} 未实现")
 
 
-SUPPORTED_ALGORITHMS: tuple[str, ...] = (algo.ALGO_FLAT, algo.ALGO_HNSW, algo.ALGO_IVF)
+SUPPORTED_ALGORITHMS: tuple[str, ...] = (
+    algo.ALGO_FLAT,
+    algo.ALGO_HNSW,
+    algo.ALGO_LSH,
+    algo.ALGO_IVF,
+    algo.ALGO_PQ,
+    algo.ALGO_OPQ,
+    algo.ALGO_IVF_PQ,
+    algo.ALGO_IVF_HNSW,
+)

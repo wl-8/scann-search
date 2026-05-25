@@ -1,5 +1,8 @@
 <template>
-	<div ref="plotEl" class="plot-wrap"></div>
+	<div class="plot-shell">
+		<div class="plot-shell__grid" aria-hidden="true"></div>
+		<div ref="plotEl" class="plot-wrap"></div>
+	</div>
 </template>
 
 <script setup lang="ts">
@@ -35,50 +38,54 @@ function categoryColorMap(values: string[]) {
 
 function render() {
 	if (!plotEl.value) return
-	const points = props.points || []
-	const dim = props.dimension ?? 2
-	const colorField = (props.colorBy ?? "cell_type") as keyof Point
-	const categories = points.map((p) => String((p as any)[colorField] ?? "unknown"))
-	const colorMap = categoryColorMap(categories)
-	const colors = categories.map((c) => colorMap.get(c) ?? "#64748b")
+	try {
+		const points = props.points || []
+		const dim = props.dimension ?? 2
+		const colorField = (props.colorBy ?? "cell_type") as keyof Point
+		const categories = points.map((p) => String((p as any)[colorField] ?? "unknown"))
+		const colorMap = categoryColorMap(categories)
+		const colors = categories.map((c) => colorMap.get(c) ?? "#64748b")
 
-	const baseTrace: any = {
-		type: dim === 3 ? "scatter3d" : "scatter",
-		mode: "markers",
-		x: points.map((p) => p.umap_x),
-		y: points.map((p) => p.umap_y),
-		marker: {
-			size: points.map((p) => (props.selectedId && p.id === props.selectedId ? 12 : 8)),
-			color: colors,
-			opacity: 0.9,
-			line: {
-				width: points.map((p) => (props.selectedId && p.id === props.selectedId ? 3 : 0)),
-				color: "#111827",
+		const baseTrace: any = {
+			type: dim === 3 ? "scatter3d" : "scatter",
+			mode: "markers",
+			x: points.map((p) => p.umap_x),
+			y: points.map((p) => p.umap_y),
+			marker: {
+				size: points.map((p) => (props.selectedId && p.id === props.selectedId ? 12 : 8)),
+				color: colors,
+				opacity: 0.9,
+				line: {
+					width: points.map((p) => (props.selectedId && p.id === props.selectedId ? 3 : 0)),
+					color: "#111827",
+				},
 			},
-		},
-		text: points.map((p) => p.id),
-		hovertemplate: points.map((p, idx) => {
-			const extra = dim === 3 ? `<br>z: ${p.umap_z ?? 0}` : ""
-			return `${p.id}<br>${colorField}: ${categories[idx]}<br>x: ${p.umap_x}<br>y: ${p.umap_y}${extra}<extra></extra>`
-		}),
+			text: points.map((p) => p.id),
+			hovertemplate: points.map((p, idx) => {
+				const extra = dim === 3 ? `<br>z: ${p.umap_z ?? 0}` : ""
+				return `${p.id}<br>${colorField}: ${categories[idx]}<br>x: ${p.umap_x}<br>y: ${p.umap_y}${extra}<extra></extra>`
+			}),
+		}
+
+		if (dim === 3) baseTrace.z = points.map((p) => p.umap_z ?? 0)
+
+		const layout = {
+			margin: { l: 0, r: 0, t: 8, b: 0 },
+			height: 520,
+			paper_bgcolor: "#fff",
+			plot_bgcolor: "#fff",
+			showlegend: false,
+			scene: dim === 3 ? { xaxis: { title: "UMAP1" }, yaxis: { title: "UMAP2" }, zaxis: { title: "UMAP3" } } : undefined,
+		}
+
+		Plotly.newPlot(plotEl.value, [baseTrace], layout as any, { responsive: true, displaylogo: false })
+		;(plotEl.value as any).on?.("plotly_click", (ev: any) => {
+			const idx = ev?.points?.[0]?.pointIndex
+			if (typeof idx === "number") emit("point-click", points[idx])
+		})
+	} catch (error) {
+		console.error("Failed to render UMAP plot:", error)
 	}
-
-	if (dim === 3) baseTrace.z = points.map((p) => p.umap_z ?? 0)
-
-	const layout = {
-		margin: { l: 0, r: 0, t: 8, b: 0 },
-		height: 520,
-		paper_bgcolor: "#fff",
-		plot_bgcolor: "#fff",
-		showlegend: false,
-		scene: dim === 3 ? { xaxis: { title: "UMAP1" }, yaxis: { title: "UMAP2" }, zaxis: { title: "UMAP3" } } : undefined,
-	}
-
-	Plotly.newPlot(plotEl.value, [baseTrace], layout as any, { responsive: true, displaylogo: false })
-	;(plotEl.value as any).on?.("plotly_click", (ev: any) => {
-		const idx = ev?.points?.[0]?.pointIndex
-		if (typeof idx === "number") emit("point-click", points[idx])
-	})
 }
 
 onMounted(render)
@@ -89,5 +96,34 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.plot-wrap { width: 100%; min-height: 520px; }
+.plot-shell {
+	position: relative;
+	min-height: 520px;
+	border-radius: 14px;
+	overflow: hidden;
+	background:
+		radial-gradient(circle at 20% 20%, rgba(0, 123, 255, 0.04) 0 1px, transparent 1px),
+		radial-gradient(circle at 80% 70%, rgba(0, 123, 255, 0.035) 0 1px, transparent 1px),
+		linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 0.96));
+}
+
+.plot-shell__grid {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	opacity: 0.9;
+	background-image:
+		linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+	background-size: 56px 56px;
+	mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.12));
+}
+
+.plot-wrap {
+	position: relative;
+	z-index: 1;
+	width: 100%;
+	min-height: 520px;
+	background: transparent;
+}
 </style>

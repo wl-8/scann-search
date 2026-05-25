@@ -5,6 +5,10 @@ GET  /api/benchmark/runs                 所有评测记录（可按 dataset_id 
 GET  /api/benchmark/runs/{id}            某条记录详情
 GET  /api/benchmark/batches/{batch_id}   某一批跑批的所有结果
 """
+from __future__ import annotations
+
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -34,7 +38,7 @@ def run_benchmark(req: BenchmarkRunRequest, db: Session = Depends(get_db)) -> Be
 
 @router.get("/runs", response_model=list[BenchmarkResultItem])
 def list_runs(
-    dataset_id: int | None = Query(default=None),
+    dataset_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[BenchmarkResultItem]:
     return [BenchmarkResultItem.model_validate(x) for x in service.list_all(db, dataset_id)]

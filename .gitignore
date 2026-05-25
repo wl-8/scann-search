@@ -1,35 +1,86 @@
-# Python
-__pycache__/
-*.py[cod]
-*.env
+# Python environments and caches
 .venv/
 venv/
-.pptx_extract/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
-# Data & runtime artifacts (生成的，不进 git)
-data/uploads/
-data/indexes/
+# Local environment files
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+
+# Backend runtime state
 backend/data/
-*.h5ad
-*.npy
-*.parquet
-
-# 数据库文件
 *.db
 *.sqlite
 *.sqlite3
 
-# Node
+# Frontend dependencies and build output
 node_modules/
+frontend/node_modules/
 dist/
+frontend/dist/
+coverage/
+frontend/coverage/
+*.tsbuildinfo
+vite.config.*.timestamp-*
+vitest.config.*.timestamp-*
 
-# IDE
+# Data and generated artifacts
+data/uploads/
+data/indexes/
+*.h5ad
+*.npy
+*.npz
+*.parquet
+*.feather
+*.arrow
+*.pkl
+*.pickle
+*.joblib
+*.faiss
+*.index
+
+# Keep data documentation trackable
+!data/
+!data/**/*.md
+
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.temp
+.pptx_extract/
+*.pptx
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
 
+# Local Agent / Skill config
+.agents/
+.cursor/
+skills-lock.json
+AGENTS.md
+CLAUDE.md
+docs/agents/
+CONTEXT.md
+CONTEXT-MAP.md
 
-#Docu
-*.pptx
-
-# 个人工作笔记 / 开发日志（不进 git）
+# Personal notes
 progress.md
