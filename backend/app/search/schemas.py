@@ -7,12 +7,16 @@ from app.search.constants import DEFAULT_K, MAX_K
 
 
 class SearchFilter(BaseModel):
-    """obs 字段等值过滤。
+    """obs 字段过滤，支持等值和数值范围，列之间 AND。
 
-    Example: {"cell_type": ["Hepatocyte", "Kupffer"], "disease": ["normal"]}
-    每个列内部是 OR；列之间是 AND。
+    equals: 字符串等值，列内多值 OR。
+      Example: {"cell_type": ["Hepatocyte", "Kupffer"], "disease": ["normal"]}
+    gte: 数值下界（>=）。Example: {"n_counts": 500}
+    lte: 数值上界（<=）。Example: {"pct_counts_mt": 20}
     """
     equals: dict[str, list[str]] = Field(default_factory=dict)
+    gte: dict[str, float] = Field(default_factory=dict)
+    lte: dict[str, float] = Field(default_factory=dict)
 
 
 class SearchByCellRequest(BaseModel):

@@ -84,7 +84,7 @@ def _execute_search(
     obs = ds_service.load_obs(dataset)
     cell_ids = ds_service.load_cell_ids(dataset)
 
-    has_filter = filters is not None and bool(filters.equals)
+    has_filter = filters is not None and bool(filters.equals or filters.gte or filters.lte)
     fetch_k = min(k * oversample if has_filter else k + (1 if exclude_row is not None else 0),
                   index_obj.n_vectors)
 
@@ -148,6 +148,22 @@ def _matches(row: pd.Series, filters: SearchFilter) -> bool:
         if col not in row.index:
             return False
         if str(row[col]) not in allowed:
+            return False
+    for col, threshold in filters.gte.items():
+        if col not in row.index:
+            return False
+        try:
+            if float(row[col]) < threshold:
+                return False
+        except (TypeError, ValueError):
+            return False
+    for col, threshold in filters.lte.items():
+        if col not in row.index:
+            return False
+        try:
+            if float(row[col]) > threshold:
+                return False
+        except (TypeError, ValueError):
             return False
     return True
 
