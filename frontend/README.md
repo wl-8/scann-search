@@ -1,76 +1,150 @@
-# scann-search - Frontend
+# scann-search Frontend
 
-这是前端工程，基于 Vue 3 + Vite + TypeScript，使用 Ant Design Vue 作为组件库。
+基于 Vue 3 + Vite + TypeScript + Ant Design Vue 的单细胞 ANN 检索系统前端。
 
-## 快速开始
+## 项目特性
 
-1. 安装依赖
+- 登录页支持本地演示登录，任意用户名密码都可进入系统
+- 搜索页支持普通检索、条件检索、跨数据集检索和浏览数据
+- 搜索结果支持分页、展开详情，查看 `metadata` 和 `gene_expr`
+- 可视化页提供 UMAP 散点图、点选联动检索、右侧相似细胞结果展示
+- 数据集页支持模拟上传、列表管理、详情弹窗和删除操作
+- 开发环境内置 mock API，无需后端即可完整演示前端流程
+
+## 运行环境
+
+- Node.js 18+（建议）
+- npm 9+
+
+## 安装依赖
+
+在 `frontend` 目录下执行：
 
 ```bash
-cd frontend
 npm install
 ```
 
-2. 本地开发
+## 本地开发
 
 ```bash
 npm run dev
 ```
 
-开发服务器会启用一个内置的 mock API（仅用于开发环境），模拟 `/api/search` 及其它检索接口，方便前端调试而不依赖后端。
+启动后，Vite 会输出本地地址，例如 `http://localhost:5179/`。
 
-3. 环境变量
+默认访问流程：
 
-创建 `.env`（基于已有的 `.env.example`）并设置真实后端地址（若有）：
+1. 打开 `/login`
+2. 输入任意用户名和密码登录
+3. 进入 `/dashboard`
+4. 使用侧边栏进入 `/search`、`/visualize`、`/datasets`
 
+## 构建与预览
+
+```bash
+npm run build
+npm run preview
 ```
-VITE_API_BASE=http://localhost:8000/api
-```
 
-当前实现会优先调用 `VITE_API_BASE` 指向的后端；如果后端不可用，前端会回退到开发内置的 mock 数据。
+说明：
 
-## Mock 接口（开发模式）
-
-在 `vite.config.ts` 中实现了开发时的 mock：
-
-- `POST /api/search` → Top-K 检索，返回 `{ items: [...], total }`。
-- `POST /api/search/conditional` → 条件检索（使用 `filters`），返回 `{ items, total }`。
-- `POST /api/search/multi-dataset` → 跨数据集检索（使用 `datasets`），返回 `{ items, total }`。
-- `POST /api/search/browse` → 数据浏览，返回 `{ items, total, facets }`。
-
-每个 `item` 包含：`id`, `score`, `cell_type`, `dataset`, `metadata`, `umap_x`, `umap_y`, `gene_expr` 等字段，方便演示可展开行查看详细信息。
-
-这些 mock 仅在 `npm run dev` 时启用，生产构建不会包含它们。
+- `npm run build` 已通过验证，可正常生成生产构建
+- `npm run preview` 用于本地预览构建产物
 
 ## 测试
-
-项目使用 Vitest 编写了基础单元测试：
 
 ```bash
 npm run test
 ```
 
-当前包含测试项：
-- `useSearch` 组合函数：测试与后端交互以及当后端失败时回退到本地 mock。
+当前包含基础单元测试，主要覆盖 `useSearch` 组合函数：
 
-## 目录概览
+- 后端返回成功时，解析检索结果和总数
+- 后端失败时，回退到开发 mock 数据
 
+## 环境变量
+
+如果你有真实后端，可以在 `frontend` 目录创建 `.env`，例如：
+
+```env
+VITE_API_BASE=http://localhost:8000/api
 ```
+
+说明：
+
+- 前端会优先调用 `VITE_API_BASE` 指向的后端
+- 如果后端不可用，搜索逻辑会在开发模式下自动回退到 mock 数据
+
+## 开发模式 Mock
+
+开发服务器在 `vite.config.ts` 中内置了 mock middleware，用于替代后端接口：
+
+- `POST /api/search`：Top-K 检索
+- `POST /api/search/conditional`：条件检索
+- `POST /api/search/multi-dataset`：跨数据集检索
+- `POST /api/search/browse`：浏览数据与 facets
+
+每个返回项会包含较完整的演示字段：
+
+- `id`
+- `score`
+- `cell_type`
+- `dataset`
+- `metadata`
+- `umap_x`
+- `umap_y`
+- `gene_expr`
+
+这些 mock 仅在 `npm run dev` 时启用，不会进入生产构建。
+
+## 页面说明
+
+- `/login`：登录页
+- `/dashboard`：首页仪表盘
+- `/search`：检索页
+- `/visualize`：UMAP 可视化页
+- `/datasets`：数据集管理页
+
+## 目录结构
+
+```text
 frontend/
 ├── src/
-│   ├── api/            // 后端接口封装（axios 实例 + 各模块请求）
-│   ├── components/     // 可复用组件
-│   ├── composables/    // 组合式函数（如 useSearch）
-│   ├── views/          // 页面视图（Search, Auth, Dashboard 等）
-│   └── router/, stores/ // 路由与状态管理
-├── vite.config.ts      // Vite 配置（包含 dev mock middleware）
+│   ├── api/          # 接口封装
+│   ├── components/   # 可复用组件
+│   ├── composables/  # 组合式逻辑
+│   ├── router/       # 路由配置
+│   ├── stores/       # Pinia 状态管理
+│   └── views/        # 页面
+├── vite.config.ts    # Vite 配置 + mock middleware
+├── vitest.config.ts  # 单元测试配置
 ├── package.json
 └── README.md
 ```
 
-## 下一步建议
+## 常见问题
 
-- 如需切换到真实后端，请设置 `.env` 中的 `VITE_API_BASE`，并确保后端实现 `/api/search` 等接口。
-- 我可以把 mock 的更多接口（例如分页参数、条件过滤示例）扩展为更真实的行为，或在 UI 上增加基于 `facets` 的交互筛选。
+### 打开页面是空白
 
-如果需要，我可以把当前改动提交到一个新分支并发起 PR。
+- 检查是否在 `frontend` 目录启动了 `npm run dev`
+- 确认访问的是登录页 `/login`
+- 如果缓存了旧页面，执行一次强制刷新
+
+### `npm run dev` 没有找到 `package.json`
+
+- 说明你在仓库根目录运行了命令
+- 请切换到 `frontend` 目录后再执行：
+
+```bash
+cd frontend
+npm run dev
+```
+
+### 构建报错依赖缺失
+
+- 先执行 `npm install`
+- 确认 Node.js 版本不低于 18
+
+## 备注
+
+当前前端已经可以独立演示完整流程；等后端准备好后，只需修改 `.env` 中的 `VITE_API_BASE` 并关闭或调整 mock 配置即可接入真实接口。
