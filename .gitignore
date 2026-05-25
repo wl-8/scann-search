@@ -4,11 +4,20 @@ __pycache__/
 *.env
 .venv/
 venv/
+.pptx_extract/
 
-# Data
+# Data & runtime artifacts (生成的，不进 git)
 data/uploads/
 data/indexes/
+backend/data/
 *.h5ad
+*.npy
+*.parquet
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
 
 # Node
 node_modules/
@@ -17,3 +26,10 @@ dist/
 # IDE
 .vscode/
 .idea/
+
+
+#Docu
+*.pptx
+
+# 个人工作笔记 / 开发日志（不进 git）
+progress.md
