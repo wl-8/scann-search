@@ -21,7 +21,8 @@ export function useSearch() {
 			// fallback to local mock when backend unreachable
 			console.warn("Search API failed, falling back to mock", err)
 			await new Promise((r) => setTimeout(r, 300 + Math.random() * 300))
-			const results = Array.from({ length: Math.max(1, payload.k) }).map((_, i) => ({
+			const k = Math.max(1, payload.k ?? 10)
+			const results = Array.from({ length: k }).map((_, i) => ({
 				rank: i + 1,
 				id: `cell_${Math.floor(Math.random() * 100000)}`,
 				score: Number((Math.random() * (1 - 0.5) + 0.5).toFixed(4)),

@@ -74,25 +74,23 @@
 <script setup lang="ts">
 import { reactive, toRefs, ref, watch } from "vue"
 import { message } from "ant-design-vue"
+import type { SearchPayload } from "@/api/search"
 
-const props = defineProps({
-	modelValue: {
-		type: Object as () => any,
-		default: () => ({
-			queryType: "id",
-			query: "",
-			indexType: "HNSW",
-			metric: "cosine",
-			k: 10,
-			filters: { cell_type: "" },
-		}),
-	},
+const props = withDefaults(defineProps<{ modelValue: SearchPayload & { filters: { cell_type: string } } }>(), {
+	modelValue: () => ({
+		queryType: "id",
+		query: "",
+		indexType: "HNSW",
+		metric: "cosine",
+		k: 10,
+		filters: { cell_type: "" },
+	}),
 })
 
-const emit = defineEmits<[ (e: string, payload?: any) => void, (e: 'update:modelValue', v: any) => void ]>([
-	"submit",
-	"update:modelValue",
-])
+const emit = defineEmits<{
+	(e: "submit", payload: SearchPayload & { filters: { cell_type: string } }): void
+	(e: "update:modelValue", value: SearchPayload & { filters: { cell_type: string } }): void
+}>()
 
 const state = reactive({ ...props.modelValue })
 const formRef = ref()

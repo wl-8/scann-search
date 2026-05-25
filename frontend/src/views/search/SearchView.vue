@@ -71,15 +71,17 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from "vue"
 import SearchForm from "@/components/search/SearchForm.vue"
-import { ref } from "vue"
+import { browseSearch, conditionalSearch, multiDatasetSearch } from "@/api/search"
 import { useSearch } from "@/composables/useSearch"
+import type { SearchPayload } from "@/api/search"
 
 const { loading, search } = useSearch()
 const results = ref<Array<any>>([])
 const lastElapsed = ref<number | null>(null)
 
-const formData = ref({
+const formData = ref<SearchPayload & { filters: { cell_type: string } }>({
   queryType: "id",
   query: "",
   indexType: "HNSW",
@@ -112,9 +114,9 @@ const pagination = computed(() => ({
 // When backend supports server-side paging, `results` should be the current page items.
 const pagedData = computed(() => results.value)
 
-async function onTableChange(pag) {
-  currentPage.value = pag.current
-  pageSize.value = pag.pageSize
+async function onTableChange(pag: { current?: number; pageSize?: number }) {
+  currentPage.value = pag.current ?? 1
+  pageSize.value = pag.pageSize ?? 10
   // request the new page from backend
   const payload = { ...formData.value, page: currentPage.value, pageSize: pageSize.value }
   const res = await search(payload)
@@ -130,10 +132,6 @@ async function onSearch(payload: any) {
   lastElapsed.value = res.elapsed
   total.value = res.total ?? res.results.length
 }
-
-// extra demo endpoints
-import { conditionalSearch, multiDatasetSearch, browseSearch } from "@/api/search"
-import { computed } from "vue"
 
 const multiDatasetsInput = ref("datasetA,datasetB")
 const facets = ref<any>(null)
