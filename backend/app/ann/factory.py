@@ -8,6 +8,7 @@ from __future__ import annotations
 from app.ann.base import BaseANNIndex
 from app.ann.flat import FlatL2Index
 from app.ann.hnsw import HNSWIndex
+from app.ann.ivf import IVFFlatIndex
 from app.index import constants as algo
 
 
@@ -16,7 +17,7 @@ def create_index(algorithm: str, dim: int | None = None, **params: object) -> Ba
 
     Args:
         algorithm: 算法名，参见 app.index.constants
-        dim: 向量维度。Flat 在 build 时可推断；HNSW 推荐显式给出。
+        dim: 向量维度。Flat 在 build 时可推断；HNSW/IVF 推荐显式给出。
         params: 算法专属参数，未识别的会被忽略。
     """
     name = algorithm.lower()
@@ -30,7 +31,13 @@ def create_index(algorithm: str, dim: int | None = None, **params: object) -> Ba
             ef_construction=int(params.get("ef_construction", HNSWIndex.DEFAULT_EF_CONSTRUCTION)),
             ef_search=int(params.get("ef_search", HNSWIndex.DEFAULT_EF_SEARCH)),
         )
+    if name == algo.ALGO_IVF:
+        return IVFFlatIndex(
+            dim=dim,
+            nlist=int(params.get("nlist", IVFFlatIndex.DEFAULT_NLIST)),
+            nprobe=int(params.get("nprobe", IVFFlatIndex.DEFAULT_NPROBE)),
+        )
     raise NotImplementedError(f"算法 {algorithm} 未实现")
 
 
-SUPPORTED_ALGORITHMS: tuple[str, ...] = (algo.ALGO_FLAT, algo.ALGO_HNSW)
+SUPPORTED_ALGORITHMS: tuple[str, ...] = (algo.ALGO_FLAT, algo.ALGO_HNSW, algo.ALGO_IVF)
