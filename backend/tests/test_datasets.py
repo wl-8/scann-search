@@ -65,6 +65,65 @@ def test_value_counts(synth_h5ad, db_session) -> None:
     assert sum(counts["disease"].values()) == 500
 
 
+def test_filter_cells_by_disease(synth_h5ad, db_session) -> None:
+    from app.datasets.schemas import FilterSpec
+    ds = ds_service.register(
+        db_session,
+        DatasetRegisterRequest(name="filter-test", source_path=str(synth_h5ad)),
+    )
+    items, total = ds_service.filter_cells(
+        ds, FilterSpec(equals={"disease": ["normal"]}), offset=0, limit=100
+    )
+    assert total > 0
+    assert all(item["obs"]["disease"] == "normal" for item in items)
+
+
+def test_filter_cells_unknown_column_returns_empty(synth_h5ad, db_session) -> None:
+    from app.datasets.schemas import FilterSpec
+    ds = ds_service.register(
+        db_session,
+        DatasetRegisterRequest(name="filter-miss", source_path=str(synth_h5ad)),
+    )
+    items, total = ds_service.filter_cells(
+        ds, FilterSpec(equals={"nonexistent_col": ["x"]}), offset=0, limit=50
+    )
+    assert total == 0
+    assert items == []
+
+
+def test_filter_cells_http(client, synth_h5ad, db_session) -> None:
+    from tests.conftest import admin_token, auth_header
+    headers = auth_header(admin_token(client))
+
+    ds = ds_service.register(
+        db_session,
+        DatasetRegisterRequest(name="filter-http", source_path=str(synth_h5ad)),
+    )
+    resp = client.post(
+        f"/api/datasets/{ds.id}/cells/filter",
+        json={"filters": {"equals": {"disease": ["normal"]}}, "offset": 0, "limit": 20},
+        headers=headers,
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total_matched"] > 0
+    assert len(body["items"]) <= 20
+    assert all(item["obs"]["disease"] == "normal" for item in body["items"])
+
+
+def test_filter_cells_pagination(synth_h5ad, db_session) -> None:
+    from app.datasets.schemas import FilterSpec
+    ds = ds_service.register(
+        db_session,
+        DatasetRegisterRequest(name="filter-page", source_path=str(synth_h5ad)),
+    )
+    f = FilterSpec(equals={"disease": ["normal"]})
+    items_p1, total = ds_service.filter_cells(ds, f, offset=0, limit=10)
+    items_p2, _ = ds_service.filter_cells(ds, f, offset=10, limit=10)
+    assert len(items_p1) == 10
+    assert items_p1[0]["cell_id"] != items_p2[0]["cell_id"]
+
+
 def test_delete_removes_artifacts(synth_h5ad, db_session) -> None:
     from pathlib import Path
 

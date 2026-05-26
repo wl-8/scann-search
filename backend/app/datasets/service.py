@@ -164,6 +164,57 @@ def find_cell_row(ds: Dataset, cell_id: str) -> int:
     return int(matches[0])
 
 
+def filter_cells(
+    ds: Dataset,
+    filters,
+    offset: int = 0,
+    limit: int = 50,
+) -> tuple[list[dict], int]:
+    """按 obs 条件过滤细胞，返回 (items, total_matched)。不走 ANN。"""
+    obs = load_obs(ds)
+    cell_ids = load_cell_ids(ds)
+
+    mask = pd.Series([True] * len(obs), index=obs.index)
+    for col, allowed in filters.equals.items():
+        if col in obs.columns:
+            mask &= obs[col].astype(str).isin(allowed)
+        else:
+            mask &= False
+    for col, threshold in filters.gte.items():
+        if col in obs.columns:
+            mask &= pd.to_numeric(obs[col], errors="coerce") >= threshold
+        else:
+            mask &= False
+    for col, threshold in filters.lte.items():
+        if col in obs.columns:
+            mask &= pd.to_numeric(obs[col], errors="coerce") <= threshold
+        else:
+            mask &= False
+
+    matched_indices = mask[mask].index
+    total = len(matched_indices)
+
+    items = []
+    for idx in matched_indices[offset: offset + limit]:
+        row_index = obs.index.get_loc(idx)
+        obs_row = {col: _to_jsonable_val(obs.loc[idx, col]) for col in obs.columns}
+        items.append({
+            "cell_id": str(cell_ids[row_index]),
+            "row_index": int(row_index),
+            "obs": obs_row,
+        })
+    return items, total
+
+
+def _to_jsonable_val(v):
+    import math
+    if isinstance(v, float) and math.isnan(v):
+        return None
+    if hasattr(v, "item"):
+        return v.item()
+    return v if isinstance(v, (str, int, float, bool, type(None))) else str(v)
+
+
 def value_counts(ds: Dataset, max_unique_per_col: int = 50) -> dict[str, dict[str, int]]:
     """统计 obs 各列的取值分布（用于前端筛选器）。
 

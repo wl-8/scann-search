@@ -16,6 +16,8 @@ from app.auth.models import User
 from app.core.dependencies import get_current_user, get_db, require_researcher
 from app.datasets import service
 from app.datasets.schemas import (
+    CellFilterRequest,
+    CellFilterResponse,
     CellPageResponse,
     CellResponse,
     DatasetRegisterRequest,
@@ -81,6 +83,24 @@ def list_cells(
 
     return CellPageResponse(
         dataset_id=ds.id, total=total, offset=offset, limit=limit, items=items,
+    )
+
+
+@router.post("/{dataset_id}/cells/filter", response_model=CellFilterResponse)
+def filter_cells(
+    dataset_id: int,
+    req: CellFilterRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> CellFilterResponse:
+    ds = service.get_ready(db, dataset_id)
+    items, total = service.filter_cells(ds, req.filters, req.offset, req.limit)
+    return CellFilterResponse(
+        dataset_id=ds.id,
+        total_matched=total,
+        offset=req.offset,
+        limit=req.limit,
+        items=[CellResponse(**item) for item in items],
     )
 
 
