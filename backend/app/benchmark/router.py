@@ -12,19 +12,20 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.auth.models import User
 from app.benchmark import service
 from app.benchmark.schemas import (
     BenchmarkResultItem,
     BenchmarkRunRequest,
     BenchmarkRunResponse,
 )
-from app.core.dependencies import get_db
+from app.core.dependencies import get_db, require_researcher
 
 router = APIRouter()
 
 
 @router.post("/run", response_model=BenchmarkRunResponse)
-def run_benchmark(req: BenchmarkRunRequest, db: Session = Depends(get_db)) -> BenchmarkRunResponse:
+def run_benchmark(req: BenchmarkRunRequest, db: Session = Depends(get_db), _: User = Depends(require_researcher)) -> BenchmarkRunResponse:
     rows = service.run(db, req)
     items = [BenchmarkResultItem.model_validate(r) for r in rows]
     return BenchmarkRunResponse(
@@ -40,15 +41,16 @@ def run_benchmark(req: BenchmarkRunRequest, db: Session = Depends(get_db)) -> Be
 def list_runs(
     dataset_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
+    _: User = Depends(require_researcher),
 ) -> list[BenchmarkResultItem]:
     return [BenchmarkResultItem.model_validate(x) for x in service.list_all(db, dataset_id)]
 
 
 @router.get("/runs/{run_id}", response_model=BenchmarkResultItem)
-def get_run(run_id: int, db: Session = Depends(get_db)) -> BenchmarkResultItem:
+def get_run(run_id: int, db: Session = Depends(get_db), _: User = Depends(require_researcher)) -> BenchmarkResultItem:
     return BenchmarkResultItem.model_validate(service.get_by_id(db, run_id))
 
 
 @router.get("/batches/{batch_id}", response_model=list[BenchmarkResultItem])
-def get_batch(batch_id: str, db: Session = Depends(get_db)) -> list[BenchmarkResultItem]:
+def get_batch(batch_id: str, db: Session = Depends(get_db), _: User = Depends(require_researcher)) -> list[BenchmarkResultItem]:
     return [BenchmarkResultItem.model_validate(x) for x in service.list_batch(db, batch_id)]

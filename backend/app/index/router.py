@@ -14,7 +14,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.ann.factory import SUPPORTED_ALGORITHMS
-from app.core.dependencies import get_db
+from app.auth.models import User
+from app.core.dependencies import get_current_user, get_db, require_researcher
 from app.index import service
 from app.index.schemas import IndexBuildRequest, IndexResponse
 
@@ -22,12 +23,12 @@ router = APIRouter()
 
 
 @router.get("/algorithms", response_model=list[str])
-def list_algorithms() -> list[str]:
+def list_algorithms(_: User = Depends(get_current_user)) -> list[str]:
     return list(SUPPORTED_ALGORITHMS)
 
 
 @router.post("/build", response_model=IndexResponse)
-def build_index(req: IndexBuildRequest, db: Session = Depends(get_db)) -> IndexResponse:
+def build_index(req: IndexBuildRequest, db: Session = Depends(get_db), _: User = Depends(require_researcher)) -> IndexResponse:
     obj = service.build(db, req)
     return IndexResponse.model_validate(obj)
 
@@ -36,15 +37,16 @@ def build_index(req: IndexBuildRequest, db: Session = Depends(get_db)) -> IndexR
 def list_indexes(
     dataset_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
 ) -> list[IndexResponse]:
     return [IndexResponse.model_validate(x) for x in service.list_all(db, dataset_id)]
 
 
 @router.get("/{index_id}", response_model=IndexResponse)
-def get_index(index_id: int, db: Session = Depends(get_db)) -> IndexResponse:
+def get_index(index_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> IndexResponse:
     return IndexResponse.model_validate(service.get_by_id(db, index_id))
 
 
 @router.delete("/{index_id}", status_code=204)
-def delete_index(index_id: int, db: Session = Depends(get_db)) -> None:
+def delete_index(index_id: int, db: Session = Depends(get_db), _: User = Depends(require_researcher)) -> None:
     service.delete(db, index_id)

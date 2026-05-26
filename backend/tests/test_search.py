@@ -1,6 +1,8 @@
 """检索接口测试：HTTP 端到端 + 条件过滤。"""
 from __future__ import annotations
 
+from tests.conftest import admin_token, auth_header
+
 from app.datasets import service as ds_service
 from app.datasets.schemas import DatasetRegisterRequest
 from app.index import service as idx_service
@@ -20,11 +22,13 @@ def _setup(synth_h5ad, db_session, algorithm: str = "hnsw"):
 
 
 def test_search_by_cell_returns_topk(client, synth_h5ad, db_session) -> None:
+    headers = auth_header(admin_token(client))
     _ds, idx = _setup(synth_h5ad, db_session)
 
     resp = client.post(
         "/api/search/by-cell",
         json={"index_id": idx.id, "cell_id": "cell_0042", "k": 5},
+        headers=headers,
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -37,15 +41,18 @@ def test_search_by_cell_returns_topk(client, synth_h5ad, db_session) -> None:
 
 
 def test_search_by_vector_dim_mismatch(client, synth_h5ad, db_session) -> None:
+    headers = auth_header(admin_token(client))
     _ds, idx = _setup(synth_h5ad, db_session)
     resp = client.post(
         "/api/search/by-vector",
         json={"index_id": idx.id, "vector": [0.0] * 4, "k": 5},
+        headers=headers,
     )
     assert resp.status_code == 400
 
 
 def test_search_with_filter_only_returns_matching_obs(client, synth_h5ad, db_session) -> None:
+    headers = auth_header(admin_token(client))
     _ds, idx = _setup(synth_h5ad, db_session)
     resp = client.post(
         "/api/search/by-cell",
@@ -56,6 +63,7 @@ def test_search_with_filter_only_returns_matching_obs(client, synth_h5ad, db_ses
             "filters": {"equals": {"disease": ["normal"]}},
             "oversample": 30,
         },
+        headers=headers,
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -65,18 +73,22 @@ def test_search_with_filter_only_returns_matching_obs(client, synth_h5ad, db_ses
 
 
 def test_search_unknown_cell_returns_404(client, synth_h5ad, db_session) -> None:
+    headers = auth_header(admin_token(client))
     _ds, idx = _setup(synth_h5ad, db_session)
     resp = client.post(
         "/api/search/by-cell",
         json={"index_id": idx.id, "cell_id": "ghost", "k": 5},
+        headers=headers,
     )
     assert resp.status_code == 404
 
 
 def test_index_not_ready_returns_409(client, synth_h5ad, db_session) -> None:
+    headers = auth_header(admin_token(client))
     resp = client.post(
         "/api/search/by-cell",
         json={"index_id": 999, "cell_id": "x", "k": 5},
+        headers=headers,
     )
     # 不存在 → 404
     assert resp.status_code == 404

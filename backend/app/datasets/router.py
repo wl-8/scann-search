@@ -12,7 +12,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_db
+from app.auth.models import User
+from app.core.dependencies import get_current_user, get_db, require_researcher
 from app.datasets import service
 from app.datasets.schemas import (
     CellPageResponse,
@@ -26,28 +27,28 @@ router = APIRouter()
 
 
 @router.post("/register", response_model=DatasetResponse)
-def register_dataset(req: DatasetRegisterRequest, db: Session = Depends(get_db)) -> DatasetResponse:
+def register_dataset(req: DatasetRegisterRequest, db: Session = Depends(get_db), _: User = Depends(require_researcher)) -> DatasetResponse:
     ds = service.register(db, req)
     return DatasetResponse.model_validate(ds)
 
 
 @router.get("", response_model=list[DatasetResponse])
-def list_datasets(db: Session = Depends(get_db)) -> list[DatasetResponse]:
+def list_datasets(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> list[DatasetResponse]:
     return [DatasetResponse.model_validate(d) for d in service.list_all(db)]
 
 
 @router.get("/{dataset_id}", response_model=DatasetResponse)
-def get_dataset(dataset_id: int, db: Session = Depends(get_db)) -> DatasetResponse:
+def get_dataset(dataset_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> DatasetResponse:
     return DatasetResponse.model_validate(service.get_by_id(db, dataset_id))
 
 
 @router.delete("/{dataset_id}", status_code=204)
-def delete_dataset(dataset_id: int, db: Session = Depends(get_db)) -> None:
+def delete_dataset(dataset_id: int, db: Session = Depends(get_db), _: User = Depends(require_researcher)) -> None:
     service.delete(db, dataset_id)
 
 
 @router.get("/{dataset_id}/stats", response_model=DatasetStatsResponse)
-def dataset_stats(dataset_id: int, db: Session = Depends(get_db)) -> DatasetStatsResponse:
+def dataset_stats(dataset_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> DatasetStatsResponse:
     ds = service.get_ready(db, dataset_id)
     counts = service.value_counts(ds)
     return DatasetStatsResponse(
@@ -63,6 +64,7 @@ def list_cells(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
 ) -> CellPageResponse:
     ds = service.get_ready(db, dataset_id)
     obs = service.load_obs(ds)
