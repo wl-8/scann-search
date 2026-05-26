@@ -14,18 +14,23 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from app.ann.hnsw import HNSWIndex
 from app.datasets import service as ds_service
 from app.index import service as idx_service
+from app.search import strategies as strat
 from app.search.exceptions import CellNotFound, InvalidQueryVector
 from app.search.schemas import (
     BatchHit,
     BatchSearchRequest,
     BatchSearchResponse,
+    CompareStrategiesRequest,
+    CompareStrategiesResponse,
     SearchByCellRequest,
     SearchByVectorRequest,
     SearchFilter,
     SearchHit,
     SearchResponse,
+    StrategyResult,
 )
 
 
@@ -301,5 +306,143 @@ def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
         k=req.k,
         n_returned=len(hits),
         total_latency_ms=total_ms,
+        hits=hits,
+    )
+
+
+# ---------- 过滤策略对比 ----------
+
+def compare_strategies(db: Session, req: CompareStrategiesRequest) -> CompareStrategiesResponse:
+    """在同一查询上跑三种过滤策略并返回对比结果。
+
+    Ground truth = pre-filter 的结果（在过滤后的子集上做精确暴力检索）。
+    其它策略的 recall@k 是相对 pre 的 hit 集合算的。
+    """
+    idx_obj = idx_service.get_ready(db, req.index_id)
+    ds = ds_service.get_ready(db, idx_obj.dataset_id)
+    vectors = ds_service.load_vectors(ds)
+    obs = ds_service.load_obs(ds)
+    cell_ids = ds_service.load_cell_ids(ds)
+    instance = idx_service.load_index_instance(idx_obj)
+
+    # 解析查询向量 + 排除自身行
+    exclude_row: int | None = None
+    if req.cell_id:
+        try:
+            exclude_row = ds_service.find_cell_row(ds, req.cell_id)
+        except ValueError as e:
+            raise CellNotFound(req.cell_id, ds.id) from e
+        query_vec = vectors[exclude_row]
+    else:
+        query_vec = np.asarray(req.vector, dtype=np.float32)
+        if query_vec.shape[0] != ds.vector_dim:
+            raise InvalidQueryVector(query_vec.shape[0], ds.vector_dim)
+    query_vec = _apply_metric(query_vec, req.metric)
+
+    # 选择度（决定后面 post 策略会不会"召回不足"）
+    n_total = int(vectors.shape[0])
+    allowed = strat.compute_allowed_rows(obs, req.filters)
+    if exclude_row is not None:
+        allowed_count = int((allowed != exclude_row).sum())
+    else:
+        allowed_count = int(allowed.size)
+    selectivity = allowed_count / n_total if n_total > 0 else 0.0
+
+    # 跑 pre 先得到 ground truth（不算在它自己的 recall 里，永远是 1.0）
+    pre_out = strat.pre_filter_search(
+        vectors=vectors,
+        obs=obs,
+        query_vec=query_vec,
+        k=req.k,
+        filters=req.filters,
+        exclude_row=exclude_row,
+    )
+    ground_truth_set = set(pre_out.rows)
+
+    # 依次跑用户要求的策略
+    outputs: dict[str, strat.StrategyOutput] = {}
+    for name in req.strategies:
+        if name == "pre":
+            outputs["pre"] = pre_out
+        elif name == "post":
+            outputs["post"] = strat.post_filter_search(
+                ann_index=instance,
+                query_vec=query_vec,
+                k=req.k,
+                filters=req.filters,
+                obs=obs,
+                n_total=n_total,
+                oversample=req.oversample,
+                exclude_row=exclude_row,
+            )
+        elif name == "hybrid":
+            if not isinstance(instance, HNSWIndex):
+                # 非 HNSW 算法跳过，给个占位结果便于前端展示"不支持"
+                outputs["hybrid"] = strat.StrategyOutput(
+                    rows=[], distances=[], latency_ms=0.0,
+                    extra={"skipped_reason": f"hybrid 仅支持 HNSW，当前 {idx_obj.algorithm}"},
+                )
+            else:
+                outputs["hybrid"] = strat.hybrid_hnsw_search(
+                    ann_index=instance,
+                    obs=obs,
+                    query_vec=query_vec,
+                    k=req.k,
+                    filters=req.filters,
+                    n_total=n_total,
+                    exclude_row=exclude_row,
+                )
+
+    # 组装响应
+    results = [
+        _to_strategy_result(name, outputs[name], req.k, obs, cell_ids, ground_truth_set)
+        for name in req.strategies
+        if name in outputs
+    ]
+    return CompareStrategiesResponse(
+        index_id=idx_obj.id,
+        dataset_id=ds.id,
+        algorithm=idx_obj.algorithm,
+        metric=req.metric,
+        k=req.k,
+        n_total_cells=n_total,
+        n_matching_filter=allowed_count,
+        filter_selectivity=selectivity,
+        results=results,
+    )
+
+
+def _to_strategy_result(
+    name: str,
+    out: "strat.StrategyOutput",
+    k: int,
+    obs: pd.DataFrame,
+    cell_ids: np.ndarray,
+    ground_truth: set[int],
+) -> StrategyResult:
+    hits: list[SearchHit] = []
+    for rank, (row, dist) in enumerate(zip(out.rows, out.distances), start=1):
+        hits.append(SearchHit(
+            rank=rank,
+            cell_id=str(cell_ids[row]),
+            row_index=int(row),
+            distance=float(dist),
+            obs={col: _jsonable(obs.iloc[row][col]) for col in obs.columns},
+        ))
+
+    if name == "pre":
+        recall = 1.0 if hits else 0.0
+    elif not ground_truth:
+        recall = 0.0
+    else:
+        recall = len(set(out.rows) & ground_truth) / len(ground_truth)
+
+    return StrategyResult(
+        strategy=name,
+        n_returned=len(hits),
+        requested_k=k,
+        latency_ms=out.latency_ms,
+        recall_at_k=recall,
+        extra=out.extra,
         hits=hits,
     )

@@ -1,9 +1,10 @@
 """检索路由。
 
-POST /api/search/by-cell    给 cell_id，返回相似细胞
-POST /api/search/by-vector  给原始向量，返回相似细胞
-POST /api/search/batch      给多个 cell_id，聚合检索结果
-三个接口都支持 obs 字段过滤和 cosine/l2 距离选择。
+POST /api/search/by-cell             给 cell_id，返回相似细胞
+POST /api/search/by-vector           给原始向量，返回相似细胞
+POST /api/search/batch               给多个 cell_id，聚合检索结果
+POST /api/search/compare-strategies  对同一查询跑 post/pre/hybrid 三种过滤策略并对比
+前 3 个接口都支持 obs 字段过滤和 cosine/l2 距离选择。
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -14,6 +15,8 @@ from app.search import service
 from app.search.schemas import (
     BatchSearchRequest,
     BatchSearchResponse,
+    CompareStrategiesRequest,
+    CompareStrategiesResponse,
     SearchByCellRequest,
     SearchByVectorRequest,
     SearchResponse,
@@ -47,3 +50,17 @@ def search_batch(
     _: User = Depends(get_current_user),
 ) -> BatchSearchResponse:
     return service.search_batch(db, req)
+
+
+@router.post("/compare-strategies", response_model=CompareStrategiesResponse)
+def compare_strategies(
+    req: CompareStrategiesRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> CompareStrategiesResponse:
+    """跑 post/pre/hybrid 三种过滤策略并返回 recall × latency × n_returned 对比。
+
+    用例：低选择度查询（罕见 cell_type）下，post 通常返回不足 k 个，
+    pre 永远精确，hybrid 在 HNSW 上是性能折中。
+    """
+    return service.compare_strategies(db, req)
