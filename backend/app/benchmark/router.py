@@ -1,9 +1,10 @@
 """性能评测路由。
 
-POST /api/benchmark/run                  跑一批多算法对比
-GET  /api/benchmark/runs                 所有评测记录（可按 dataset_id 过滤）
-GET  /api/benchmark/runs/{id}            某条记录详情
-GET  /api/benchmark/batches/{batch_id}   某一批跑批的所有结果
+POST   /api/benchmark/run              跑一批多算法对比（researcher+）
+GET    /api/benchmark/batches          批次列表（?dataset_id= ?label= 过滤）
+GET    /api/benchmark/batches/{id}     批次详情，含嵌套结果
+DELETE /api/benchmark/batches/{id}     删除批次（级联删结果，researcher+）
+GET    /api/benchmark/results/{id}     单条结果详情
 """
 from __future__ import annotations
 
@@ -15,42 +16,58 @@ from sqlalchemy.orm import Session
 from app.auth.models import User
 from app.benchmark import service
 from app.benchmark.schemas import (
+    BenchmarkBatchDetail,
+    BenchmarkBatchItem,
     BenchmarkResultItem,
     BenchmarkRunRequest,
-    BenchmarkRunResponse,
 )
-from app.core.dependencies import get_db, require_researcher
+from app.core.dependencies import get_current_user, get_db, require_researcher
 
 router = APIRouter()
 
 
-@router.post("/run", response_model=BenchmarkRunResponse)
-def run_benchmark(req: BenchmarkRunRequest, db: Session = Depends(get_db), _: User = Depends(require_researcher)) -> BenchmarkRunResponse:
-    rows = service.run(db, req)
-    items = [BenchmarkResultItem.model_validate(r) for r in rows]
-    return BenchmarkRunResponse(
-        batch_id=rows[0].batch_id,
-        dataset_id=req.dataset_id,
-        k=req.k,
-        n_queries=req.n_queries,
-        results=items,
-    )
-
-
-@router.get("/runs", response_model=list[BenchmarkResultItem])
-def list_runs(
-    dataset_id: Optional[int] = Query(default=None),
+@router.post("/run", response_model=BenchmarkBatchDetail, status_code=201)
+def run_benchmark(
+    req: BenchmarkRunRequest,
     db: Session = Depends(get_db),
     _: User = Depends(require_researcher),
-) -> list[BenchmarkResultItem]:
-    return [BenchmarkResultItem.model_validate(x) for x in service.list_all(db, dataset_id)]
+) -> BenchmarkBatchDetail:
+    batch = service.run(db, req)
+    return BenchmarkBatchDetail.model_validate(batch)
 
 
-@router.get("/runs/{run_id}", response_model=BenchmarkResultItem)
-def get_run(run_id: int, db: Session = Depends(get_db), _: User = Depends(require_researcher)) -> BenchmarkResultItem:
-    return BenchmarkResultItem.model_validate(service.get_by_id(db, run_id))
+@router.get("/batches", response_model=list[BenchmarkBatchItem])
+def list_batches(
+    dataset_id: Optional[int] = Query(default=None),
+    label: Optional[str] = Query(default=None, description="标签模糊匹配"),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> list[BenchmarkBatchItem]:
+    return [BenchmarkBatchItem.model_validate(b) for b in service.list_batches(db, dataset_id, label)]
 
 
-@router.get("/batches/{batch_id}", response_model=list[BenchmarkResultItem])
-def get_batch(batch_id: str, db: Session = Depends(get_db), _: User = Depends(require_researcher)) -> list[BenchmarkResultItem]:
-    return [BenchmarkResultItem.model_validate(x) for x in service.list_batch(db, batch_id)]
+@router.get("/batches/{batch_id}", response_model=BenchmarkBatchDetail)
+def get_batch(
+    batch_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> BenchmarkBatchDetail:
+    return BenchmarkBatchDetail.model_validate(service.get_batch(db, batch_id))
+
+
+@router.delete("/batches/{batch_id}", status_code=204)
+def delete_batch(
+    batch_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_researcher),
+) -> None:
+    service.delete_batch(db, batch_id)
+
+
+@router.get("/results/{result_id}", response_model=BenchmarkResultItem)
+def get_result(
+    result_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> BenchmarkResultItem:
+    return BenchmarkResultItem.model_validate(service.get_result(db, result_id))

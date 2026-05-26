@@ -49,3 +49,24 @@ class CellPageResponse(BaseModel):
     offset: int
     limit: int
     items: list[CellResponse]
+
+
+class FilterSpec(BaseModel):
+    equals: dict[str, list[str]] = Field(default_factory=dict)
+    gte: dict[str, float] = Field(default_factory=dict)
+    lte: dict[str, float] = Field(default_factory=dict)
+
+
+class CellFilterRequest(BaseModel):
+    """按 obs 字段条件过滤细胞，不走 ANN 索引。"""
+    filters: FilterSpec
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=50, ge=1, le=500)
+
+
+class CellFilterResponse(BaseModel):
+    dataset_id: int
+    total_matched: int
+    offset: int
+    limit: int
+    items: list[CellResponse]

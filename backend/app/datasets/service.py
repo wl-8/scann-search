@@ -126,11 +126,19 @@ def register(db: Session, req: DatasetRegisterRequest) -> Dataset:
 
 def delete(db: Session, dataset_id: int) -> None:
     ds = get_by_id(db, dataset_id)
-    # 删工件
+
+    # 先清理关联索引（文件 + 缓存 + DB 记录）
+    from sqlalchemy import select
+    from app.index.models import Index as IndexModel
+    from app.index import service as idx_service
+    for idx in db.scalars(select(IndexModel).where(IndexModel.dataset_id == dataset_id)):
+        idx_service.delete(db, idx.id)
+
+    # 删三个工件文件
     for p in (ds.vectors_path, ds.cell_ids_path, ds.obs_path):
         if p and Path(p).exists():
             Path(p).unlink(missing_ok=True)
-    # 注：关联索引的级联删除由 index.service 负责，此处只把数据集标记为 deleted 留痕。
+
     ds.status = ds_const.STATUS_DELETED
     db.commit()
 
@@ -162,6 +170,62 @@ def find_cell_row(ds: Dataset, cell_id: str) -> int:
     if matches.size == 0:
         raise ValueError(f"数据集 {ds.id} 中找不到 cell_id='{cell_id}'")
     return int(matches[0])
+
+
+def filter_cells(
+    ds: Dataset,
+    filters,
+    offset: int = 0,
+    limit: int = 50,
+    *,
+    cache_for: int | None = None,
+) -> tuple[list[dict], int]:
+    """按 obs 条件过滤细胞，返回 (items, total_matched)。不走 ANN。"""
+    obs = load_obs(ds)
+    cell_ids = load_cell_ids(ds)
+
+    mask = pd.Series([True] * len(obs), index=obs.index)
+    for col, allowed in filters.equals.items():
+        if col in obs.columns:
+            mask &= obs[col].astype(str).isin(allowed)
+        else:
+            mask &= False
+    for col, threshold in filters.gte.items():
+        if col in obs.columns:
+            mask &= pd.to_numeric(obs[col], errors="coerce") >= threshold
+        else:
+            mask &= False
+    for col, threshold in filters.lte.items():
+        if col in obs.columns:
+            mask &= pd.to_numeric(obs[col], errors="coerce") <= threshold
+        else:
+            mask &= False
+
+    matched_indices = mask[mask].index
+    total = len(matched_indices)
+
+    items = []
+    for idx in matched_indices[offset: offset + limit]:
+        row_index = obs.index.get_loc(idx)
+        obs_row = {col: _to_jsonable_val(obs.loc[idx, col]) for col in obs.columns}
+        items.append({
+            "cell_id": str(cell_ids[row_index]),
+            "row_index": int(row_index),
+            "obs": obs_row,
+        })
+    if cache_for is not None:
+        from app.export.cache import filter_cache
+        filter_cache[cache_for] = (ds.id, filters)
+    return items, total
+
+
+def _to_jsonable_val(v):
+    import math
+    if isinstance(v, float) and math.isnan(v):
+        return None
+    if hasattr(v, "item"):
+        return v.item()
+    return v if isinstance(v, (str, int, float, bool, type(None))) else str(v)
 
 
 def value_counts(ds: Dataset, max_unique_per_col: int = 50) -> dict[str, dict[str, int]]:

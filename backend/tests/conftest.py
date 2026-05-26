@@ -57,6 +57,7 @@ def db_session(isolated_settings):
 def client(isolated_settings):
     """TestClient：与 db_session 共享同一临时 SQLite，管理员账号由 init_db() 创建。"""
     from app.db.session import SessionLocal
+    from app.export import cache as export_cache
 
     def _override_get_db():
         db = SessionLocal()
@@ -66,6 +67,8 @@ def client(isolated_settings):
             db.close()
 
     app.dependency_overrides[get_db] = _override_get_db
+    export_cache.search_cache.clear()
+    export_cache.filter_cache.clear()
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

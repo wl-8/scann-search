@@ -29,7 +29,7 @@ from app.search.schemas import (
 )
 
 
-def search_by_cell(db: Session, req: SearchByCellRequest) -> SearchResponse:
+def search_by_cell(db: Session, req: SearchByCellRequest, *, cache_for: int | None = None) -> SearchResponse:
     idx_obj = idx_service.get_ready(db, req.index_id)
     ds = ds_service.get_ready(db, idx_obj.dataset_id)
     vectors = ds_service.load_vectors(ds)
@@ -41,7 +41,7 @@ def search_by_cell(db: Session, req: SearchByCellRequest) -> SearchResponse:
 
     query_vec = _apply_metric(vectors[row], req.metric)
     oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
-    return _execute_search(
+    result = _execute_search(
         db=db,
         index_obj=idx_obj,
         dataset=ds,
@@ -52,9 +52,13 @@ def search_by_cell(db: Session, req: SearchByCellRequest) -> SearchResponse:
         exclude_row=row,
         metric=req.metric,
     )
+    if cache_for is not None:
+        from app.export.cache import search_cache
+        search_cache[cache_for] = result
+    return result
 
 
-def search_by_vector(db: Session, req: SearchByVectorRequest) -> SearchResponse:
+def search_by_vector(db: Session, req: SearchByVectorRequest, *, cache_for: int | None = None) -> SearchResponse:
     idx_obj = idx_service.get_ready(db, req.index_id)
     ds = ds_service.get_ready(db, idx_obj.dataset_id)
 
@@ -64,7 +68,7 @@ def search_by_vector(db: Session, req: SearchByVectorRequest) -> SearchResponse:
 
     query_vec = _apply_metric(query_vec, req.metric)
     oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
-    return _execute_search(
+    result = _execute_search(
         db=db,
         index_obj=idx_obj,
         dataset=ds,
@@ -74,6 +78,10 @@ def search_by_vector(db: Session, req: SearchByVectorRequest) -> SearchResponse:
         oversample=oversample,
         metric=req.metric,
     )
+    if cache_for is not None:
+        from app.export.cache import search_cache
+        search_cache[cache_for] = result
+    return result
 
 
 # ---------- 自适应 oversample ----------
@@ -261,14 +269,13 @@ def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
     n_queries = len(req.cell_ids)
     if req.aggregate == "intersection":
         candidates = {r: ds for r, ds in accum.items() if len(ds) == n_queries}
+        sort_key = lambda item: sum(item[1]) / len(item[1])  # noqa: E731
     elif req.aggregate == "union":
         candidates = accum
-    else:  # ranked
+        sort_key = lambda item: sum(item[1]) / len(item[1])  # noqa: E731
+    else:  # ranked: hit_count desc, then avg_dist asc
         candidates = accum
-
-    def sort_key(item: tuple[int, list[float]]) -> tuple[int, float]:
-        r, ds = item
-        return (-len(ds), sum(ds) / len(ds))
+        sort_key = lambda item: (-len(item[1]), sum(item[1]) / len(item[1]))  # noqa: E731
 
     sorted_rows = sorted(candidates.items(), key=sort_key)[: req.k]
 
