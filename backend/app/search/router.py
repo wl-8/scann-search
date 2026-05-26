@@ -23,15 +23,27 @@ router = APIRouter()
 
 
 @router.post("/by-cell", response_model=SearchResponse)
-def search_by_cell(req: SearchByCellRequest, db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> SearchResponse:
-    return service.search_by_cell(db, req)
+def search_by_cell(
+    req: SearchByCellRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SearchResponse:
+    return service.search_by_cell(db, req, cache_for=current_user.id)
 
 
 @router.post("/by-vector", response_model=SearchResponse)
-def search_by_vector(req: SearchByVectorRequest, db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> SearchResponse:
-    return service.search_by_vector(db, req)
+def search_by_vector(
+    req: SearchByVectorRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SearchResponse:
+    return service.search_by_vector(db, req, cache_for=current_user.id)
 
 
 @router.post("/batch", response_model=BatchSearchResponse)
-def search_batch(req: BatchSearchRequest, db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> BatchSearchResponse:
+def search_batch(
+    req: BatchSearchRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> BatchSearchResponse:
     return service.search_batch(db, req)

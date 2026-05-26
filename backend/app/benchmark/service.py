@@ -3,9 +3,9 @@
 跑批协议：
 1. 取数据集向量。
 2. 用 seed 抽 n_queries 条作为查询集（自身在结果里会被剔除）。
-3. 用 FlatL2 暴力检索得到 ground truth top-k（这一步会自动注入 algorithms 列表前；如果用户已经选 flat 也只跑一次）。
+3. 用 FlatL2 暴力检索得到 ground truth top-k。
 4. 对每个 (algorithm, params)：构建索引 → 计时 → 跑所有查询 → 算 recall@k / 延迟分布 / QPS / 索引体积。
-5. 一次性写库，同一 batch_id。
+5. 写一行 BenchmarkBatch + N 行 BenchmarkResult。
 
 为什么不直接复用已有的 Index 表？
 - benchmark 跑的索引是临时的（评测完即可丢），混进 Index 表会污染"用户/管理员可见"的索引列表。
@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 import time
-import uuid
 from pathlib import Path
 
 import numpy as np
@@ -24,8 +23,8 @@ from sqlalchemy.orm import Session
 
 from app.ann.base import BaseANNIndex
 from app.ann.factory import SUPPORTED_ALGORITHMS, create_index
-from app.benchmark.exceptions import BenchmarkBatchNotFound, BenchmarkRunNotFound
-from app.benchmark.models import BenchmarkRun
+from app.benchmark.exceptions import BenchmarkBatchNotFound, BenchmarkResultNotFound
+from app.benchmark.models import BenchmarkBatch, BenchmarkResult
 from app.benchmark.schemas import AlgorithmConfig, BenchmarkRunRequest
 from app.core.config import settings
 from app.datasets import service as ds_service
@@ -37,7 +36,7 @@ logger = logging.getLogger(__name__)
 GROUND_TRUTH_ALGO = idx_const.ALGO_FLAT
 
 
-def run(db: Session, req: BenchmarkRunRequest) -> list[BenchmarkRun]:
+def run(db: Session, req: BenchmarkRunRequest) -> BenchmarkBatch:
     for cfg in req.algorithms:
         if cfg.algorithm not in SUPPORTED_ALGORITHMS:
             raise UnsupportedAlgorithm(cfg.algorithm, SUPPORTED_ALGORITHMS)
@@ -50,23 +49,28 @@ def run(db: Session, req: BenchmarkRunRequest) -> list[BenchmarkRun]:
     rng = np.random.default_rng(req.seed)
     query_rows = rng.choice(n_total, size=n_queries, replace=False).astype(np.int64)
     queries = vectors[query_rows]
-    excluded = set(query_rows.tolist())
 
-    # 1) ground truth: 用 FlatL2 取 k+1（多取 1 个用于剔除查询自身）
-    fetch_k = req.k + 1
+    # ground truth: FlatL2，多取 1 个用于剔除查询自身
     gt_index = create_index(GROUND_TRUTH_ALGO, dim=vectors.shape[1])
     gt_index.build(vectors)
-    truth = _query_all(gt_index, queries, k=fetch_k)
-    truth_topk = _drop_self(truth, query_rows, k=req.k)
+    truth_raw = _query_all(gt_index, queries, k=req.k + 1)
+    truth_topk = _drop_self(truth_raw, query_rows, k=req.k)
 
-    # 2) 逐算法评测
-    batch_id = uuid.uuid4().hex[:12]
-    out: list[BenchmarkRun] = []
+    label = req.label.strip() or _default_label(req.dataset_id, req.algorithms)
+
+    batch = BenchmarkBatch(
+        label=label,
+        dataset_id=ds.id,
+        k=req.k,
+        n_queries=int(queries.shape[0]),
+        seed=req.seed,
+    )
+    db.add(batch)
+    db.flush()  # 获取 batch.id，后续结果行引用它
+
     for cfg in req.algorithms:
-        run_row = _benchmark_one(
-            db=db,
-            dataset_id=ds.id,
-            batch_id=batch_id,
+        result = _benchmark_one(
+            batch_id=batch.id,
             cfg=cfg,
             vectors=vectors,
             queries=queries,
@@ -74,46 +78,75 @@ def run(db: Session, req: BenchmarkRunRequest) -> list[BenchmarkRun]:
             truth_topk=truth_topk,
             k=req.k,
         )
-        out.append(run_row)
+        db.add(result)
 
-    return out
-
-
-def list_batch(db: Session, batch_id: str) -> list[BenchmarkRun]:
-    rows = list(db.scalars(select(BenchmarkRun).where(BenchmarkRun.batch_id == batch_id)
-                           .order_by(BenchmarkRun.id.asc())))
-    if not rows:
-        raise BenchmarkBatchNotFound(batch_id)
-    return rows
+    db.commit()
+    db.refresh(batch)
+    return batch
 
 
-def list_all(db: Session, dataset_id: int | None = None) -> list[BenchmarkRun]:
-    stmt = select(BenchmarkRun).order_by(BenchmarkRun.id.desc())
+def list_batches(
+    db: Session,
+    dataset_id: int | None = None,
+    label: str | None = None,
+) -> list[BenchmarkBatch]:
+    stmt = select(BenchmarkBatch).order_by(BenchmarkBatch.id.desc())
     if dataset_id is not None:
-        stmt = stmt.where(BenchmarkRun.dataset_id == dataset_id)
+        stmt = stmt.where(BenchmarkBatch.dataset_id == dataset_id)
+    if label:
+        stmt = stmt.where(BenchmarkBatch.label.contains(label))
     return list(db.scalars(stmt))
 
 
-def get_by_id(db: Session, run_id: int) -> BenchmarkRun:
-    obj = db.get(BenchmarkRun, run_id)
+def get_batch(db: Session, batch_id: int) -> BenchmarkBatch:
+    obj = db.get(BenchmarkBatch, batch_id)
     if obj is None:
-        raise BenchmarkRunNotFound(run_id)
+        raise BenchmarkBatchNotFound(batch_id)
     return obj
+
+
+def delete_batch(db: Session, batch_id: int) -> None:
+    obj = db.get(BenchmarkBatch, batch_id)
+    if obj is None:
+        raise BenchmarkBatchNotFound(batch_id)
+    db.delete(obj)
+    db.commit()
+
+
+def get_result(db: Session, result_id: int) -> BenchmarkResult:
+    obj = db.get(BenchmarkResult, result_id)
+    if obj is None:
+        raise BenchmarkResultNotFound(result_id)
+    return obj
+
+
+def get_batches_for_export(db: Session, batch_ids: list[int]) -> list[BenchmarkBatch]:
+    """按 id 列表获取多批，保持传入顺序，缺失的批次直接跳过（不报错）。"""
+    rows = list(db.scalars(select(BenchmarkBatch).where(BenchmarkBatch.id.in_(batch_ids))))
+    id_order = {bid: i for i, bid in enumerate(batch_ids)}
+    return sorted(rows, key=lambda b: id_order.get(b.id, 999))
 
 
 # ---------- 内部 ----------
 
+def _default_label(dataset_id: int, algorithms: list[AlgorithmConfig]) -> str:
+    algos = [a.algorithm for a in algorithms]
+    if len(algos) <= 3:
+        algo_str = "+".join(algos)
+    else:
+        algo_str = "+".join(algos[:3]) + f"+{len(algos) - 3}more"
+    return f"ds{dataset_id}_{algo_str}"
+
+
 def _benchmark_one(
-    db: Session,
-    dataset_id: int,
-    batch_id: str,
+    batch_id: int,
     cfg: AlgorithmConfig,
     vectors: np.ndarray,
     queries: np.ndarray,
     query_rows: np.ndarray,
     truth_topk: list[set[int]],
     k: int,
-) -> BenchmarkRun:
+) -> BenchmarkResult:
     index = create_index(cfg.algorithm, dim=vectors.shape[1], **cfg.params)
 
     t0 = time.perf_counter()
@@ -128,13 +161,11 @@ def _benchmark_one(
         index_size = _size_with_sidecars(tmp_path)
     finally:
         for p in [tmp_path, tmp_path.with_suffix(tmp_path.suffix + ".ids.npy")]:
-            if p.exists():
-                p.unlink(missing_ok=True)
+            p.unlink(missing_ok=True)
 
-    # 查询 + 计时
+    fetch_k = k + 1
     latencies_ms: list[float] = []
     hits_per_query: list[set[int]] = []
-    fetch_k = k + 1  # 多取 1 个用于剔除查询自身
     for qi, q in enumerate(queries):
         t1 = time.perf_counter()
         rows, _ = index.search(q, k=fetch_k)
@@ -146,13 +177,14 @@ def _benchmark_one(
     lat_arr = np.asarray(latencies_ms, dtype=np.float64)
     qps = 1000.0 / lat_arr.mean() if lat_arr.mean() > 0 else float("inf")
 
-    row = BenchmarkRun(
-        dataset_id=dataset_id,
+    logger.info(
+        "benchmark batch=%d/%s: recall@%d=%.4f avg=%.2fms p95=%.2fms qps=%.0f",
+        batch_id, cfg.algorithm, k, recall, lat_arr.mean(), np.percentile(lat_arr, 95), qps,
+    )
+    return BenchmarkResult(
         batch_id=batch_id,
         algorithm=cfg.algorithm,
         params=dict(cfg.params),
-        k=k,
-        n_queries=int(queries.shape[0]),
         recall_at_k=float(recall),
         avg_latency_ms=float(lat_arr.mean()),
         p50_latency_ms=float(np.percentile(lat_arr, 50)),
@@ -162,39 +194,23 @@ def _benchmark_one(
         build_time_ms=float(build_ms),
         index_size_bytes=int(index_size),
     )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    logger.info(
-        "benchmark %s/%s: recall@%d=%.4f avg=%.2fms p95=%.2fms qps=%.0f",
-        batch_id, cfg.algorithm, k, recall, lat_arr.mean(), np.percentile(lat_arr, 95), qps,
-    )
-    return row
 
 
 def _query_all(index: BaseANNIndex, queries: np.ndarray, k: int) -> list[list[int]]:
-    out = []
-    for q in queries:
-        rows, _ = index.search(q, k=k)
-        out.append(rows)
-    return out
+    return [index.search(q, k=k)[0] for q in queries]
 
 
 def _drop_self(neighbors: list[list[int]], query_rows: np.ndarray, k: int) -> list[set[int]]:
-    out: list[set[int]] = []
-    for rows, qr in zip(neighbors, query_rows.tolist()):
-        filtered = [r for r in rows if r != qr][:k]
-        out.append(set(filtered))
-    return out
+    return [
+        set([r for r in rows if r != qr][:k])
+        for rows, qr in zip(neighbors, query_rows.tolist())
+    ]
 
 
 def _recall_at_k(predicted: list[set[int]], truth: list[set[int]]) -> float:
-    """sum(|pred ∩ truth|) / sum(|truth|) —— micro-average。"""
-    inter = 0
-    denom = 0
-    for p, t in zip(predicted, truth):
-        inter += len(p & t)
-        denom += len(t)
+    """micro-average recall@k = sum(|pred ∩ truth|) / sum(|truth|)。"""
+    inter = sum(len(p & t) for p, t in zip(predicted, truth))
+    denom = sum(len(t) for t in truth)
     return inter / denom if denom > 0 else 0.0
 
 

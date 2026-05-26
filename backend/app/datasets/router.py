@@ -91,10 +91,10 @@ def filter_cells(
     dataset_id: int,
     req: CellFilterRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> CellFilterResponse:
     ds = service.get_ready(db, dataset_id)
-    items, total = service.filter_cells(ds, req.filters, req.offset, req.limit)
+    items, total = service.filter_cells(ds, req.filters, req.offset, req.limit, cache_for=current_user.id)
     return CellFilterResponse(
         dataset_id=ds.id,
         total_matched=total,

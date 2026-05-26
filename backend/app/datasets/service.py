@@ -177,6 +177,8 @@ def filter_cells(
     filters,
     offset: int = 0,
     limit: int = 50,
+    *,
+    cache_for: int | None = None,
 ) -> tuple[list[dict], int]:
     """按 obs 条件过滤细胞，返回 (items, total_matched)。不走 ANN。"""
     obs = load_obs(ds)
@@ -211,6 +213,9 @@ def filter_cells(
             "row_index": int(row_index),
             "obs": obs_row,
         })
+    if cache_for is not None:
+        from app.export.cache import filter_cache
+        filter_cache[cache_for] = (ds.id, filters)
     return items, total
 
 
