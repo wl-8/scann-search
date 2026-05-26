@@ -1,0 +1,10 @@
+scenario,selectivity,n_matching,n_queries,k,strategy,n_returned_avg,recall_at_k_avg,latency_ms_avg
+高选择度 cell_type=endothelial cell of hepatic sinusoid (16198 cells),0.2346303163750145,16197,5,10,post,10,1.0,1.4872399624437094
+高选择度 cell_type=endothelial cell of hepatic sinusoid (16198 cells),0.2346303163750145,16197,5,10,pre,10,1.0,6.110679963603616
+高选择度 cell_type=endothelial cell of hepatic sinusoid (16198 cells),0.2346303163750145,16197,5,10,hybrid,10,1.0,4.389979969710112
+中选择度 cell_type=mature B cell (2248 cells),0.03255012168269788,2247,5,10,post,10,1.0,1.4783000573515892
+中选择度 cell_type=mature B cell (2248 cells),0.03255012168269788,2247,5,10,pre,10,1.0,2.3771800566464663
+中选择度 cell_type=mature B cell (2248 cells),0.03255012168269788,2247,5,10,hybrid,10,1.0,2.2648599930107594
+低选择度 cell_type=conventional dendritic cell (38 cells),0.000535983312087148,37,5,10,post,10,1.0,1.8826399464160204
+低选择度 cell_type=conventional dendritic cell (38 cells),0.000535983312087148,37,5,10,pre,10,1.0,1.7650400754064322
+低选择度 cell_type=conventional dendritic cell (38 cells),0.000535983312087148,37,5,10,hybrid,10,1.0,57.794619956985116
