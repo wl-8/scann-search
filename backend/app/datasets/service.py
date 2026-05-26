@@ -126,11 +126,19 @@ def register(db: Session, req: DatasetRegisterRequest) -> Dataset:
 
 def delete(db: Session, dataset_id: int) -> None:
     ds = get_by_id(db, dataset_id)
-    # 删工件
+
+    # 先清理关联索引（文件 + 缓存 + DB 记录）
+    from sqlalchemy import select
+    from app.index.models import Index as IndexModel
+    from app.index import service as idx_service
+    for idx in db.scalars(select(IndexModel).where(IndexModel.dataset_id == dataset_id)):
+        idx_service.delete(db, idx.id)
+
+    # 删三个工件文件
     for p in (ds.vectors_path, ds.cell_ids_path, ds.obs_path):
         if p and Path(p).exists():
             Path(p).unlink(missing_ok=True)
-    # 注：关联索引的级联删除由 index.service 负责，此处只把数据集标记为 deleted 留痕。
+
     ds.status = ds_const.STATUS_DELETED
     db.commit()
 
