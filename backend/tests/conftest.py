@@ -1,8 +1,7 @@
-"""共享测试夹具：合成数据集 + 测试数据库 + FastAPI TestClient。
+"""共享测试夹具：合成数据集 + 隔离数据库 + FastAPI TestClient。
 
-两种隔离策略并存：
-- StaticPool 内存 DB：用于 auth/users 的 API 级测试，快速且无需文件 I/O
-- isolated_settings：为 ANN datasets/index/search/benchmark 提供完全隔离的临时 SQLite 和文件目录
+每个测试得到独立的临时 SQLite 和文件目录（isolated_settings），
+client 与 db_session 共享同一数据库，保证 HTTP 层测试与服务层测试的数据一致。
 """
 from __future__ import annotations
 
@@ -10,97 +9,22 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.core.dependencies import get_db
-from app.db.base import Base
 from app.main import app
 
-# ─── StaticPool 内存引擎（auth/users 测试专用） ───────────────────────────────
 
-engine = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def override_get_db():
-    db = TestingSession()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def setup_db():
-    """建表 + 创建默认管理员（整个 test session 只跑一次）。"""
-    from app.auth.models import User  # noqa: F401
-    from app.datasets import models as _ds  # noqa: F401
-    from app.index import models as _idx  # noqa: F401
-    from app.benchmark import models as _bm  # noqa: F401
-    Base.metadata.create_all(bind=engine)
-
-    from app.auth.constants import ACCOUNT_NORMAL, REVIEW_APPROVED, ROLE_ADMIN
-    from app.core.security import hash_password
-    db = TestingSession()
-    try:
-        if not db.query(User).filter(User.role == ROLE_ADMIN).first():
-            db.add(User(
-                username="admin",
-                email="admin@scann.local",
-                hashed_password=hash_password("Admin@123456"),
-                role=ROLE_ADMIN,
-                review_status=REVIEW_APPROVED,
-                account_status=ACCOUNT_NORMAL,
-            ))
-            db.commit()
-    finally:
-        db.close()
-
-
-@pytest.fixture(autouse=True)
-def clean_non_admin(setup_db):
-    """每个测试前清理非管理员用户，保证测试互不影响。"""
-    from app.auth.models import User
-    from app.auth.constants import ROLE_ADMIN
-    db = TestingSession()
-    try:
-        db.query(User).filter(User.role != ROLE_ADMIN).delete()
-        db.commit()
-    finally:
-        db.close()
-
-
-@pytest.fixture
-def client(tmp_path: Path, monkeypatch):
-    """TestClient：StaticPool DB + 临时文件目录（auth/users 测试使用）。"""
-    from app.core import config as cfg
-    (tmp_path / "uploads").mkdir()
-    (tmp_path / "indexes").mkdir()
-    monkeypatch.setattr(cfg.settings, "UPLOAD_DIR", str(tmp_path / "uploads"))
-    monkeypatch.setattr(cfg.settings, "INDEX_DIR", str(tmp_path / "indexes"))
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
-    app.dependency_overrides.clear()
-
-
-# ─── ANN 测试：隔离设置 + 临时 SQLite ────────────────────────────────────────
+# ─── 隔离设置（每个测试独立 SQLite + 临时目录） ──────────────────────────────
 
 @pytest.fixture
 def isolated_settings(tmp_path: Path, monkeypatch) -> Path:
-    """把 settings 的目录和 DB 全部指向 tmp_path，保证 ANN 测试完全隔离。"""
+    """把 settings 的目录和 DB 全部指向 tmp_path，调用 init_db() 建表并创建管理员。"""
     from app.core import config as cfg
 
     upload = tmp_path / "uploads"
     indexes = tmp_path / "indexes"
-    upload.mkdir()
-    indexes.mkdir()
+    upload.mkdir(exist_ok=True)
+    indexes.mkdir(exist_ok=True)
 
     monkeypatch.setattr(cfg.settings, "UPLOAD_DIR", str(upload))
     monkeypatch.setattr(cfg.settings, "INDEX_DIR", str(indexes))
@@ -120,13 +44,31 @@ def isolated_settings(tmp_path: Path, monkeypatch) -> Path:
 
 @pytest.fixture
 def db_session(isolated_settings):
-    """直接 DB session，供 ANN 服务层测试使用。"""
+    """直接 DB session，供服务层测试使用。"""
     from app.db.session import SessionLocal
     sess = SessionLocal()
     try:
         yield sess
     finally:
         sess.close()
+
+
+@pytest.fixture
+def client(isolated_settings):
+    """TestClient：与 db_session 共享同一临时 SQLite，管理员账号由 init_db() 创建。"""
+    from app.db.session import SessionLocal
+
+    def _override_get_db():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = _override_get_db
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
 
 
 # ─── ANN 合成数据 ──────────────────────────────────────────────────────────────
