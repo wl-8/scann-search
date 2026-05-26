@@ -261,14 +261,13 @@ def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
     n_queries = len(req.cell_ids)
     if req.aggregate == "intersection":
         candidates = {r: ds for r, ds in accum.items() if len(ds) == n_queries}
+        sort_key = lambda item: sum(item[1]) / len(item[1])  # noqa: E731
     elif req.aggregate == "union":
         candidates = accum
-    else:  # ranked
+        sort_key = lambda item: sum(item[1]) / len(item[1])  # noqa: E731
+    else:  # ranked: hit_count desc, then avg_dist asc
         candidates = accum
-
-    def sort_key(item: tuple[int, list[float]]) -> tuple[int, float]:
-        r, ds = item
-        return (-len(ds), sum(ds) / len(ds))
+        sort_key = lambda item: (-len(item[1]), sum(item[1]) / len(item[1]))  # noqa: E731
 
     sorted_rows = sorted(candidates.items(), key=sort_key)[: req.k]
 
