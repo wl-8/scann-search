@@ -5,6 +5,9 @@ env/
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
+.Python
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -12,6 +15,8 @@ __pycache__/
 .coverage.*
 coverage.xml
 htmlcov/
+*.egg-info/
+build/
 
 # Local environment files
 .env
@@ -22,20 +27,11 @@ frontend/.env
 
 # Backend runtime state
 backend/data/
+
+# Database
 *.db
 *.sqlite
 *.sqlite3
-
-# Frontend dependencies and build output
-node_modules/
-frontend/node_modules/
-dist/
-frontend/dist/
-coverage/
-frontend/coverage/
-*.tsbuildinfo
-vite.config.*.timestamp-*
-vitest.config.*.timestamp-*
 
 # Data and generated artifacts
 data/uploads/
@@ -56,6 +52,19 @@ data/indexes/
 !data/
 !data/**/*.md
 
+# Frontend dependencies and build output
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+coverage/
+frontend/coverage/
+*.tsbuildinfo
+vite.config.*.timestamp-*
+vitest.config.*.timestamp-*
+.next/
+*.local
+
 # Logs and temporary files
 *.log
 logs/
@@ -69,6 +78,8 @@ temp/
 # OS and IDE files
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
 .vscode/
 .idea/
 

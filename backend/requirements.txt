@@ -1,15 +1,15 @@
 # pip-only 依赖。
 # 二进制包（numpy / scipy / pandas / pyarrow / faiss-cpu / hnswlib / scanpy / anndata / plotly）
-# 请用 environment.yml 通过 conda-forge 安装，避免 Windows 上 pip 编译 C++ 失败。
-fastapi
-uvicorn[standard]
-sqlalchemy
-pydantic
-pydantic-settings
-python-jose[cryptography]
-passlib[bcrypt]
-python-multipart
-aiofiles
-pytest
-pytest-asyncio
-httpx
+# 请用 environment.yml 通过 conda-forge 安装，避免 pip 编译 C++ 失败。
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+sqlalchemy>=2.0.0
+pydantic[email]>=2.0.0
+pydantic-settings>=2.0.0
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.0.0
+python-multipart>=0.0.9
+aiofiles>=23.0.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0
