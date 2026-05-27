@@ -70,3 +70,8 @@ class CellFilterResponse(BaseModel):
     offset: int
     limit: int
     items: list[CellResponse]
+
+
+class EmbeddingChangeRequest(BaseModel):
+    """切换数据集的检索向量（obsm key）。"""
+    embedding_key: str = Field(description="新的 obsm key，如 'X_umap'，必须存在于原始 .h5ad 文件中")
