@@ -73,6 +73,31 @@ class HNSWIndex(BaseANNIndex):
         labels, distances = self._index.knn_query(q, k=k)
         return labels[0].tolist(), distances[0].tolist()
 
+    def search_with_filter(
+        self,
+        query: np.ndarray,
+        k: int,
+        allow_row: "set[int] | None",
+    ) -> tuple[list[int], list[float]]:
+        """ACORN-风格混合过滤：在图遍历时直接丢掉不符合条件的节点。
+
+        当 allow_row 很小（低选择度）时，hnswlib 可能拿不齐 k 个邻居 → 实际返回数会少于 k。
+        允许 allow_row=None 时退化为普通 search（便于上层统一调用）。
+        """
+        if self._index is None:
+            raise RuntimeError("索引尚未构建")
+        q = self._prepare_query(query)
+        n_total = self._index.get_current_count()
+        k = min(k, n_total)
+        if allow_row is None:
+            labels, distances = self._index.knn_query(q, k=k)
+        else:
+            allow_set = allow_row  # 闭包捕获，避免每次查询都拷贝
+            labels, distances = self._index.knn_query(
+                q, k=k, filter=lambda label: int(label) in allow_set,
+            )
+        return labels[0].tolist(), distances[0].tolist()
+
     def save(self, path: str) -> None:
         if self._index is None:
             raise RuntimeError("索引尚未构建")
