@@ -285,20 +285,20 @@ def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
     sorted_rows = sorted(candidates.items(), key=sort_key)[: req.k]
 
     hits: list[BatchHit] = []
-    for rank, (r, ds) in enumerate(sorted_rows, start=1):
+    for rank, (r, row_dists) in enumerate(sorted_rows, start=1):
         cell_row = obs.iloc[r]
         hits.append(BatchHit(
             rank=rank,
             cell_id=str(cell_ids_arr[r]),
             row_index=int(r),
-            hit_count=len(ds),
-            avg_distance=float(sum(ds) / len(ds)),
+            hit_count=len(row_dists),
+            avg_distance=float(sum(row_dists) / len(row_dists)),
             obs={col: _jsonable(cell_row[col]) for col in obs.columns},
         ))
 
     return BatchSearchResponse(
         index_id=idx_obj.id,
-        dataset_id=ds.id,
+        dataset_id=idx_obj.dataset_id,
         algorithm=idx_obj.algorithm,
         metric=req.metric,
         aggregate=req.aggregate,
