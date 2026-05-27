@@ -56,7 +56,11 @@ def get_ready(db: Session, dataset_id: int) -> Dataset:
 
 
 def list_all(db: Session) -> list[Dataset]:
-    return list(db.scalars(select(Dataset).order_by(Dataset.id.desc())))
+    return list(db.scalars(
+        select(Dataset)
+        .where(Dataset.status != ds_const.STATUS_DELETED)
+        .order_by(Dataset.id.desc())
+    ))
 
 
 def register(db: Session, req: DatasetRegisterRequest) -> Dataset:
@@ -124,6 +128,69 @@ def register(db: Session, req: DatasetRegisterRequest) -> Dataset:
     return ds
 
 
+def switch_embedding(db: Session, dataset_id: int, new_key: str) -> Dataset:
+    """切换数据集的检索向量（obsm key），级联清理旧索引并覆盖工件文件。"""
+    from sqlalchemy import select as sa_select
+    from app.index.models import Index as IndexModel
+    from app.index import service as idx_service
+
+    ds = get_ready(db, dataset_id)
+
+    src = Path(ds.source_path)
+    if not src.exists():
+        raise DatasetFileMissing(str(src))
+
+    from app.index import constants as idx_const_inner
+    for idx in db.scalars(
+        sa_select(IndexModel)
+        .where(IndexModel.dataset_id == dataset_id)
+        .where(IndexModel.status != idx_const_inner.STATUS_DELETED)
+    ):
+        idx_service.delete(db, idx.id)
+
+    ds.status = ds_const.STATUS_PROCESSING
+    ds.error_msg = ""
+    db.commit()
+
+    try:
+        extracted = preprocessing.load_h5ad(src, embedding_key=new_key)
+    except KeyError as e:
+        ds.status = ds_const.STATUS_ERROR
+        ds.error_msg = str(e)
+        db.commit()
+        import anndata as ad
+        adata = ad.read_h5ad(src, backed="r")
+        try:
+            available = list(adata.obsm.keys())
+        finally:
+            if adata.isbacked:
+                adata.file.close()
+        raise EmbeddingKeyMissing(new_key, available) from e
+    except Exception as e:
+        ds.status = ds_const.STATUS_ERROR
+        ds.error_msg = str(e)
+        db.commit()
+        raise
+
+    vectors_p, cell_ids_p, obs_p = _artifact_paths(ds.id)
+    try:
+        preprocessing.persist_artifacts(extracted, vectors_p, cell_ids_p, obs_p)
+    except Exception as e:
+        ds.status = ds_const.STATUS_ERROR
+        ds.error_msg = str(e)
+        db.commit()
+        raise
+
+    ds.embedding_key = new_key
+    ds.vector_dim = extracted.vector_dim
+    ds.n_cells = extracted.n_cells
+    ds.status = ds_const.STATUS_READY
+    db.commit()
+    db.refresh(ds)
+    logger.info("dataset %s embedding switched to %s (dim=%d)", dataset_id, new_key, ds.vector_dim)
+    return ds
+
+
 def delete(db: Session, dataset_id: int) -> None:
     ds = get_by_id(db, dataset_id)
 
@@ -131,7 +198,12 @@ def delete(db: Session, dataset_id: int) -> None:
     from sqlalchemy import select
     from app.index.models import Index as IndexModel
     from app.index import service as idx_service
-    for idx in db.scalars(select(IndexModel).where(IndexModel.dataset_id == dataset_id)):
+    from app.index import constants as idx_const_inner
+    for idx in db.scalars(
+        select(IndexModel)
+        .where(IndexModel.dataset_id == dataset_id)
+        .where(IndexModel.status != idx_const_inner.STATUS_DELETED)
+    ):
         idx_service.delete(db, idx.id)
 
     # 删三个工件文件

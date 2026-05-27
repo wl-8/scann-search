@@ -1,11 +1,13 @@
 """数据集管理路由。
 
-POST /api/datasets/register         注册已存在的 .h5ad
-GET  /api/datasets                  列表
-GET  /api/datasets/{id}             详情
-DELETE /api/datasets/{id}           删除（同步删工件，索引由 index 模块级联）
-GET  /api/datasets/{id}/stats       obs 字段取值分布
-GET  /api/datasets/{id}/cells       分页细胞列表
+POST   /api/datasets/register          注册已存在的 .h5ad
+GET    /api/datasets                   列表
+GET    /api/datasets/{id}              详情
+PUT    /api/datasets/{id}/embedding    切换检索向量（obsm key），级联删除旧索引
+DELETE /api/datasets/{id}             删除（同步删工件 + 关联索引）
+GET    /api/datasets/{id}/stats        obs 字段取值分布
+GET    /api/datasets/{id}/cells        分页细胞列表
+POST   /api/datasets/{id}/cells/filter 按 obs 条件过滤细胞
 """
 from typing import Any
 
@@ -23,6 +25,7 @@ from app.datasets.schemas import (
     DatasetRegisterRequest,
     DatasetResponse,
     DatasetStatsResponse,
+    EmbeddingChangeRequest,
 )
 
 router = APIRouter()
@@ -42,6 +45,17 @@ def list_datasets(db: Session = Depends(get_db), _: User = Depends(get_current_u
 @router.get("/{dataset_id}", response_model=DatasetResponse)
 def get_dataset(dataset_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> DatasetResponse:
     return DatasetResponse.model_validate(service.get_by_id(db, dataset_id))
+
+
+@router.put("/{dataset_id}/embedding", response_model=DatasetResponse)
+def switch_embedding(
+    dataset_id: int,
+    req: EmbeddingChangeRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_researcher),
+) -> DatasetResponse:
+    ds = service.switch_embedding(db, dataset_id, req.embedding_key)
+    return DatasetResponse.model_validate(ds)
 
 
 @router.delete("/{dataset_id}", status_code=204)

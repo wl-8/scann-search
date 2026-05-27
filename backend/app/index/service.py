@@ -41,7 +41,11 @@ def _index_path(index_id: int, algorithm: str) -> Path:
 
 
 def list_all(db: Session, dataset_id: int | None = None) -> list[Index]:
-    stmt = select(Index).order_by(Index.id.desc())
+    stmt = (
+        select(Index)
+        .where(Index.status != idx_const.STATUS_DELETED)
+        .order_by(Index.id.desc())
+    )
     if dataset_id is not None:
         stmt = stmt.where(Index.dataset_id == dataset_id)
     return list(db.scalars(stmt))
