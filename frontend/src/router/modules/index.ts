@@ -1,4 +1,4 @@
 ﻿export default [
-  // TODO: /indexes
+  { path: "/indexes", component: () => import("@/views/index/IndexManageView.vue"), meta: { requiresAuth: true } },
 ]
 

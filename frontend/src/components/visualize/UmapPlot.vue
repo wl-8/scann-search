@@ -46,19 +46,19 @@ function render() {
 		const colorMap = categoryColorMap(categories)
 		const colors = categories.map((c) => colorMap.get(c) ?? "#64748b")
 
-		const baseTrace: any = {
-			type: dim === 3 ? "scatter3d" : "scatter",
+		const useWebGL2D = dim === 2 && points.length > 2000
+
+		// main trace (all points)
+		const mainTrace: any = {
+			type: useWebGL2D ? "scattergl" : dim === 3 ? "scatter3d" : "scatter",
 			mode: "markers",
 			x: points.map((p) => p.umap_x),
 			y: points.map((p) => p.umap_y),
 			marker: {
-				size: points.map((p) => (props.selectedId && p.id === props.selectedId ? 12 : 8)),
+				size: 8,
 				color: colors,
-				opacity: 0.9,
-				line: {
-					width: points.map((p) => (props.selectedId && p.id === props.selectedId ? 3 : 0)),
-					color: "#111827",
-				},
+				opacity: 0.8,
+				line: { width: 0 },
 			},
 			text: points.map((p) => p.id),
 			hovertemplate: points.map((p, idx) => {
@@ -66,8 +66,22 @@ function render() {
 				return `${p.id}<br>${colorField}: ${categories[idx]}<br>x: ${p.umap_x}<br>y: ${p.umap_y}${extra}<extra></extra>`
 			}),
 		}
+		if (dim === 3) mainTrace.z = points.map((p) => p.umap_z ?? 0)
 
-		if (dim === 3) baseTrace.z = points.map((p) => p.umap_z ?? 0)
+		// highlight trace for selected point (single point)
+		const highlight = props.selectedId ? points.find((p) => p.id === props.selectedId) ?? null : null
+		const highlightTrace: any = highlight
+			? {
+				type: dim === 3 ? "scatter3d" : "scattergl",
+				mode: "markers",
+				x: [highlight.umap_x],
+				y: [highlight.umap_y],
+				marker: { size: 14, color: "#111827", opacity: 1, line: { width: 2, color: "#fff" } },
+				text: [highlight.id],
+			}
+			: null
+
+		const traces = highlightTrace ? [mainTrace, highlightTrace] : [mainTrace]
 
 		const layout = {
 			margin: { l: 0, r: 0, t: 8, b: 0 },
@@ -78,11 +92,19 @@ function render() {
 			scene: dim === 3 ? { xaxis: { title: "UMAP1" }, yaxis: { title: "UMAP2" }, zaxis: { title: "UMAP3" } } : undefined,
 		}
 
-		Plotly.newPlot(plotEl.value, [baseTrace], layout as any, { responsive: true, displaylogo: false })
-		;(plotEl.value as any).on?.("plotly_click", (ev: any) => {
+		// use react for faster updates
+		Plotly.react(plotEl.value, traces, layout as any, { responsive: true, displaylogo: false })
+
+		// remove old click handlers to avoid dupes
+		try {
+			;(plotEl.value as any)._clickHandler && (plotEl.value as any).removeListener("plotly_click", (plotEl.value as any)._clickHandler)
+		} catch {}
+		const handler = (ev: any) => {
 			const idx = ev?.points?.[0]?.pointIndex
 			if (typeof idx === "number") emit("point-click", points[idx])
-		})
+		}
+		;(plotEl.value as any)._clickHandler = handler
+		;(plotEl.value as any).on?.("plotly_click", handler)
 	} catch (error) {
 		console.error("Failed to render UMAP plot:", error)
 	}

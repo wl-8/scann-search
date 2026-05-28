@@ -19,7 +19,7 @@
               class="dataset-table"
               :columns="columns"
               :data-source="datasets"
-              row-key="name"
+              row-key="id"
               :pagination="false"
               :rowClassName="() => 'dataset-row'"
             >
@@ -35,7 +35,7 @@
                         <circle cx="12" cy="12" r="2.75" />
                       </svg>
                     </a-button>
-                    <a-popconfirm title="确定删除该数据集？" @confirm="removeDataset(record.name)">
+                    <a-popconfirm title="确定删除该数据集？" @confirm="removeDataset(record.id)">
                       <a-button class="icon-button icon-button--delete" size="small">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M3 6h18" />
@@ -74,11 +74,32 @@ type DatasetItem = {
   updatedAt: string
 }
 
-const datasets = ref<DatasetItem[]>([
-  { name: "PBMC-3k", cells: 3200, genes: 18987, status: "Ready", source: "demo", updatedAt: "2026-05-25" },
-  { name: "Mouse-brain", cells: 1450, genes: 21456, status: "Indexed", source: "demo", updatedAt: "2026-05-25" },
-  { name: "Tumor-Atlas", cells: 8721, genes: 20500, status: "Processing", source: "upload", updatedAt: "2026-05-25" },
-])
+const datasets = ref<DatasetItem[]>([])
+import { listDatasets } from "@/api/search"
+import { deleteDataset } from "@/api/datasets"
+import { ref as refR } from "vue"
+
+async function loadDatasets() {
+  try {
+    const res = await listDatasets()
+    datasets.value = res.map((d: any) => ({
+      id: d.id,
+      name: d.name,
+      cells: d.n_cells,
+      genes: d.n_genes,
+      status: d.status,
+      source: d.source_path ?? "server",
+      updatedAt: new Date(d.created_at).toISOString().slice(0, 10),
+    }))
+  } catch (e) {
+    // fallback to demo
+    datasets.value = [
+      { name: "PBMC-3k", cells: 3200, genes: 18987, status: "Ready", source: "demo", updatedAt: "2026-05-25" },
+    ]
+  }
+}
+
+loadDatasets()
 
 const detailOpen = ref(false)
 const activeDataset = ref<DatasetItem | null>(null)
@@ -102,14 +123,8 @@ function statusClass(status: string) {
 }
 
 function onUploaded(file: { name: string; size: number }) {
-  datasets.value.unshift({
-    name: file.name,
-    cells: Math.max(100, Math.round(file.size / 120)),
-    genes: 20000,
-    status: "Uploaded",
-    source: "local",
-    updatedAt: new Date().toISOString().slice(0, 10),
-  })
+  // after upload/register, refresh dataset list from backend
+  loadDatasets()
 }
 
 function viewDetail(record: DatasetItem) {
@@ -117,8 +132,15 @@ function viewDetail(record: DatasetItem) {
   detailOpen.value = true
 }
 
-function removeDataset(name: string) {
-  datasets.value = datasets.value.filter((item) => item.name !== name)
+async function removeDataset(datasetId: number) {
+  try {
+    await deleteDataset(datasetId)
+    // refresh list from backend
+    await loadDatasets()
+  } catch (e) {
+    // optimistic fallback: remove locally
+    datasets.value = datasets.value.filter((item: any) => item.id !== datasetId)
+  }
 }
 </script>
 

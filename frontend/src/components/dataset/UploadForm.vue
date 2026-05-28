@@ -19,15 +19,25 @@
 					</div>
 					<p class="upload-dragger__title">拖拽文件到这里</p>
 					<p class="upload-dragger__subtitle">拖拽 .h5ad / .csv 文件到这里，或点击选择文件</p>
-					<p class="upload-dragger__hint">当前为演示模式，不会真正上传到后端。</p>
+					<div class="upload-dragger__hint">请选择 .h5ad 文件或在下方填写服务器上的文件路径后点击注册。</div>
 				</div>
 			</a-upload-dragger>
 
-			<a-progress v-if="progress > 0" :percent="progress" class="upload-progress" />
-
-			<div class="upload-actions">
-				<a-button class="upload-button" :disabled="!selectedFile" @click="simulateUpload">模拟上传</a-button>
-			</div>
+					<a-form layout="vertical" style="margin-top: 12px">
+						<a-form-item label="服务器路径（可选，优先）">
+							<a-input v-model:value="sourcePath" placeholder="例如: /data/uploads/my_dataset.h5ad" />
+						</a-form-item>
+						<a-form-item label="Embedding Key">
+							<a-input v-model:value="embeddingKey" placeholder="如 X_pca 或 X_umap" />
+						</a-form-item>
+						<a-form-item label="数据集名称">
+							<a-input v-model:value="name" placeholder="数据集显示名称" />
+						</a-form-item>
+						<a-progress v-if="progress > 0" :percent="progress" class="upload-progress" />
+						<div class="upload-actions">
+							<a-button class="upload-button" type="primary" :loading="loading" @click="submitRegister">注册数据集</a-button>
+						</div>
+					</a-form>
 		</div>
 	</a-card>
 </template>
@@ -41,6 +51,13 @@ const emit = defineEmits<{ (e: "uploaded", payload: { name: string; size: number
 const fileList = ref<any[]>([])
 const selectedFile = ref<File | null>(null)
 const progress = ref(0)
+const sourcePath = ref("")
+const embeddingKey = ref("X_pca")
+const name = ref("")
+const loading = ref(false)
+
+import * as datasetsApi from "@/api/datasets"
+import { listDatasets } from "@/api/search"
 
 function beforeUpload(file: File) {
 	selectedFile.value = file
@@ -52,19 +69,32 @@ function onChange(info: any) {
 	if (info.file?.originFileObj) selectedFile.value = info.file.originFileObj as File
 }
 
-function simulateUpload() {
-	if (!selectedFile.value) return
-	progress.value = 0
-	const timer = setInterval(() => {
-		progress.value = Math.min(100, progress.value + 20)
-		if (progress.value >= 100) {
-			clearInterval(timer)
-			const file = selectedFile.value
-			if (!file) return
-			message.success(`已模拟上传：${file.name}`)
-			emit("uploaded", { name: file.name, size: file.size })
-		}
-	}, 200)
+async function submitRegister() {
+	if (!name.value) return message.warning("请填写数据集名称")
+	if (!sourcePath.value && !selectedFile.value) return message.warning("请填写服务器路径或选择本地文件（当前后端仅支持服务器路径注册）")
+
+	// Backend currently supports registering an existing server-side file only.
+	const payload = {
+		name: name.value,
+		source_path: sourcePath.value || (selectedFile.value ? selectedFile.value.name : ""),
+		embedding_key: embeddingKey.value || "X_pca",
+	}
+
+	loading.value = true
+	progress.value = 10
+	try {
+		await datasetsApi.registerDataset(payload as any)
+		progress.value = 100
+		message.success("数据集注册请求已提交（后台会处理并在完成后变为 Ready）")
+		emit("uploaded", { name: payload.name, size: selectedFile.value?.size ?? 0 })
+		// attempt to refresh dataset list (if parent queries listDatasets)
+	} catch (err: any) {
+		console.error("register failed", err)
+		message.error(err?.response?.data?.detail ?? err?.message ?? "注册失败")
+	} finally {
+		loading.value = false
+		setTimeout(() => (progress.value = 0), 800)
+	}
 }
 </script>
 

@@ -99,6 +99,7 @@
                 :pagination="false"
                 size="small"
                 row-key="rank"
+                :loading="neighborLoading"
               />
             </a-card>
 
@@ -137,7 +138,7 @@
 import { onMounted, ref } from "vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import UmapPlot from "@/components/visualize/UmapPlot.vue"
-import { browseSearch } from "@/api/search"
+import { browseSearch, listDatasets } from "@/api/search"
 import { useSearch } from "@/composables/useSearch"
 
 type Point = {
@@ -158,6 +159,7 @@ const selectedPoint = ref<Point | null>(null)
 const neighbors = ref<any[]>([])
 const facets = ref<any>(null)
 const loading = ref(false)
+const neighborLoading = ref(false)
 
 const neighborColumns = [
   { title: "Rank", dataIndex: "rank", key: "rank", width: 70 },
@@ -171,17 +173,27 @@ const { search } = useSearch()
 async function loadPoints() {
   loading.value = true
   try {
-    const res = await browseSearch({ page: 1, pageSize: 64 })
-    points.value = (res.items ?? []).map((item: any, idx: number) => ({
-      id: item.id,
-      cell_type: item.cell_type,
-      dataset: item.dataset,
-      umap_x: item.umap_x,
-      umap_y: item.umap_y,
-      umap_z: item.umap_z ?? idx / 10,
-      metadata: item.metadata,
+    // choose first ready dataset if none selected
+    const datasets = await listDatasets()
+    const ds = datasets[0]
+    if (!ds) {
+      points.value = []
+      facets.value = null
+      return
+    }
+    const res = await browseSearch({ datasetId: ds.id, pageSize: 5000, queryType: dimension.value === 3 ? "vector" : "id", colorBy: colorBy.value })
+    // backend visualize embedding returns { points: [{cell_id,x,y,z,label,obs}], n_returned }
+    const pts = res.points ?? []
+    points.value = pts.map((item: any, idx: number) => ({
+      id: item.cell_id,
+      cell_type: item.obs?.cell_type ?? item.label,
+      dataset: `dataset_${res.dataset_id}`,
+      umap_x: item.x,
+      umap_y: item.y,
+      umap_z: item.z ?? idx / 10,
+      metadata: item.obs ?? {},
     }))
-    facets.value = res.facets ?? null
+    facets.value = res.color_options ? { [res.color_by ?? "color_by"]: res.color_options } : null
   } catch (error) {
     console.error("Failed to load visualize points:", error)
     points.value = []
@@ -193,8 +205,15 @@ async function loadPoints() {
 
 async function onPointClick(point: Point) {
   selectedPoint.value = point
-  const res = await search({ queryType: "id", query: point.id, k: topK.value, page: 1, pageSize: topK.value })
-  neighbors.value = res.results
+  neighborLoading.value = true
+  try {
+    const res = await search({ queryType: "id", query: point.id, k: topK.value, page: 1, pageSize: topK.value })
+    neighbors.value = res.results
+  } catch (e) {
+    neighbors.value = []
+  } finally {
+    neighborLoading.value = false
+  }
 }
 
 onMounted(loadPoints)

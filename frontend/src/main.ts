@@ -4,5 +4,16 @@ import Antd from "ant-design-vue"
 import "ant-design-vue/dist/reset.css"
 import App from "./App.vue"
 import router from "./router"
+import { useAuthStore } from "@/stores/auth"
 
-createApp(App).use(createPinia()).use(router).use(Antd).mount("#app")
+const app = createApp(App)
+const pinia = createPinia()
+app.use(pinia)
+app.use(router)
+app.use(Antd)
+
+// 尝试恢复会话
+const auth = useAuthStore()
+auth.fetchCurrentUser()
+
+app.mount("#app")

@@ -15,9 +15,17 @@ const router = createRouter({
   routes: [...authRoutes, ...dashboardRoutes, ...datasetRoutes, ...indexRoutes, ...searchRoutes, ...visualizeRoutes, ...benchmarkRoutes, ...adminRoutes, ...exportRoutes],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
-  if (to.meta.requiresAuth && !auth.isLoggedIn) return "/login"
+  if (to.meta.requiresAuth) {
+    if (!auth.isLoggedIn) return "/login"
+    // ensure user info is loaded
+    if (!auth.user) {
+      await auth.fetchCurrentUser()
+      if (!auth.isLoggedIn) return "/login"
+    }
+    if (to.meta.requiresAdmin && !auth.isAdmin) return "/dashboard"
+  }
 })
 
 export default router
