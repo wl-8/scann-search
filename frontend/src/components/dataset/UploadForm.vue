@@ -4,9 +4,9 @@
 			<a-upload-dragger
 				:before-upload="beforeUpload"
 				:file-list="fileList"
-				@change="onChange"
-				:show-upload-list="true"
+				:show-upload-list="false"
 				:max-count="1"
+				:disabled="fileUploading"
 				class="upload-dragger"
 			>
 				<div class="upload-dragger__content">
@@ -17,18 +17,33 @@
 							<path d="M9 11l3-3 3 3" />
 						</svg>
 					</div>
-					<p class="upload-dragger__title">拖拽文件到这里</p>
-					<p class="upload-dragger__subtitle">拖拽 .h5ad / .csv 文件到这里，或点击选择文件</p>
-					<div class="upload-dragger__hint">请选择 .h5ad 文件或在下方填写服务器上的文件路径后点击注册。</div>
+					<p class="upload-dragger__title">
+						<span v-if="fileUploading">正在上传到服务器…</span>
+						<span v-else-if="uploadedFilename">已上传：{{ uploadedFilename }}</span>
+						<span v-else>拖拽 .h5ad 文件到这里，或点击选择</span>
+					</p>
+					<p v-if="!fileUploading && !uploadedFilename" class="upload-dragger__subtitle">文件会上传到服务器，上传完成后再填写信息点注册</p>
+					<a-progress v-if="fileUploading" :percent="fileUploadProgress" :show-info="false" style="margin: 8px 16px 0" />
 				</div>
 			</a-upload-dragger>
 
 					<a-form layout="vertical" style="margin-top: 12px">
-						<a-form-item label="服务器路径（可选，优先）">
-							<a-input v-model:value="sourcePath" placeholder="例如: /data/uploads/my_dataset.h5ad" />
+						<a-form-item label="服务器绝对路径（拖拽上传后自动填入，或手动输入）">
+							<a-input v-model:value="sourcePath" placeholder="例如: /home/user/scann-search/backend/data/uploads/my_dataset.h5ad" />
 						</a-form-item>
 						<a-form-item label="Embedding Key">
-							<a-input v-model:value="embeddingKey" placeholder="如 X_pca 或 X_umap" />
+							<a-select
+								v-if="embeddingKeyOptions.length"
+								v-model:value="embeddingKey"
+								:options="embeddingKeyOptions"
+								placeholder="选择向量 key"
+								style="width: 100%"
+							/>
+							<a-input
+								v-else
+								v-model:value="embeddingKey"
+								placeholder="如 X_pca 或 X_umap（上传文件后自动检测）"
+							/>
 						</a-form-item>
 						<a-form-item label="数据集名称">
 							<a-input v-model:value="name" placeholder="数据集显示名称" />
@@ -45,38 +60,80 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import { message } from "ant-design-vue"
+import * as datasetsApi from "@/api/datasets"
+import request from "@/api/request"
 
 const emit = defineEmits<{ (e: "uploaded", payload: { name: string; size: number }): void }>()
 
 const fileList = ref<any[]>([])
-const selectedFile = ref<File | null>(null)
-const progress = ref(0)
 const sourcePath = ref("")
 const embeddingKey = ref("X_pca")
 const name = ref("")
 const loading = ref(false)
+const progress = ref(0)
 
-import * as datasetsApi from "@/api/datasets"
-import { listDatasets } from "@/api/search"
+// 文件上传状态
+const fileUploading = ref(false)
+const fileUploadProgress = ref(0)
+const uploadedFilename = ref("")
+const embeddingKeyOptions = ref<{ label: string; value: string }[]>([])
 
-function beforeUpload(file: File) {
-	selectedFile.value = file
+async function beforeUpload(file: File) {
 	fileList.value = [file as any]
-	return false
-}
+	uploadedFilename.value = ""
+	fileUploading.value = true
+	fileUploadProgress.value = 10
 
-function onChange(info: any) {
-	if (info.file?.originFileObj) selectedFile.value = info.file.originFileObj as File
+	const formData = new FormData()
+	formData.append("file", file)
+
+	try {
+		// 用 XMLHttpRequest 获取上传进度
+		const result = await new Promise<{ path: string; filename: string }>((resolve, reject) => {
+			const xhr = new XMLHttpRequest()
+			xhr.open("POST", `${import.meta.env.VITE_API_BASE ?? "/api"}/datasets/upload-file`)
+			const token = localStorage.getItem("token")
+			if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`)
+			xhr.upload.onprogress = (e) => {
+				if (e.lengthComputable) fileUploadProgress.value = Math.round((e.loaded / e.total) * 90)
+			}
+			xhr.onload = () => {
+				if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText))
+				else reject(new Error(JSON.parse(xhr.responseText)?.detail ?? `上传失败 ${xhr.status}`))
+			}
+			xhr.onerror = () => reject(new Error("网络错误"))
+			xhr.send(formData)
+		})
+
+		fileUploadProgress.value = 100
+		sourcePath.value = result.path
+		uploadedFilename.value = result.filename ?? file.name
+		// 用后端返回的 obsm keys 填充下拉
+		if (result.embedding_keys?.length) {
+			embeddingKeyOptions.value = result.embedding_keys.map((k: string) => ({ label: k, value: k }))
+			// 优先选 X_pca，否则选第一个
+			embeddingKey.value = result.embedding_keys.includes("X_pca")
+				? "X_pca"
+				: result.embedding_keys[0]
+		}
+		message.success(`文件已上传：${result.filename}，请填写信息后点注册`)
+	} catch (err: any) {
+		message.error(err?.message ?? "文件上传失败")
+		fileList.value = []
+	} finally {
+		fileUploading.value = false
+	}
+
+	return false  // 阻止 antd 默认上传行为
 }
 
 async function submitRegister() {
 	if (!name.value) return message.warning("请填写数据集名称")
-	if (!sourcePath.value && !selectedFile.value) return message.warning("请填写服务器路径或选择本地文件（当前后端仅支持服务器路径注册）")
+	if (!sourcePath.value) return message.warning("请先上传文件或填写服务器路径")
 
-	// Backend currently supports registering an existing server-side file only.
 	const payload = {
 		name: name.value,
-		source_path: sourcePath.value || (selectedFile.value ? selectedFile.value.name : ""),
+		source_path: sourcePath.value,
 		embedding_key: embeddingKey.value || "X_pca",
 	}
 
@@ -85,11 +142,16 @@ async function submitRegister() {
 	try {
 		await datasetsApi.registerDataset(payload as any)
 		progress.value = 100
-		message.success("数据集注册请求已提交（后台会处理并在完成后变为 Ready）")
-		emit("uploaded", { name: payload.name, size: selectedFile.value?.size ?? 0 })
-		// attempt to refresh dataset list (if parent queries listDatasets)
+		message.success("数据集注册成功，正在处理中…")
+		emit("uploaded", { name: payload.name, size: 0 })
+		// 重置表单
+		name.value = ""
+		sourcePath.value = ""
+		embeddingKey.value = "X_pca"
+		uploadedFilename.value = ""
+		embeddingKeyOptions.value = []
+		fileList.value = []
 	} catch (err: any) {
-		console.error("register failed", err)
 		message.error(err?.response?.data?.detail ?? err?.message ?? "注册失败")
 	} finally {
 		loading.value = false
@@ -241,6 +303,10 @@ async function submitRegister() {
 	.upload-button {
 		width: 100%;
 	}
+}
+
+:deep(.ant-upload-wrapper) {
+	border: none !important;
 }
 
 :deep(.ant-upload-list) {

@@ -53,7 +53,7 @@ function parseVector(raw: string | undefined) {
 
 export async function listDatasets() {
   try {
-    return (await request.get("/datasets")) as Promise<DatasetItem[]>
+    return (await request.get("/datasets")) as DatasetItem[]
   } catch (e) {
     // 在开发模式下回退到示例数据，便于未启动后端时演示
     if (import.meta.env.DEV) {
@@ -67,7 +67,7 @@ export async function listDatasets() {
 
 export async function listIndexes(datasetId?: number) {
   try {
-    return (await request.get("/index", { params: datasetId ? { dataset_id: datasetId } : undefined })) as Promise<IndexItem[]>
+    return (await request.get("/index", { params: datasetId ? { dataset_id: datasetId } : undefined })) as IndexItem[]
   } catch (e) {
     if (import.meta.env.DEV) {
       return Promise.resolve([
@@ -146,8 +146,7 @@ export async function browseSearch(payload: SearchPayload) {
     return request.get(`/visualize/${payload.datasetId}/embedding`, { params }) as Promise<any>
   }
 
-  // Fallback to legacy mock endpoint if no dataset specified
-  return request.post("/search/browse", payload) as Promise<any>
+  throw new Error("browseSearch: 必须提供 datasetId")
 }
 
 export default { search, conditionalSearch, multiDatasetSearch, browseSearch }

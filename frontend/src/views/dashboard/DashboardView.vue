@@ -10,9 +10,9 @@
           <div class="brand-copy">
             <h1>单细胞 ANN 检索系统</h1>
             <p>现代化检索与数据浏览控制面板</p>
-            <div class="system-status" aria-label="系统状态：连接正常">
-              <span class="status-dot" aria-hidden="true"></span>
-              <span>系统在线（连接正常）</span>
+            <div class="system-status" :aria-label="isOnline ? '系统状态：连接正常' : '系统状态：离线'">
+              <span class="status-dot" :class="{ 'status-dot--offline': !isOnline }" aria-hidden="true"></span>
+              <span>{{ isOnline ? '系统在线（连接正常）' : '后端离线' }}</span>
             </div>
           </div>
         </div>
@@ -51,6 +51,7 @@
         <div class="actions">
           <a-button type="primary" class="action-button action-button--primary" @click="go('/search')">开始检索</a-button>
           <a-button class="action-button action-button--secondary action-button--accent" @click="go('/datasets')">数据集管理</a-button>
+          <a-button class="action-button action-button--secondary" @click="go('/indexes')">索引管理</a-button>
           <a-button class="action-button action-button--secondary" @click="go('/visualize')">可视化</a-button>
         </div>
       </section>
@@ -67,11 +68,8 @@
             </div>
             <span class="metric-label">数据集</span>
           </div>
-          <div class="metric-value">3</div>
-          <div class="metric-trend metric-trend--up">
-            <span class="metric-trend__icon" aria-hidden="true">↗</span>
-            <span>+20% 较上周</span>
-          </div>
+          <div class="metric-value">{{ datasetCount }}</div>
+          <div class="metric-sub">已注册数据集</div>
         </a-card>
 
         <a-card class="metric-card metric-card--2 reveal reveal-5" :bordered="false">
@@ -84,11 +82,8 @@
             </div>
             <span class="metric-label">索引数量</span>
           </div>
-          <div class="metric-value">5</div>
-          <div class="metric-trend metric-trend--up">
-            <span class="metric-trend__icon" aria-hidden="true">↗</span>
-            <span>+12% 较上周</span>
-          </div>
+          <div class="metric-value">{{ indexCount }}</div>
+          <div class="metric-sub">已构建索引</div>
         </a-card>
 
         <a-card class="metric-card metric-card--3 reveal reveal-6" :bordered="false">
@@ -99,13 +94,10 @@
                 <path d="M12 8v4l3 2"></path>
               </svg>
             </div>
-            <span class="metric-label">最近检索</span>
+            <span class="metric-label">总细胞数</span>
           </div>
-          <div class="metric-value">18</div>
-          <div class="metric-trend metric-trend--down">
-            <span class="metric-trend__icon" aria-hidden="true">↘</span>
-            <span>-3% 较上周</span>
-          </div>
+          <div class="metric-value">{{ totalCellsDisplay }}</div>
+          <div class="metric-sub">所有数据集合计</div>
         </a-card>
       </section>
 
@@ -165,21 +157,47 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref } from "vue"
 import { useAuthStore } from "@/stores/auth"
 import { useRouter } from "vue-router"
+import { listDatasets, listIndexes } from "@/api/search"
 
 const router = useRouter()
 const auth = useAuthStore()
+
+const datasetCount = ref<number | string>("—")
+const indexCount = ref<number | string>("—")
+const totalCells = ref<number>(0)
+const isOnline = ref(false)
+
+const totalCellsDisplay = computed(() => {
+  if (totalCells.value === 0) return "—"
+  return totalCells.value >= 10000
+    ? `${(totalCells.value / 10000).toFixed(1)}万`
+    : String(totalCells.value)
+})
+
+async function loadMetrics() {
+  try {
+    const [datasets, indexes] = await Promise.all([listDatasets(), listIndexes()])
+    datasetCount.value = datasets.length
+    indexCount.value = indexes.length
+    totalCells.value = datasets.reduce((sum: number, d: any) => sum + (d.n_cells ?? 0), 0)
+    isOnline.value = true
+  } catch {
+    isOnline.value = false
+  }
+}
 
 function go(path: string) {
   router.push(path)
 }
 
 function onMenuClick({ key }: { key: string }) {
-  if (key === "logout") {
-    auth.logout()
-  }
+  if (key === "logout") auth.logout()
 }
+
+onMounted(loadMetrics)
 </script>
 
 <style scoped>
@@ -543,6 +561,18 @@ function onMenuClick({ key }: { key: string }) {
   font-weight: 900;
   color: #0f172a;
   letter-spacing: -0.04em;
+}
+
+.metric-sub {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.status-dot--offline {
+  background: #ef4444 !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12) !important;
 }
 
 .metric-icon svg {

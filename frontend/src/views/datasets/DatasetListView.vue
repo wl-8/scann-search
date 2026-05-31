@@ -6,7 +6,7 @@
           <div class="dataset-page__eyebrow">Dataset Management</div>
           <h2>数据集管理</h2>
         </div>
-        <p>上传数据、查看状态与维护索引的统一控制台。</p>
+        <p>上传数据、查看状态的管理控制台。</p>
       </div>
 
       <a-row :gutter="16" class="dataset-grid">
@@ -22,6 +22,7 @@
               row-key="id"
               :pagination="false"
               :rowClassName="() => 'dataset-row'"
+              :scroll="{ x: 'max-content' }"
             >
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'status'">
@@ -53,8 +54,28 @@
         </a-col>
       </a-row>
 
-      <a-modal v-model:open="detailOpen" title="数据集详情" :footer="null">
-        <pre>{{ JSON.stringify(activeDataset, null, 2) }}</pre>
+      <a-modal v-model:open="detailOpen" :title="`数据集详情：${activeDataset?.name ?? ''}`" :footer="null" width="560">
+        <div v-if="statsLoading" style="text-align:center;padding:24px"><a-spin /></div>
+        <div v-else-if="statsData">
+          <a-descriptions :column="2" size="small" bordered style="margin-bottom:16px">
+            <a-descriptions-item label="细胞数">{{ activeDataset?.cells?.toLocaleString() }}</a-descriptions-item>
+            <a-descriptions-item label="基因数">{{ activeDataset?.genes?.toLocaleString() }}</a-descriptions-item>
+            <a-descriptions-item label="状态">{{ activeDataset?.status }}</a-descriptions-item>
+            <a-descriptions-item label="来源">{{ activeDataset?.source }}</a-descriptions-item>
+            <a-descriptions-item label="更新时间" :span="2">{{ activeDataset?.updatedAt }}</a-descriptions-item>
+          </a-descriptions>
+          <div v-for="col in statsData.obs_columns" :key="col" style="margin-bottom:14px">
+            <div style="font-weight:700;margin-bottom:6px;color:#334155">{{ col }}</div>
+            <div v-for="(cnt, val) in statsData.value_counts[col]" :key="val" style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span style="min-width:120px;font-size:0.88rem;color:#475569">{{ val }}</span>
+              <div style="flex:1;height:8px;background:#f1f5f9;border-radius:999px;overflow:hidden">
+                <div :style="{ width: barWidth(statsData.value_counts[col], cnt) + '%', height: '100%', background: '#3b82f6', borderRadius: '999px' }"></div>
+              </div>
+              <span style="min-width:40px;text-align:right;font-size:0.82rem;color:#64748b">{{ cnt }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-else style="color:#94a3b8;text-align:center;padding:24px">暂无统计数据</div>
       </a-modal>
     </div>
   </AppLayout>
@@ -64,8 +85,12 @@
 import { ref } from "vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import UploadForm from "@/components/dataset/UploadForm.vue"
+import { listDatasets } from "@/api/search"
+import { deleteDataset } from "@/api/datasets"
+import request from "@/api/request"
 
 type DatasetItem = {
+  id: number
   name: string
   cells: number
   genes: number
@@ -75,9 +100,6 @@ type DatasetItem = {
 }
 
 const datasets = ref<DatasetItem[]>([])
-import { listDatasets } from "@/api/search"
-import { deleteDataset } from "@/api/datasets"
-import { ref as refR } from "vue"
 
 async function loadDatasets() {
   try {
@@ -103,15 +125,22 @@ loadDatasets()
 
 const detailOpen = ref(false)
 const activeDataset = ref<DatasetItem | null>(null)
+const statsData = ref<{ obs_columns: string[]; value_counts: Record<string, Record<string, number>> } | null>(null)
+const statsLoading = ref(false)
+
+function barWidth(counts: Record<string, number>, val: number): number {
+  const max = Math.max(...Object.values(counts))
+  return max > 0 ? Math.round((val / max) * 100) : 0
+}
 
 const columns = [
-  { title: "Name", dataIndex: "name", key: "name" },
-  { title: "Cells", dataIndex: "cells", key: "cells" },
-  { title: "Genes", dataIndex: "genes", key: "genes" },
-  { title: "Status", dataIndex: "status", key: "status" },
-  { title: "Source", dataIndex: "source", key: "source" },
-  { title: "Updated", dataIndex: "updatedAt", key: "updatedAt" },
-  { title: "Action", key: "action", slots: { customRender: "action" } },
+  { title: "Name", dataIndex: "name", key: "name", width: 120 },
+  { title: "Cells", dataIndex: "cells", key: "cells", width: 90 },
+  { title: "Genes", dataIndex: "genes", key: "genes", width: 90 },
+  { title: "Status", dataIndex: "status", key: "status", width: 100 },
+  { title: "Source", dataIndex: "source", key: "source", ellipsis: true, minWidth: 160 },
+  { title: "Updated", dataIndex: "updatedAt", key: "updatedAt", width: 110 },
+  { title: "操作", key: "action", width: 80 },
 ]
 
 function statusClass(status: string) {
@@ -127,9 +156,20 @@ function onUploaded(file: { name: string; size: number }) {
   loadDatasets()
 }
 
-function viewDetail(record: DatasetItem) {
+async function viewDetail(record: DatasetItem) {
   activeDataset.value = record
+  statsData.value = null
   detailOpen.value = true
+  if (!record.id) return
+  statsLoading.value = true
+  try {
+    const res = await request.get(`/datasets/${record.id}/stats`) as any
+    statsData.value = res
+  } catch {
+    // stats unavailable, modal still shows basic info
+  } finally {
+    statsLoading.value = false
+  }
 }
 
 async function removeDataset(datasetId: number) {

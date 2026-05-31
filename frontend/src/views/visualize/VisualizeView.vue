@@ -13,6 +13,16 @@
 
           <a-row :gutter="16" align="middle" class="control-row">
           <a-col :xs="24" :md="6">
+            <a-select
+              v-model:value="selectedDatasetId"
+              :options="datasetOptions"
+              placeholder="选择数据集"
+              class="control-select"
+              :loading="datasetsLoading"
+              @change="onDatasetChange"
+            />
+          </a-col>
+          <a-col :xs="24" :md="4">
             <a-select v-model:value="dimension" class="control-select">
               <a-select-option :value="2">2D</a-select-option>
               <a-select-option :value="3">3D</a-select-option>
@@ -20,15 +30,13 @@
           </a-col>
           <a-col :xs="24" :md="6">
             <a-select v-model:value="colorBy" class="control-select">
-              <a-select-option value="cell_type">按 cell_type</a-select-option>
-              <a-select-option value="dataset">按 dataset</a-select-option>
-              <a-select-option value="disease">按 disease</a-select-option>
+              <a-select-option v-for="col in colorOptions" :key="col" :value="col">按 {{ col }}</a-select-option>
             </a-select>
           </a-col>
-          <a-col :xs="24" :md="6">
+          <a-col :xs="24" :md="4">
             <a-input-number v-model:value="topK" :min="1" :max="50" class="control-number" />
           </a-col>
-          <a-col :xs="24" :md="6">
+          <a-col :xs="24" :md="4">
             <a-button type="primary" block class="refresh-button" :loading="loading" @click="loadPoints">刷新图谱</a-button>
           </a-col>
           </a-row>
@@ -45,8 +53,12 @@
               </div>
             </template>
             <div class="chart-card__body">
-              <div class="chart-skeleton" aria-hidden="true">
-                <span v-for="n in 42" :key="n" class="chart-skeleton__dot" :style="{ '--delay': `${n * 0.03}s` }"></span>
+              <div v-if="loading" class="chart-loading">
+                <a-spin size="large" />
+                <p>加载中，共 {{ allDatasets.find(d => d.id === selectedDatasetId)?.n_cells?.toLocaleString() ?? '?' }} 个细胞…</p>
+              </div>
+              <div v-else-if="!points.length" class="chart-empty">
+                <a-empty description="暂无数据，请点击「刷新图谱」" />
               </div>
               <UmapPlot
                 :points="points"
@@ -135,11 +147,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import UmapPlot from "@/components/visualize/UmapPlot.vue"
-import { browseSearch, listDatasets } from "@/api/search"
+import { browseSearch, listDatasets, listIndexes } from "@/api/search"
 import { useSearch } from "@/composables/useSearch"
+import request from "@/api/request"
 
 type Point = {
   id: string
@@ -160,6 +173,17 @@ const neighbors = ref<any[]>([])
 const facets = ref<any>(null)
 const loading = ref(false)
 const neighborLoading = ref(false)
+const activeIndexId = ref<number | undefined>()
+
+// 数据集选择
+const allDatasets = ref<any[]>([])
+const datasetsLoading = ref(false)
+const selectedDatasetId = ref<number | undefined>()
+const colorOptions = ref<string[]>(["cell_type"])
+
+const datasetOptions = computed(() =>
+  allDatasets.value.map((d: any) => ({ label: `${d.name} (${d.n_cells ?? "?"} cells)`, value: d.id }))
+)
 
 const neighborColumns = [
   { title: "Rank", dataIndex: "rank", key: "rank", width: 70 },
@@ -170,23 +194,53 @@ const neighborColumns = [
 
 const { search } = useSearch()
 
+async function loadAllDatasets() {
+  datasetsLoading.value = true
+  try {
+    allDatasets.value = await listDatasets()
+    if (allDatasets.value.length > 0 && !selectedDatasetId.value) {
+      selectedDatasetId.value = allDatasets.value[0].id
+      await fetchColorOptions(selectedDatasetId.value)
+    }
+  } catch {
+    // ignore
+  } finally {
+    datasetsLoading.value = false
+  }
+}
+
+async function fetchColorOptions(datasetId: number) {
+  try {
+    const modes = await request.get(`/visualize/${datasetId}/modes`) as any
+    if (modes?.color_options?.length) {
+      colorOptions.value = modes.color_options
+      if (!colorOptions.value.includes(colorBy.value)) {
+        colorBy.value = colorOptions.value[0]
+      }
+    }
+  } catch {
+    colorOptions.value = ["cell_type"]
+  }
+}
+
+async function onDatasetChange(datasetId: number) {
+  selectedDatasetId.value = datasetId
+  await fetchColorOptions(datasetId)
+}
+
 async function loadPoints() {
+  const dsId = selectedDatasetId.value ?? allDatasets.value[0]?.id
+  if (!dsId) return
   loading.value = true
   try {
-    // choose first ready dataset if none selected
-    const datasets = await listDatasets()
-    const ds = datasets[0]
-    if (!ds) {
-      points.value = []
-      facets.value = null
-      return
-    }
-    const res = await browseSearch({ datasetId: ds.id, pageSize: 5000, queryType: dimension.value === 3 ? "vector" : "id", colorBy: colorBy.value })
-    // backend visualize embedding returns { points: [{cell_id,x,y,z,label,obs}], n_returned }
+    // 顺带拿第一个 ready 索引，供点击相似查询使用
+    const indexes = await listIndexes(dsId)
+    activeIndexId.value = indexes.find((i: any) => i.status === "ready")?.id
+    const res = await browseSearch({ datasetId: dsId, pageSize: 5000, queryType: dimension.value === 3 ? "vector" : "id", colorBy: colorBy.value })
     const pts = res.points ?? []
     points.value = pts.map((item: any, idx: number) => ({
       id: item.cell_id,
-      cell_type: item.obs?.cell_type ?? item.label,
+      cell_type: item.obs?.[colorBy.value] ?? item.obs?.cell_type ?? item.label,
       dataset: `dataset_${res.dataset_id}`,
       umap_x: item.x,
       umap_y: item.y,
@@ -205,9 +259,13 @@ async function loadPoints() {
 
 async function onPointClick(point: Point) {
   selectedPoint.value = point
+  if (!activeIndexId.value) {
+    neighbors.value = []
+    return
+  }
   neighborLoading.value = true
   try {
-    const res = await search({ queryType: "id", query: point.id, k: topK.value, page: 1, pageSize: topK.value })
+    const res = await search({ queryType: "id", query: point.id, indexId: activeIndexId.value, k: topK.value, page: 1, pageSize: topK.value })
     neighbors.value = res.results
   } catch (e) {
     neighbors.value = []
@@ -216,7 +274,10 @@ async function onPointClick(point: Point) {
   }
 }
 
-onMounted(loadPoints)
+onMounted(async () => {
+  await loadAllDatasets()
+  await loadPoints()
+})
 </script>
 
 <style scoped>
@@ -393,6 +454,27 @@ onMounted(loadPoints)
   min-height: 520px;
   padding: 18px;
   overflow: hidden;
+}
+
+.chart-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.chart-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #64748b;
+  z-index: 2;
 }
 
 .chart-skeleton {

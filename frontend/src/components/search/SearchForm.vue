@@ -34,7 +34,7 @@
 								<a-input v-model:value="state.query" class="control-input" placeholder="例如: cell_12345" />
 							</template>
 							<template v-else>
-								<a-input-textarea v-model:value="state.query" class="control-input control-input--textarea" :auto-size="{ minRows: 4, maxRows: 6 }" placeholder="例如: 0.12, -0.03, ..." />
+								<a-textarea v-model:value="state.query" class="control-input control-input--textarea" :auto-size="{ minRows: 4, maxRows: 6 }" placeholder="例如: 0.12, -0.03, ..." />
 							</template>
 						</a-form-item>
 					</a-col>
@@ -46,13 +46,40 @@
 				<a-row :gutter="16">
 					<a-col :span="12">
 						<a-form-item label="过滤字段">
-							<a-input v-model:value="state.filterColumn" class="control-input" placeholder="例如: cell_type / disease" />
+							<a-select
+								v-if="columnOptions.length"
+								v-model:value="state.filterColumn"
+								:options="columnOptions"
+								placeholder="选择 obs 字段"
+								allow-clear
+								class="control-input"
+								@change="state.filterValue = undefined"
+							/>
+							<a-input
+								v-else
+								v-model:value="state.filterColumn"
+								class="control-input"
+								placeholder="例如: cell_type / disease"
+							/>
 						</a-form-item>
 					</a-col>
 
 					<a-col :span="12">
 						<a-form-item label="过滤值">
-							<a-input v-model:value="state.filterValue" class="control-input" placeholder="例如: T-cell / normal" />
+							<a-select
+								v-if="valueOptions.length"
+								v-model:value="state.filterValue"
+								:options="valueOptions"
+								placeholder="选择值"
+								allow-clear
+								class="control-input"
+							/>
+							<a-input
+								v-else
+								v-model:value="state.filterValue"
+								class="control-input"
+								placeholder="例如: T-cell / normal"
+							/>
 						</a-form-item>
 					</a-col>
 
@@ -78,18 +105,21 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, toRefs, ref, watch } from "vue"
+import { computed, reactive, toRefs, ref, watch } from "vue"
 import { message } from "ant-design-vue"
 import type { SearchPayload } from "@/api/search"
 
-const props = withDefaults(defineProps<{ modelValue: SearchPayload & { filters: { cell_type: string } } }>(), {
+const props = withDefaults(defineProps<{
+	modelValue: SearchPayload & { filters: { cell_type: string } }
+	obsStats?: { obs_columns: string[]; value_counts: Record<string, Record<string, number>> } | null
+}>(), {
 	modelValue: () => ({
 		queryType: "id",
 		query: "",
 		k: 10,
 		oversample: 10,
-		filterColumn: "",
-		filterValue: "",
+		filterColumn: undefined,
+		filterValue: undefined,
 		filters: { cell_type: "" },
 	}),
 })
@@ -123,6 +153,16 @@ const rules = {
 		},
 	],
 }
+
+const columnOptions = computed(() =>
+	(props.obsStats?.obs_columns ?? []).map((c) => ({ label: c, value: c }))
+)
+
+const valueOptions = computed(() => {
+	const col = state.filterColumn
+	if (!col || !props.obsStats?.value_counts?.[col]) return []
+	return Object.keys(props.obsStats.value_counts[col]).map((v) => ({ label: v, value: v }))
+})
 
 watch(
 	() => props.modelValue,

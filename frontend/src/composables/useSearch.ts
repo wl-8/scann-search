@@ -44,10 +44,15 @@ export function useSearch() {
 				: []
 			const total = resp?.n_returned ?? resp?.total ?? resp?.n_returned ?? results.length
 			loading.value = false
-			return { results, elapsed: Math.round(resp?.latency_ms ?? elapsed), total, raw: resp }
-		} catch (err) {
-			// fallback to local mock when backend unreachable
-			console.warn("Search API failed, falling back to mock", err)
+			return { results, elapsed: resp?.latency_ms ?? elapsed, total, raw: resp }
+		} catch (err: any) {
+			loading.value = false
+			// 有 response 说明后端可达但返回了业务错误（如 cell_id 不存在），直接抛出让调用方处理
+			if (err?.response) {
+				throw err
+			}
+			// 网络层面不可达时才 fallback 到 mock，避免开发阶段无法启动后端时完全不可用
+			console.warn("Search API unreachable, falling back to mock", err)
 			await new Promise((r) => setTimeout(r, 300 + Math.random() * 300))
 			const k = Math.max(1, payload.k ?? 10)
 			const results = Array.from({ length: k }).map((_, i) => ({
@@ -58,7 +63,6 @@ export function useSearch() {
 				dataset: ["datasetA", "datasetB"][Math.floor(Math.random() * 2)],
 			}))
 			const elapsed = Math.round(performance.now() - start)
-			loading.value = false
 			return { results, elapsed, total: results.length }
 		}
 	}

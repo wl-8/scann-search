@@ -18,7 +18,7 @@
           <input v-model="password" type="password" placeholder="输入密码" />
         </div>
 
-        <button type="submit" class="login-button">登录（任意输入均可）</button>
+        <button type="submit" class="login-button">登录</button>
       </form>
     </div>
   </div>
@@ -35,9 +35,9 @@ const auth = useAuthStore()
 async function onSubmit() {
   try {
     await auth.login(username.value, password.value)
-  } catch (err) {
-    // 简易错误提示
-    alert("登录失败（这里只是本地演示）")
+  } catch (err: any) {
+    const detail = err?.response?.data?.detail ?? err?.message ?? "用户名或密码错误"
+    alert(`登录失败：${detail}`)
   }
 }
 </script>

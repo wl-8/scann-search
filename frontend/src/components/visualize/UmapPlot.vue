@@ -83,27 +83,25 @@ function render() {
 
 		const traces = highlightTrace ? [mainTrace, highlightTrace] : [mainTrace]
 
-		const layout = {
+		const layout: any = {
 			margin: { l: 0, r: 0, t: 8, b: 0 },
 			height: 520,
 			paper_bgcolor: "#fff",
 			plot_bgcolor: "#fff",
 			showlegend: false,
-			scene: dim === 3 ? { xaxis: { title: "UMAP1" }, yaxis: { title: "UMAP2" }, zaxis: { title: "UMAP3" } } : undefined,
+		}
+		if (dim === 3) {
+			layout.scene = { xaxis: { title: "UMAP1" }, yaxis: { title: "UMAP2" }, zaxis: { title: "UMAP3" } }
 		}
 
-		// use react for faster updates
 		Plotly.react(plotEl.value, traces, layout as any, { responsive: true, displaylogo: false })
 
-		// remove old click handlers to avoid dupes
-		try {
-			;(plotEl.value as any)._clickHandler && (plotEl.value as any).removeListener("plotly_click", (plotEl.value as any)._clickHandler)
-		} catch {}
+		// 清除旧 click handler，避免 re-render 时重复绑定
+		;(plotEl.value as any).removeAllListeners?.("plotly_click")
 		const handler = (ev: any) => {
 			const idx = ev?.points?.[0]?.pointIndex
 			if (typeof idx === "number") emit("point-click", points[idx])
 		}
-		;(plotEl.value as any)._clickHandler = handler
 		;(plotEl.value as any).on?.("plotly_click", handler)
 	} catch (error) {
 		console.error("Failed to render UMAP plot:", error)
