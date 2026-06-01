@@ -77,7 +77,7 @@
         <label class="group-source">
           <input type="radio" checked />
           <span>Graph-Based</span>
-          <strong>{{ selectedCluster?.name }}</strong>
+          <strong :title="selectedCluster?.name">{{ selectedCluster ? shortLabel(selectedCluster.name) : "" }}</strong>
         </label>
 
         <div class="cluster-list">
@@ -97,7 +97,7 @@
           >
             <input v-model="cluster.enabled" type="checkbox" />
             <span class="cluster-swatch" :style="{ background: cluster.color }"></span>
-            <span class="cluster-name">{{ cluster.name }}</span>
+            <span class="cluster-name" :title="cluster.name">{{ cluster.name }}</span>
             <span class="cluster-count">{{ cluster.count.toLocaleString() }}</span>
             <button class="cluster-more" type="button" aria-label="更多操作">•••</button>
           </label>
@@ -170,7 +170,7 @@
                 <path d="M5 4h14v16H5z" />
                 <path d="M8 8h8M8 12h8M8 16h5" />
               </svg>
-              Differential Expression Output
+              Cell Type Summary
             </button>
             <button class="de-tab" type="button">
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -183,10 +183,10 @@
 
           <div class="de-toolbar">
             <div class="segmented">
-              <button class="segmented__item segmented__item--active" type="button">Feature Table</button>
-              <button class="segmented__item" type="button">Heat Map</button>
+              <button class="segmented__item segmented__item--active" type="button">Count Table</button>
+              <button class="segmented__item" type="button">Distribution</button>
             </div>
-            <p>Up-regulated genes per selected cluster in group <strong>Graph-Based</strong>.</p>
+            <p>Observed cells grouped by <strong>cell_type</strong> from the active liver dataset.</p>
             <button class="ghost-icon" type="button" aria-label="表格设置">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" />
@@ -199,29 +199,26 @@
             <table class="de-table">
               <thead>
                 <tr>
-                  <th>Feature</th>
-                  <th>Cluster 1 L2FC</th>
-                  <th>P-Value</th>
-                  <th>Cluster 2</th>
-                  <th>Cluster 3</th>
-                  <th>Cluster 4</th>
-                  <th>Specificity</th>
+                  <th>Cell type</th>
+                  <th>Cells</th>
+                  <th>Dataset %</th>
+                  <th>Status</th>
+                  <th>Distribution</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="gene in geneRows" :key="gene.name">
+                <tr v-for="row in cellTypeRows" :key="row.name">
                   <td>
-                    <span class="gene-name">{{ gene.name }}</span>
+                    <span class="celltype-chip" :style="{ background: row.color }"></span>
+                    <span class="gene-name">{{ row.name }}</span>
                     <span class="gene-menu">•••</span>
                   </td>
-                  <td>{{ gene.l2fc.toFixed(2) }}</td>
-                  <td>{{ gene.p }}</td>
-                  <td :class="{ negative: gene.c2 < 0 }">{{ gene.c2.toFixed(2) }}</td>
-                  <td>{{ gene.c3.toFixed(2) }}</td>
-                  <td :class="{ negative: gene.c4 < 0 }">{{ gene.c4.toFixed(2) }}</td>
+                  <td>{{ row.count.toLocaleString() }}</td>
+                  <td>{{ row.percent.toFixed(2) }}%</td>
+                  <td>{{ row.enabled ? "Visible" : "Hidden" }}</td>
                   <td>
                     <div class="specificity">
-                      <span :style="{ width: `${gene.specificity}%` }"></span>
+                      <span :style="{ width: `${Math.max(row.percent, 2)}%`, background: row.color }"></span>
                     </div>
                   </td>
                 </tr>
@@ -320,7 +317,17 @@ import { computed, onMounted, onUnmounted, reactive, ref } from "vue"
 import { useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
 import AppLayout from "@/components/layout/AppLayout.vue"
-import { listDatasets, listIndexes } from "@/api/search"
+import {
+  browseSearch,
+  getDatasetStats,
+  getVisualizeModes,
+  listDatasets,
+  listIndexes,
+  type DatasetStatsResponse,
+  type EmbeddingPoint,
+  type IndexItem,
+  type VisualizeModesResponse,
+} from "@/api/search"
 
 type Cluster = {
   name: string
@@ -330,13 +337,14 @@ type Cluster = {
 }
 
 type Spot = {
-  id: number
+  id: string
   x: number
   y: number
   size: number
   color: string
   opacity: number
   enabled: boolean
+  clusterName?: string
 }
 
 const router = useRouter()
@@ -346,10 +354,11 @@ const datasetCount = ref<number | string>("—")
 const indexCount = ref<number | string>("—")
 const totalCells = ref(0)
 const isOnline = ref(false)
-const datasetName = ref("PBMC spatial atlas")
+const datasetName = ref("liver")
 const vectorDim = ref<number | string>("—")
-const projectionType = ref<"spatial" | "umap" | "pca">("spatial")
+const projectionType = ref<"spatial" | "umap" | "pca">("umap")
 const spotOpacity = ref(78)
+const realSpots = ref<Spot[]>([])
 
 const latency = ref(16)
 const memory = ref(302)
@@ -360,7 +369,22 @@ const animatedMemory = ref(302)
 const animatedQps = ref(121)
 const latencyHistory = ref([18, 15, 17, 12, 19, 14, 16, 13, 15, 12, 16, 14])
 
-const clusters = reactive<Cluster[]>([
+const palette = [
+  "#3b1b48",
+  "#b7f230",
+  "#5571d9",
+  "#f5c542",
+  "#4aa3ff",
+  "#ff7a1a",
+  "#2bc7bb",
+  "#d93b00",
+  "#48e87e",
+  "#9b1b10",
+  "#8b5cf6",
+  "#14b8a6",
+]
+
+const demoClusters = (): Cluster[] => [
   { name: "Cluster 1", count: 41242, color: "#3b1b48", enabled: true },
   { name: "Cluster 2", count: 39426, color: "#b7f230", enabled: true },
   { name: "Cluster 3", count: 19005, color: "#5571d9", enabled: true },
@@ -371,17 +395,12 @@ const clusters = reactive<Cluster[]>([
   { name: "Cluster 8", count: 796, color: "#d93b00", enabled: true },
   { name: "Cluster 9", count: 491, color: "#48e87e", enabled: true },
   { name: "Cluster 10", count: 469, color: "#9b1b10", enabled: true },
-])
+]
+
+const clusters = reactive<Cluster[]>(demoClusters())
 
 const selectedCluster = ref<Cluster | null>(clusters[1])
-const algorithms = ["Flat", "HNSW", "IVF", "PQ"]
-const geneRows = [
-  { name: "TMCC2", l2fc: 0.93, p: "2.81e-17", c2: -0.55, c3: 0.73, c4: -1.29, specificity: 86 },
-  { name: "ACSL6", l2fc: 0.86, p: "3.93e-14", c2: -0.76, c3: 0.46, c4: -0.60, specificity: 76 },
-  { name: "SLC7A5", l2fc: 0.84, p: "4.92e-14", c2: -0.83, c3: 0.26, c4: -0.39, specificity: 72 },
-  { name: "MALAT1", l2fc: 0.71, p: "7.15e-12", c2: -0.18, c3: 0.33, c4: -0.21, specificity: 64 },
-  { name: "CXCL8", l2fc: 0.68, p: "1.08e-10", c2: 0.42, c3: -0.28, c4: -0.44, specificity: 59 },
-]
+const algorithms = ref(["Flat", "HNSW", "IVF", "PQ"])
 
 const projectionTypeLabel = computed(() => {
   if (projectionType.value === "umap") return "UMAP projection"
@@ -396,7 +415,24 @@ const totalCellsDisplay = computed(() => {
 
 const allClustersEnabled = computed(() => clusters.every((cluster) => cluster.enabled))
 
+const cellTypeRows = computed(() => {
+  const total = totalCells.value || clusters.reduce((sum, cluster) => sum + cluster.count, 0) || 1
+  return clusters.map((cluster) => ({
+    ...cluster,
+    percent: (cluster.count / total) * 100,
+  }))
+})
+
 const spots = computed<Spot[]>(() => {
+  if (realSpots.value.length) {
+    const enabledByCluster = new Map(clusters.map((cluster) => [cluster.name, cluster.enabled]))
+    return realSpots.value.map((spot) => ({
+      ...spot,
+      opacity: spotOpacity.value / 100,
+      enabled: enabledByCluster.get(spot.clusterName ?? "") ?? true,
+    }))
+  }
+
   const count = 220
   return Array.from({ length: count }, (_, index) => {
     const cluster = clusters[index % clusters.length]
@@ -408,13 +444,14 @@ const spots = computed<Spot[]>(() => {
     const x = clamp(29 + t * 43 + jitterX + wave * 3, 12, 88)
     const y = clamp(74 - t * 55 + jitterY + lobe, 10, 88)
     return {
-      id: index,
+      id: `demo-${index}`,
       x,
       y,
       size: 4 + seeded(index, 11) * 5,
       color: cluster.color,
       opacity: spotOpacity.value / 100,
       enabled: cluster.enabled,
+      clusterName: cluster.name,
     }
   })
 })
@@ -469,23 +506,152 @@ let metricsInterval: number | null = null
 
 async function loadMetrics() {
   try {
-    const [datasets, indexes] = await Promise.all([listDatasets(), listIndexes()])
+    const datasets = await listDatasets({ mockFallback: false })
+    const activeDataset = datasets.find((item) => item.status === "ready") ?? datasets[0]
+    const indexes = activeDataset
+      ? await listIndexes(activeDataset.id, { mockFallback: false })
+      : await listIndexes(undefined, { mockFallback: false })
+
     datasetCount.value = datasets.length
-    indexCount.value = indexes.length
-    totalCells.value = datasets.reduce((sum: number, item: any) => sum + (item.n_cells ?? 0), 0)
-    datasetName.value = datasets[0]?.name ?? "PBMC spatial atlas"
-    vectorDim.value = datasets[0]?.vector_dim ?? indexes[0]?.vector_dim ?? "—"
+    indexCount.value = indexes.filter((item) => item.status === "ready").length
+    totalCells.value = activeDataset?.n_cells ?? datasets.reduce((sum, item) => sum + (item.n_cells ?? 0), 0)
+    datasetName.value = activeDataset?.name ?? "liver"
+    vectorDim.value = activeDataset?.vector_dim ?? indexes[0]?.vector_dim ?? "—"
+    algorithms.value = buildAlgorithmList(indexes)
+    if (activeDataset?.status === "ready") {
+      await loadProjection(activeDataset.id)
+    }
     isOnline.value = true
   } catch {
     datasetCount.value = 1
     indexCount.value = 4
     totalCells.value = 145_217
     vectorDim.value = 50
+    datasetName.value = "Demo atlas"
+    realSpots.value = []
+    resetDemoClusters()
+    algorithms.value = ["Flat", "HNSW", "IVF", "PQ"]
     isOnline.value = false
   } finally {
     updatePerformanceMetrics()
     metricsInterval = window.setInterval(updatePerformanceMetrics, 2400)
   }
+}
+
+async function loadProjection(datasetId: number) {
+  const [stats, modes] = await Promise.all([
+    getDatasetStats(datasetId),
+    getVisualizeModes(datasetId),
+  ])
+  const colorBy = chooseColorBy(stats, modes)
+  const clusterCounts = stats.value_counts[colorBy] ?? {}
+  applyClusters(clusterCounts)
+
+  const embeddingKey = chooseEmbeddingKey(modes)
+  projectionType.value = embeddingKey.toLowerCase().includes("umap")
+    ? "umap"
+    : embeddingKey.toLowerCase().includes("pca")
+      ? "pca"
+      : "spatial"
+
+  const embedding = await browseSearch({
+    datasetId,
+    pageSize: 1800,
+    colorBy,
+    embeddingKey,
+    dimension: 2,
+  })
+  totalCells.value = embedding.n_total ?? totalCells.value
+  realSpots.value = normalizeEmbeddingPoints(embedding.points ?? [], colorBy)
+}
+
+function chooseColorBy(stats: DatasetStatsResponse, modes: VisualizeModesResponse) {
+  const preferred = ["cell_type", "author_cell_type", "disease", "AgeGroup", "Treatment"]
+  const available = new Set([
+    ...Object.keys(stats.value_counts ?? {}),
+    ...(modes.color_options ?? []),
+  ])
+  return preferred.find((item) => available.has(item)) ?? Object.keys(stats.value_counts ?? {})[0] ?? "cell_type"
+}
+
+function chooseEmbeddingKey(modes: VisualizeModesResponse) {
+  const options = modes.embedding_options ?? []
+  if (options.includes("X_umap")) return "X_umap"
+  if (options.includes("X_pca")) return "X_pca"
+  return modes.embedding_key
+}
+
+function applyClusters(counts: Record<string, number>) {
+  const next = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([name, count], index) => ({
+      name,
+      count,
+      color: palette[index % palette.length],
+      enabled: true,
+    }))
+
+  if (!next.length) {
+    resetDemoClusters()
+    return
+  }
+
+  clusters.splice(0, clusters.length, ...next)
+  selectedCluster.value = clusters[0] ?? null
+}
+
+function resetDemoClusters() {
+  clusters.splice(0, clusters.length, ...demoClusters())
+  selectedCluster.value = clusters[1] ?? clusters[0] ?? null
+}
+
+function normalizeEmbeddingPoints(points: EmbeddingPoint[], colorBy: string): Spot[] {
+  if (!points.length) return []
+
+  const xs = points.map((point) => point.x)
+  const ys = points.map((point) => point.y)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  const rangeX = maxX - minX || 1
+  const rangeY = maxY - minY || 1
+  const clusterByName = new Map(clusters.map((cluster) => [cluster.name, cluster]))
+
+  return points.map((point, index) => {
+    const clusterName = String(point.label ?? point.obs?.[colorBy] ?? "Unassigned")
+    const cluster = clusterByName.get(clusterName)
+    return {
+      id: point.cell_id,
+      x: clamp(9 + ((point.x - minX) / rangeX) * 82, 6, 94),
+      y: clamp(91 - ((point.y - minY) / rangeY) * 82, 6, 94),
+      size: 3.8 + seeded(index, 19) * 4.2,
+      color: cluster?.color ?? palette[hashString(clusterName) % palette.length],
+      opacity: spotOpacity.value / 100,
+      enabled: cluster?.enabled ?? true,
+      clusterName,
+    }
+  })
+}
+
+function buildAlgorithmList(indexes: IndexItem[]) {
+  const readyAlgorithms = Array.from(
+    new Set(indexes.filter((item) => item.status === "ready").map((item) => item.algorithm.toUpperCase())),
+  )
+  return readyAlgorithms.length ? readyAlgorithms : ["HNSW"]
+}
+
+function hashString(value: string) {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0
+  }
+  return hash
+}
+
+function shortLabel(value: string, maxLength = 18) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 3)}...` : value
 }
 
 function go(path: string) {
@@ -826,7 +992,7 @@ onUnmounted(() => {
 
 .group-source {
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: 18px minmax(0, auto) minmax(72px, 1fr);
   align-items: center;
   gap: 10px;
   margin-top: 18px;
@@ -836,6 +1002,11 @@ onUnmounted(() => {
 }
 
 .group-source strong {
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: #8a97a7;
   font-size: 12px;
 }
@@ -1191,13 +1362,18 @@ onUnmounted(() => {
   font-weight: 750;
 }
 
+.celltype-chip {
+  width: 9px;
+  height: 9px;
+  display: inline-block;
+  margin-right: 8px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(13, 41, 74, 0.08);
+}
+
 .gene-menu {
   float: right;
   color: #9aa5b1;
-}
-
-.negative {
-  color: #a8b0bb !important;
 }
 
 .specificity {

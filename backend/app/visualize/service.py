@@ -9,14 +9,16 @@ visualize 模块始终基于数据集当前激活的 embedding（vectors.npy）�
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
+import anndata as ad
 import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.datasets import service as ds_service
 from app.datasets.models import Dataset
-from app.visualize.exceptions import ColorByColumnNotFound, UnsupportedMode
+from app.visualize.exceptions import ColorByColumnNotFound, UnsupportedMode, VisualizationEmbeddingNotFound
 from app.visualize.schemas import (
     EmbeddingPoint,
     EmbeddingResponse,
@@ -75,6 +77,7 @@ def get_modes(db: Session, dataset_id: int) -> ModesResponse:
     return ModesResponse(
         dataset_id=ds.id,
         embedding_key=ds.embedding_key,
+        embedding_options=_embedding_options(ds),
         vector_dim=ds.vector_dim,
         available_modes=_available_modes(ds.vector_dim),
         color_options=_color_options(obs),
@@ -87,14 +90,15 @@ def get_embedding(
     mode: str,
     color_by: str,
     max_points: int,
+    embedding_key: str | None = None,
 ) -> EmbeddingResponse:
     ds: Dataset = ds_service.get_ready(db, dataset_id)
+    vectors, resolved_embedding_key = _load_embedding_vectors(ds, embedding_key)
 
-    available_modes = _available_modes(ds.vector_dim)
+    available_modes = _available_modes(int(vectors.shape[1]))
     if mode not in available_modes:
         raise UnsupportedMode(mode, available_modes)
 
-    vectors = ds_service.load_vectors(ds)      # shape (n, dim)
     cell_ids = ds_service.load_cell_ids(ds)    # shape (n,)
     obs = ds_service.load_obs(ds)              # DataFrame
 
@@ -131,7 +135,7 @@ def get_embedding(
 
     return EmbeddingResponse(
         dataset_id=ds.id,
-        embedding_key=ds.embedding_key,
+        embedding_key=resolved_embedding_key,
         mode=mode,
         color_by=color_by,
         color_options=color_opts,
@@ -186,3 +190,36 @@ def _jsonable(v):
     if hasattr(v, "item"):
         return v.item()
     return v if isinstance(v, (str, int, float, bool, type(None))) else str(v)
+
+
+def _embedding_options(ds: Dataset) -> list[str]:
+    options = [ds.embedding_key]
+    source = Path(ds.source_path)
+    if source.exists():
+        adata = ad.read_h5ad(source, backed="r")
+        try:
+            options = list(dict.fromkeys([ds.embedding_key, *list(adata.obsm.keys())]))
+        finally:
+            if adata.isbacked:
+                adata.file.close()
+    return options
+
+
+def _load_embedding_vectors(ds: Dataset, embedding_key: str | None) -> tuple[np.ndarray, str]:
+    requested = embedding_key or ds.embedding_key
+    if requested == ds.embedding_key:
+        return ds_service.load_vectors(ds), ds.embedding_key
+
+    source = Path(ds.source_path)
+    adata = ad.read_h5ad(source, backed="r")
+    try:
+        available = list(adata.obsm.keys())
+        if requested not in available:
+            raise VisualizationEmbeddingNotFound(requested, available)
+        vectors = np.asarray(adata.obsm[requested], dtype=np.float32)
+        if vectors.ndim != 2:
+            raise ValueError(f"obsm['{requested}'] 必须是 2D 矩阵，实际 shape={vectors.shape}")
+        return np.ascontiguousarray(vectors), requested
+    finally:
+        if adata.isbacked:
+            adata.file.close()

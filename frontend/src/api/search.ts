@@ -15,6 +15,9 @@ export interface SearchPayload {
   page?: number
   pageSize?: number
   datasets?: string[]
+  colorBy?: string
+  embeddingKey?: string
+  dimension?: 2 | 3
 }
 
 export type SearchFilter = {
@@ -28,7 +31,9 @@ export interface DatasetItem {
   name: string
   status: string
   n_cells: number
+  n_genes?: number
   vector_dim: number
+  embedding_key?: string
 }
 
 export interface IndexItem {
@@ -38,6 +43,47 @@ export interface IndexItem {
   status: string
   n_vectors: number
   vector_dim: number
+  build_time_ms?: number
+  index_size_bytes?: number
+}
+
+export type ApiListOptions = {
+  mockFallback?: boolean
+}
+
+export type DatasetStatsResponse = {
+  dataset_id: number
+  obs_columns: string[]
+  value_counts: Record<string, Record<string, number>>
+}
+
+export type VisualizeModesResponse = {
+  dataset_id: number
+  embedding_key: string
+  embedding_options: string[]
+  vector_dim: number
+  available_modes: string[]
+  color_options: string[]
+}
+
+export type EmbeddingPoint = {
+  cell_id: string
+  x: number
+  y: number
+  z?: number | null
+  label: string
+  obs: Record<string, any>
+}
+
+export type EmbeddingResponse = {
+  dataset_id: number
+  embedding_key: string
+  mode: "2d" | "3d"
+  color_by: string
+  color_options: string[]
+  n_total: number
+  n_returned: number
+  points: EmbeddingPoint[]
 }
 
 export type BatchSearchRequest = {
@@ -121,12 +167,12 @@ function parseVector(raw: string | undefined) {
     .map(Number)
 }
 
-export async function listDatasets() {
+export async function listDatasets(options: ApiListOptions = {}) {
   try {
     return (await request.get("/datasets")) as DatasetItem[]
   } catch (e) {
     // 在开发模式下回退到示例数据，便于未启动后端时演示
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && options.mockFallback !== false) {
       return Promise.resolve([
         { id: 1, name: "PBMC-3k", status: "ready", n_cells: 3200, vector_dim: 64 },
       ])
@@ -135,11 +181,11 @@ export async function listDatasets() {
   }
 }
 
-export async function listIndexes(datasetId?: number) {
+export async function listIndexes(datasetId?: number, options: ApiListOptions = {}) {
   try {
     return (await request.get("/index", { params: datasetId ? { dataset_id: datasetId } : undefined })) as IndexItem[]
   } catch (e) {
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && options.mockFallback !== false) {
       return Promise.resolve([
         { id: 1, dataset_id: datasetId ?? 1, algorithm: "hnsw", status: "ready", n_vectors: 3200, vector_dim: 64 },
       ])
@@ -207,16 +253,25 @@ export async function multiDatasetSearch(payload: SearchPayload) {
 export async function browseSearch(payload: SearchPayload) {
   // Prefer per-dataset visualize embedding when datasetId provided.
   if (payload.datasetId) {
-    const mode = payload.queryType === "vector" || (payload as any).dimension === 3 ? "3d" : "2d"
+    const mode = payload.queryType === "vector" || payload.dimension === 3 ? "3d" : "2d"
     const params: Record<string, any> = {
       mode,
-      color_by: (payload as any).colorBy ?? "cell_type",
+      color_by: payload.colorBy ?? "cell_type",
       max_points: payload.pageSize ?? 5000,
     }
+    if (payload.embeddingKey) params.embedding_key = payload.embeddingKey
     return request.get(`/visualize/${payload.datasetId}/embedding`, { params }) as Promise<any>
   }
 
   throw new Error("browseSearch: 必须提供 datasetId")
+}
+
+export async function getDatasetStats(datasetId: number) {
+  return request.get(`/datasets/${datasetId}/stats`) as Promise<DatasetStatsResponse>
+}
+
+export async function getVisualizeModes(datasetId: number) {
+  return request.get(`/visualize/${datasetId}/modes`) as Promise<VisualizeModesResponse>
 }
 
 export async function batchSearch(payload: BatchSearchRequest) {
@@ -243,4 +298,13 @@ export async function compareStrategies(payload: CompareStrategiesRequest) {
   }) as Promise<CompareStrategiesResponse>
 }
 
-export default { search, conditionalSearch, multiDatasetSearch, browseSearch, batchSearch, compareStrategies }
+export default {
+  search,
+  conditionalSearch,
+  multiDatasetSearch,
+  browseSearch,
+  batchSearch,
+  compareStrategies,
+  getDatasetStats,
+  getVisualizeModes,
+}
