@@ -1,359 +1,520 @@
 <template>
-  <div class="dashboard-page">
-    <div class="dashboard-pattern" aria-hidden="true"></div>
-    <div class="dashboard-shell">
-      <header class="topbar reveal reveal-1">
-        <div class="brand-block">
-          <div class="brand-mark">
-            <span>ANN</span>
-          </div>
-          <div class="brand-copy">
-            <h1>单细胞 ANN 检索系统</h1>
-            <p>现代化检索与数据浏览控制面板</p>
-            <div class="system-status" :aria-label="isOnline ? '系统状态：连接正常' : '系统状态：离线'">
-              <span class="status-dot" :class="{ 'status-dot--offline': !isOnline }" aria-hidden="true"></span>
-              <span>{{ isOnline ? '系统在线（连接正常）' : '后端离线' }}</span>
-            </div>
-          </div>
+  <div class="bio-workbench">
+    <header class="titlebar">
+      <div class="titlebar__identity">
+        <div class="app-mark">S</div>
+        <div>
+          <h1>scann-search Workbench</h1>
+          <p>Single-cell ANN analysis console</p>
         </div>
+      </div>
+      <div class="titlebar__menu" aria-label="应用菜单">
+        <span>File</span>
+        <span>Analyze</span>
+        <span>View</span>
+        <span>Export</span>
+      </div>
+      <div class="titlebar__status">
+        <span class="status-pill" :class="{ 'status-pill--offline': !isOnline }">
+          <span class="status-dot"></span>
+          {{ isOnline ? "Backend online" : "Backend offline" }}
+        </span>
+        <button class="icon-button" type="button" aria-label="退出登录" @click="auth.logout()">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 17l1.4-1.4L8.8 13H20v-2H8.8l2.6-2.6L10 7l-5 5 5 5Z" />
+            <path d="M4 5h6V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h6v-2H4V5Z" />
+          </svg>
+        </button>
+      </div>
+    </header>
 
-        <a-dropdown trigger="click" placement="bottomRight">
-          <template #overlay>
-            <a-menu class="user-menu" @click="onMenuClick">
-              <a-menu-item key="logout">
-                <span>登出入口</span>
-              </a-menu-item>
-            </a-menu>
-          </template>
+    <section class="toolbar">
+      <button class="toolbar-home" type="button" @click="go('/dashboard')">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 11.5 12 4l9 7.5" />
+          <path d="M5.5 10.5V20h13v-9.5" />
+        </svg>
+        Home
+      </button>
 
-          <button class="avatar-button" type="button" aria-label="用户菜单">
+      <div class="toolbar-divider"></div>
+
+      <label class="select-control">
+        <span>Projection type</span>
+        <select v-model="projectionType">
+          <option value="spatial">Spatial</option>
+          <option value="umap">UMAP</option>
+          <option value="pca">PCA</option>
+        </select>
+      </label>
+
+      <label class="select-control">
+        <span>Dataset</span>
+        <select>
+          <option>{{ datasetName }}</option>
+        </select>
+      </label>
+
+      <label class="opacity-control">
+        <span>Spot opacity</span>
+        <input v-model.number="spotOpacity" type="range" min="35" max="100" />
+      </label>
+
+      <div class="toolbar-tools">
+        <button class="tool-button tool-button--active" type="button" title="Pan">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2v20M2 12h20" />
+            <path d="m6 6-4 6 4 6M18 6l4 6-4 6" />
+          </svg>
+        </button>
+        <button class="tool-button" type="button" title="Lasso">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7.5 18.5c-2.8-.8-4.5-2.3-4.5-4.2 0-3 4.4-5.4 9.8-5.4s8.2 1.6 8.2 4.2c0 2.2-2.5 3.9-6.3 4.6" />
+            <path d="M12 17l-3 5" />
+          </svg>
+        </button>
+        <button class="tool-button" type="button" title="Brush">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16 3l5 5-9.5 9.5-5-5L16 3Z" />
+            <path d="M6.5 12.5 4 15c-1.4 1.4-1.4 3.6 0 5 1.2-1.7 2.9-2.6 5-2.5l2.5-2.5" />
+          </svg>
+        </button>
+      </div>
+
+      <button class="export-button" type="button" @click="go('/export')">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3v12" />
+          <path d="m7 10 5 5 5-5" />
+          <path d="M4 20h16" />
+        </svg>
+        Export
+      </button>
+    </section>
+
+    <main class="workbench-grid">
+      <nav class="module-rail" aria-label="分析模块">
+        <button class="rail-item rail-item--active" type="button">
+          <span class="rail-icon rail-icon--clusters"></span>
+          <span>Clusters</span>
+        </button>
+        <button class="rail-item" type="button" @click="go('/visualize')">
+          <span class="rail-icon rail-icon--features"></span>
+          <span>Features</span>
+        </button>
+        <button class="rail-item" type="button" @click="go('/search')">
+          <span class="rail-icon rail-icon--search"></span>
+          <span>Search</span>
+        </button>
+        <button class="rail-item" type="button" @click="go('/datasets')">
+          <span class="rail-icon rail-icon--datasets"></span>
+          <span>Datasets</span>
+        </button>
+        <button class="rail-item" type="button" @click="go('/indexes')">
+          <span class="rail-icon rail-icon--index"></span>
+          <span>Indexes</span>
+        </button>
+      </nav>
+
+      <aside class="groups-panel">
+        <div class="panel-heading">
+          <span>Pipeline-generated groups</span>
+          <button class="ghost-icon" type="button" aria-label="下载分组">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="8" r="4"></circle>
-              <path d="M4 20c1.8-3.9 5-6 8-6s6.2 2.1 8 6"></path>
+              <path d="M12 3v12" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 20h14" />
             </svg>
-            <span class="avatar-button__hint" aria-hidden="true"></span>
           </button>
-        </a-dropdown>
-      </header>
-
-      <section class="banner-card reveal reveal-2">
-        <div class="banner-copy">
-          <span class="banner-tag">Dashboard Overview</span>
-          <p>这是项目的首页仪表盘入口。你可以进入搜索、数据集管理和可视化页面进行演示。</p>
         </div>
-      </section>
 
-      <section class="section-card actions-card reveal reveal-3">
-        <div class="section-heading">
-          <span class="section-kicker">Core Actions</span>
-          <h2>快速入口</h2>
+        <label class="group-source">
+          <input type="radio" checked />
+          <span>Graph-Based</span>
+          <strong>{{ selectedCluster?.name }}</strong>
+        </label>
+
+        <div class="cluster-list">
+          <label class="cluster-row cluster-row--all">
+            <input type="checkbox" :checked="allClustersEnabled" @change="toggleAllClusters" />
+            <span class="cluster-swatch cluster-swatch--all"></span>
+            <span class="cluster-name">All cells</span>
+            <span class="cluster-count">{{ totalCellsDisplay }}</span>
+          </label>
+
+          <label
+            v-for="cluster in clusters"
+            :key="cluster.name"
+            class="cluster-row"
+            :class="{ 'cluster-row--selected': selectedCluster?.name === cluster.name }"
+            @mouseenter="selectedCluster = cluster"
+          >
+            <input v-model="cluster.enabled" type="checkbox" />
+            <span class="cluster-swatch" :style="{ background: cluster.color }"></span>
+            <span class="cluster-name">{{ cluster.name }}</span>
+            <span class="cluster-count">{{ cluster.count.toLocaleString() }}</span>
+            <button class="cluster-more" type="button" aria-label="更多操作">•••</button>
+          </label>
         </div>
-        <div class="actions">
-          <a-button type="primary" class="action-button action-button--primary" @click="go('/search')">开始检索</a-button>
-          <a-button class="action-button action-button--secondary action-button--accent" @click="go('/datasets')">数据集管理</a-button>
-          <a-button class="action-button action-button--secondary" @click="go('/indexes')">索引管理</a-button>
-          <a-button class="action-button action-button--secondary" @click="go('/visualize')">可视化</a-button>
+
+        <div class="group-source group-source--secondary">
+          <input type="radio" />
+          <span>K-Means</span>
+          <strong>disabled</strong>
         </div>
-      </section>
 
-      <section class="metrics-grid">
-        <a-card class="metric-card metric-card--1 reveal reveal-4" :bordered="false">
-          <div class="metric-header">
-            <div class="metric-icon metric-icon--dataset" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M4 7.5h16v10H4z"></path>
-                <path d="M4 7.5l8-4 8 4"></path>
-                <path d="M4 12h16"></path>
-              </svg>
-            </div>
-            <span class="metric-label">数据集</span>
+        <div class="groups-panel__footer">
+          <button class="link-button" type="button" @click="go('/datasets')">+ Create a new group</button>
+          <button class="primary-action" type="button" @click="go('/benchmark')">Run Differential Expression</button>
+        </div>
+      </aside>
+
+      <section class="viewer-panel">
+        <div class="viewer-head">
+          <div>
+            <div class="viewer-kicker">{{ projectionTypeLabel }}</div>
+            <h2>{{ datasetName }}</h2>
           </div>
-          <div class="metric-value">{{ datasetCount }}</div>
-          <div class="metric-sub">已注册数据集</div>
-        </a-card>
-
-        <a-card class="metric-card metric-card--2 reveal reveal-5" :bordered="false">
-          <div class="metric-header">
-            <div class="metric-icon metric-icon--index" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="5.5"></circle>
-                <path d="M15.5 15.5L20 20"></path>
-              </svg>
-            </div>
-            <span class="metric-label">索引数量</span>
+          <div class="viewer-stats">
+            <span>{{ datasetCount }} datasets</span>
+            <span>{{ indexCount }} indexes</span>
+            <span>{{ totalCellsDisplay }} cells</span>
           </div>
-          <div class="metric-value">{{ indexCount }}</div>
-          <div class="metric-sub">已构建索引</div>
-        </a-card>
+        </div>
 
-        <a-card class="metric-card metric-card--3 reveal reveal-6" :bordered="false">
-          <div class="metric-header">
-            <div class="metric-icon metric-icon--recent" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="8"></circle>
-                <path d="M12 8v4l3 2"></path>
-              </svg>
-            </div>
-            <span class="metric-label">总细胞数</span>
-          </div>
-          <div class="metric-value">{{ totalCellsDisplay }}</div>
-          <div class="metric-sub">所有数据集合计</div>
-        </a-card>
-      </section>
-
-      <section class="performance-monitor reveal reveal-7">
-        <div class="perf-header">
-          <div class="perf-title">
-            <svg class="perf-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 3v18h18"/>
-              <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/>
+        <div class="spatial-canvas">
+          <div class="canvas-grid" aria-hidden="true"></div>
+          <div class="tissue-halo" aria-hidden="true"></div>
+          <button class="canvas-control canvas-control--fit" type="button" aria-label="适配窗口">
+            <svg viewBox="0 0 24 24">
+              <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
             </svg>
-            <span>系统性能监控</span>
-          </div>
-          <div class="perf-status">
-            <span class="perf-status-dot"></span>
-            <span class="perf-status-text">实时监控中</span>
+          </button>
+          <button class="canvas-control canvas-control--zoom" type="button" aria-label="放大">
+            <svg viewBox="0 0 24 24">
+              <circle cx="10.5" cy="10.5" r="5.5" />
+              <path d="M15 15l5 5M10.5 8v5M8 10.5h5" />
+            </svg>
+          </button>
+
+          <div
+            v-for="spot in spots"
+            :key="spot.id"
+            class="spot"
+            :class="{ 'spot--dim': !spot.enabled }"
+            :style="{
+              left: `${spot.x}%`,
+              top: `${spot.y}%`,
+              width: `${spot.size}px`,
+              height: `${spot.size}px`,
+              background: spot.color,
+              opacity: spot.enabled ? spot.opacity : 0.08,
+            }"
+          ></div>
+
+          <div class="scale-bar">
+            <span>5 mm</span>
           </div>
         </div>
-        <div class="perf-metrics">
-          <div class="perf-metric perf-metric--latency">
-            <div class="perf-metric-label">查询延迟</div>
-            <div class="perf-metric-value-container">
-              <div class="perf-metric-value" :class="{ 'perf-metric-value--glow': hoveredMetric === 'latency' }" @mouseenter="hoveredMetric = 'latency'" @mouseleave="hoveredMetric = null">
-                <span class="perf-number">{{ animatedLatency }}</span>
-                <span class="perf-unit">ms</span>
-              </div>
-              <svg class="perf-sparkline perf-sparkline--latency" viewBox="0 0 100 24">
-                <defs>
-                  <linearGradient id="latencyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" style="stop-color:#007bff;stop-opacity:0.3" />
-                    <stop offset="100%" style="stop-color:#007bff;stop-opacity:0.8" />
-                  </linearGradient>
-                </defs>
-                <path :d="latencySparklinePath" fill="none" stroke="url(#latencyGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <section class="de-output">
+          <div class="de-tabs">
+            <button class="de-tab de-tab--active" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 4h14v16H5z" />
+                <path d="M8 8h8M8 12h8M8 16h5" />
               </svg>
-            </div>
-            <div class="perf-metric-sub">平均检索耗时</div>
+              Differential Expression Output
+            </button>
+            <button class="de-tab" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 19V5M4 19h16" />
+                <path d="M8 16v-5M12 16V8M16 16v-7" />
+              </svg>
+              Expression Distribution
+            </button>
           </div>
 
-          <div class="perf-metric perf-metric--memory">
-            <div class="perf-metric-label">峰值内存</div>
-            <div class="perf-metric-value-container">
-              <div class="perf-metric-value" :class="{ 'perf-metric-value--glow': hoveredMetric === 'memory' }" @mouseenter="hoveredMetric = 'memory'" @mouseleave="hoveredMetric = null">
-                <span class="perf-number">{{ animatedMemory }}</span>
-                <span class="perf-unit">MB</span>
-              </div>
-              <svg class="perf-sparkline perf-sparkline--memory" viewBox="0 0 100 24">
-                <defs>
-                  <linearGradient id="memoryGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" style="stop-color:#22c55e;stop-opacity:0.3" />
-                    <stop offset="100%" style="stop-color:#22c55e;stop-opacity:0.8" />
-                  </linearGradient>
-                </defs>
-                <path :d="memorySparklinePath" fill="none" stroke="url(#memoryGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+          <div class="de-toolbar">
+            <div class="segmented">
+              <button class="segmented__item segmented__item--active" type="button">Feature Table</button>
+              <button class="segmented__item" type="button">Heat Map</button>
             </div>
-            <div class="perf-metric-sub">索引加载内存</div>
+            <p>Up-regulated genes per selected cluster in group <strong>Graph-Based</strong>.</p>
+            <button class="ghost-icon" type="button" aria-label="表格设置">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" />
+                <path d="M3 12h2M19 12h2M12 3v2M12 19v2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />
+              </svg>
+            </button>
           </div>
 
-          <div class="perf-metric perf-metric--qps">
-            <div class="perf-metric-label">实时吞吐量</div>
-            <div class="perf-metric-value-container">
-              <div class="perf-metric-value" :class="{ 'perf-metric-value--glow': hoveredMetric === 'qps' }" @mouseenter="hoveredMetric = 'qps'" @mouseleave="hoveredMetric = null">
-                <span class="perf-number">{{ animatedQps }}</span>
-                <span class="perf-unit">QPS</span>
-              </div>
-              <svg class="perf-sparkline perf-sparkline--qps" viewBox="0 0 100 24">
-                <defs>
-                  <linearGradient id="qpsGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" style="stop-color:#007bff;stop-opacity:0.3" />
-                    <stop offset="100%" style="stop-color:#007bff;stop-opacity:0.8" />
-                  </linearGradient>
-                </defs>
-                <path :d="qpsSparklinePath" fill="none" stroke="url(#qpsGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <div class="perf-metric-sub">每秒查询率</div>
+          <div class="de-table-wrap">
+            <table class="de-table">
+              <thead>
+                <tr>
+                  <th>Feature</th>
+                  <th>Cluster 1 L2FC</th>
+                  <th>P-Value</th>
+                  <th>Cluster 2</th>
+                  <th>Cluster 3</th>
+                  <th>Cluster 4</th>
+                  <th>Specificity</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="gene in geneRows" :key="gene.name">
+                  <td>
+                    <span class="gene-name">{{ gene.name }}</span>
+                    <span class="gene-menu">•••</span>
+                  </td>
+                  <td>{{ gene.l2fc.toFixed(2) }}</td>
+                  <td>{{ gene.p }}</td>
+                  <td :class="{ negative: gene.c2 < 0 }">{{ gene.c2.toFixed(2) }}</td>
+                  <td>{{ gene.c3.toFixed(2) }}</td>
+                  <td :class="{ negative: gene.c4 < 0 }">{{ gene.c4.toFixed(2) }}</td>
+                  <td>
+                    <div class="specificity">
+                      <span :style="{ width: `${gene.specificity}%` }"></span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-
-          <div class="perf-metric perf-metric--params">
-            <div class="perf-metric-label">系统负载</div>
-            <div class="perf-metric-value-container">
-              <div class="perf-metric-value" :class="{ 'perf-metric-value--glow': hoveredMetric === 'params' }" @mouseenter="hoveredMetric = 'params'" @mouseleave="hoveredMetric = null">
-                <span class="perf-number">{{ animatedLoad }}</span>
-                <span class="perf-unit">%</span>
-              </div>
-              <div class="perf-load-bar">
-                <div class="perf-load-fill" :style="{ width: animatedLoad + '%' }"></div>
-              </div>
-            </div>
-            <div class="perf-metric-sub">CPU/内存负载</div>
-          </div>
-        </div>
+        </section>
       </section>
 
-      <section class="info-grid">
-        <a-card class="info-card reveal reveal-8" :bordered="false" title="快速说明">
-          <ul class="info-list">
-            <li>
-              <span class="list-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M20 6L9 17l-5-5"></path>
-                </svg>
-              </span>
-              <span>支持按细胞ID或向量进行相似细胞检索，可设置过滤条件。</span>
-            </li>
-            <li>
-              <span class="list-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M20 6L9 17l-5-5"></path>
-                </svg>
-              </span>
-              <span>可视化页面支持2D/3D UMAP散点图，点击细胞可查看详情并检索相似细胞。</span>
-            </li>
-            <li>
-              <span class="list-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M20 6L9 17l-5-5"></path>
-                </svg>
-              </span>
-              <span>支持多种ANN算法（HNSW/IVF/Flat等），可自定义参数构建索引。</span>
-            </li>
-          </ul>
-        </a-card>
+      <aside class="inspector-panel">
+        <section class="inspector-card">
+          <div class="inspector-card__head">
+            <span>Dataset Summary</span>
+            <strong>{{ datasetName }}</strong>
+          </div>
+          <div class="summary-grid">
+            <div>
+              <span>Cells</span>
+              <strong>{{ totalCellsDisplay }}</strong>
+            </div>
+            <div>
+              <span>Ready indexes</span>
+              <strong>{{ indexCount }}</strong>
+            </div>
+            <div>
+              <span>Vector dim</span>
+              <strong>{{ vectorDim }}</strong>
+            </div>
+            <div>
+              <span>Mode</span>
+              <strong>ANN</strong>
+            </div>
+          </div>
+        </section>
 
-        <a-card class="info-card reveal reveal-9" :bordered="false" title="当前状态">
-          <ul class="info-list">
-            <li>
-              <span class="list-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M20 6L9 17l-5-5"></path>
-                </svg>
-              </span>
-              <span>系统已就绪，支持.h5ad/.csv/.npy格式单细胞数据上传与处理。</span>
-            </li>
-            <li>
-              <span class="list-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M20 6L9 17l-5-5"></path>
-                </svg>
-              </span>
-              <span>管理员可通过侧边栏进入用户管理页面，审批注册申请和管理用户。</span>
-            </li>
-          </ul>
-        </a-card>
-      </section>
-    </div>
+        <section class="inspector-card">
+          <div class="inspector-card__head">
+            <span>Quality Control</span>
+            <strong>{{ load }}%</strong>
+          </div>
+          <div class="qc-list">
+            <div class="qc-row">
+              <span>Median genes</span>
+              <div class="qc-bar"><i style="width: 72%"></i></div>
+              <strong>2,746</strong>
+            </div>
+            <div class="qc-row">
+              <span>MT fraction</span>
+              <div class="qc-bar qc-bar--amber"><i style="width: 28%"></i></div>
+              <strong>4.8%</strong>
+            </div>
+            <div class="qc-row">
+              <span>Doublet score</span>
+              <div class="qc-bar qc-bar--green"><i style="width: 18%"></i></div>
+              <strong>0.06</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="inspector-card">
+          <div class="inspector-card__head">
+            <span>Index Runtime</span>
+            <strong>{{ animatedLatency }} ms</strong>
+          </div>
+          <div class="runtime-grid">
+            <div>
+              <span>QPS</span>
+              <strong>{{ animatedQps }}</strong>
+            </div>
+            <div>
+              <span>Memory</span>
+              <strong>{{ animatedMemory }} MB</strong>
+            </div>
+          </div>
+          <svg class="runtime-line" viewBox="0 0 160 52" aria-hidden="true">
+            <path :d="latencySparklinePathWide" />
+          </svg>
+        </section>
+
+        <section class="inspector-card">
+          <div class="inspector-card__head">
+            <span>Active Algorithms</span>
+            <strong>Ready</strong>
+          </div>
+          <div class="algorithm-list">
+            <span v-for="algo in algorithms" :key="algo" class="algorithm-pill">{{ algo }}</span>
+          </div>
+        </section>
+      </aside>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue"
-import { useAuthStore } from "@/stores/auth"
+import { computed, onMounted, onUnmounted, reactive, ref } from "vue"
 import { useRouter } from "vue-router"
+import { useAuthStore } from "@/stores/auth"
 import { listDatasets, listIndexes } from "@/api/search"
+
+type Cluster = {
+  name: string
+  count: number
+  color: string
+  enabled: boolean
+}
+
+type Spot = {
+  id: number
+  x: number
+  y: number
+  size: number
+  color: string
+  opacity: number
+  enabled: boolean
+}
 
 const router = useRouter()
 const auth = useAuthStore()
 
 const datasetCount = ref<number | string>("—")
 const indexCount = ref<number | string>("—")
-const totalCells = ref<number>(0)
+const totalCells = ref(0)
 const isOnline = ref(false)
+const datasetName = ref("PBMC spatial atlas")
+const vectorDim = ref<number | string>("—")
+const projectionType = ref<"spatial" | "umap" | "pca">("spatial")
+const spotOpacity = ref(78)
 
-const hoveredMetric = ref<string | null>(null)
+const latency = ref(16)
+const memory = ref(302)
+const qps = ref(121)
+const load = ref(42)
+const animatedLatency = ref(16)
+const animatedMemory = ref(302)
+const animatedQps = ref(121)
+const latencyHistory = ref([18, 15, 17, 12, 19, 14, 16, 13, 15, 12, 16, 14])
 
-const latency = ref(0)
-const memory = ref(0)
-const qps = ref(0)
-const load = ref(0)
+const clusters = reactive<Cluster[]>([
+  { name: "Cluster 1", count: 41242, color: "#3b1b48", enabled: true },
+  { name: "Cluster 2", count: 39426, color: "#b7f230", enabled: true },
+  { name: "Cluster 3", count: 19005, color: "#5571d9", enabled: true },
+  { name: "Cluster 4", count: 14870, color: "#f5c542", enabled: true },
+  { name: "Cluster 5", count: 11509, color: "#4aa3ff", enabled: true },
+  { name: "Cluster 6", count: 4528, color: "#ff7a1a", enabled: true },
+  { name: "Cluster 7", count: 881, color: "#2bc7bb", enabled: true },
+  { name: "Cluster 8", count: 796, color: "#d93b00", enabled: true },
+  { name: "Cluster 9", count: 491, color: "#48e87e", enabled: true },
+  { name: "Cluster 10", count: 469, color: "#9b1b10", enabled: true },
+])
 
-const animatedLatency = ref(0)
-const animatedMemory = ref(0)
-const animatedQps = ref(0)
-const animatedLoad = ref(0)
+const selectedCluster = ref<Cluster | null>(clusters[1])
+const algorithms = ["Flat", "HNSW", "IVF", "PQ"]
+const geneRows = [
+  { name: "TMCC2", l2fc: 0.93, p: "2.81e-17", c2: -0.55, c3: 0.73, c4: -1.29, specificity: 86 },
+  { name: "ACSL6", l2fc: 0.86, p: "3.93e-14", c2: -0.76, c3: 0.46, c4: -0.60, specificity: 76 },
+  { name: "SLC7A5", l2fc: 0.84, p: "4.92e-14", c2: -0.83, c3: 0.26, c4: -0.39, specificity: 72 },
+  { name: "MALAT1", l2fc: 0.71, p: "7.15e-12", c2: -0.18, c3: 0.33, c4: -0.21, specificity: 64 },
+  { name: "CXCL8", l2fc: 0.68, p: "1.08e-10", c2: 0.42, c3: -0.28, c4: -0.44, specificity: 59 },
+]
 
-const latencyHistory = ref<number[]>([])
-const memoryHistory = ref<number[]>([])
-const qpsHistory = ref<number[]>([])
+const projectionTypeLabel = computed(() => {
+  if (projectionType.value === "umap") return "UMAP projection"
+  if (projectionType.value === "pca") return "PCA projection"
+  return "Spatial projection"
+})
 
 const totalCellsDisplay = computed(() => {
-  if (totalCells.value === 0) return "—"
-  return totalCells.value >= 10000
-    ? `${(totalCells.value / 10000).toFixed(1)}万`
-    : String(totalCells.value)
+  if (!totalCells.value) return "—"
+  return totalCells.value >= 10000 ? `${(totalCells.value / 10000).toFixed(1)}万` : String(totalCells.value)
 })
 
-const latencySparklinePath = computed(() => {
-  const data = latencyHistory.value
-  if (data.length < 2) return ""
-  const max = Math.max(...data)
-  const min = Math.min(...data)
-  const range = max - min || 1
-  return data.map((val, idx) => {
-    const x = (idx / (data.length - 1)) * 100
-    const y = 22 - ((val - min) / range) * 20
-    return idx === 0 ? `M${x},${y}` : `L${x},${y}`
-  }).join(" ")
-})
+const allClustersEnabled = computed(() => clusters.every((cluster) => cluster.enabled))
 
-const memorySparklinePath = computed(() => {
-  const data = memoryHistory.value
-  if (data.length < 2) return ""
-  const max = Math.max(...data)
-  const min = Math.min(...data)
-  const range = max - min || 1
-  return data.map((val, idx) => {
-    const x = (idx / (data.length - 1)) * 100
-    const y = 22 - ((val - min) / range) * 20
-    return idx === 0 ? `M${x},${y}` : `L${x},${y}`
-  }).join(" ")
-})
-
-const qpsSparklinePath = computed(() => {
-  const data = qpsHistory.value
-  if (data.length < 2) return ""
-  const max = Math.max(...data)
-  const min = Math.min(...data)
-  const range = max - min || 1
-  return data.map((val, idx) => {
-    const x = (idx / (data.length - 1)) * 100
-    const y = 22 - ((val - min) / range) * 20
-    return idx === 0 ? `M${x},${y}` : `L${x},${y}`
-  }).join(" ")
-})
-
-function animateNumber(target: number, current: ref<number>, duration: number = 1500) {
-  const start = current.value
-  const startTime = performance.now()
-  
-  function update(currentTime: number) {
-    const elapsed = currentTime - startTime
-    const progress = Math.min(elapsed / duration, 1)
-    const easeProgress = 1 - Math.pow(1 - progress, 3)
-    current.value = Math.floor(start + (target - start) * easeProgress)
-    
-    if (progress < 1) {
-      requestAnimationFrame(update)
+const spots = computed<Spot[]>(() => {
+  const count = 220
+  return Array.from({ length: count }, (_, index) => {
+    const cluster = clusters[index % clusters.length]
+    const t = index / (count - 1)
+    const wave = Math.sin(t * Math.PI * 6)
+    const jitterX = seeded(index, 3) * 13 - 6.5
+    const jitterY = seeded(index, 7) * 14 - 7
+    const lobe = index % 3 === 0 ? -7 : index % 5 === 0 ? 6 : 0
+    const x = clamp(29 + t * 43 + jitterX + wave * 3, 12, 88)
+    const y = clamp(74 - t * 55 + jitterY + lobe, 10, 88)
+    return {
+      id: index,
+      x,
+      y,
+      size: 4 + seeded(index, 11) * 5,
+      color: cluster.color,
+      opacity: spotOpacity.value / 100,
+      enabled: cluster.enabled,
     }
-  }
-  
-  requestAnimationFrame(update)
+  })
+})
+
+const latencySparklinePath = computed(() => sparkline(latencyHistory.value, 100, 24))
+const latencySparklinePathWide = computed(() => sparkline(latencyHistory.value, 160, 52))
+
+function seeded(index: number, salt: number) {
+  const x = Math.sin(index * 999 + salt * 37) * 10000
+  return x - Math.floor(x)
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function sparkline(data: number[], width: number, height: number) {
+  if (data.length < 2) return ""
+  const max = Math.max(...data)
+  const min = Math.min(...data)
+  const range = max - min || 1
+  return data
+    .map((val, idx) => {
+      const x = (idx / (data.length - 1)) * width
+      const y = height - 4 - ((val - min) / range) * (height - 8)
+      return idx === 0 ? `M${x},${y}` : `L${x},${y}`
+    })
+    .join(" ")
+}
+
+function toggleAllClusters(event: Event) {
+  const target = event.target as HTMLInputElement
+  clusters.forEach((cluster) => {
+    cluster.enabled = target.checked
+  })
 }
 
 function updatePerformanceMetrics() {
-  latency.value = Math.floor(Math.random() * 20) + 5
-  memory.value = Math.floor(Math.random() * 500) + 200
-  qps.value = Math.floor(Math.random() * 100) + 50
-  load.value = Math.floor(Math.random() * 40) + 30
-  
+  latency.value = Math.floor(Math.random() * 18) + 6
+  memory.value = Math.floor(Math.random() * 360) + 220
+  qps.value = Math.floor(Math.random() * 90) + 70
+  load.value = Math.floor(Math.random() * 36) + 32
+
+  animatedLatency.value = latency.value
+  animatedMemory.value = memory.value
+  animatedQps.value = qps.value
   latencyHistory.value.push(latency.value)
-  memoryHistory.value.push(memory.value)
-  qpsHistory.value.push(qps.value)
-  
-  if (latencyHistory.value.length > 20) latencyHistory.value.shift()
-  if (memoryHistory.value.length > 20) memoryHistory.value.shift()
-  if (qpsHistory.value.length > 20) qpsHistory.value.shift()
+  if (latencyHistory.value.length > 18) latencyHistory.value.shift()
 }
 
 let metricsInterval: number | null = null
@@ -363,24 +524,19 @@ async function loadMetrics() {
     const [datasets, indexes] = await Promise.all([listDatasets(), listIndexes()])
     datasetCount.value = datasets.length
     indexCount.value = indexes.length
-    totalCells.value = datasets.reduce((sum: number, d: any) => sum + (d.n_cells ?? 0), 0)
+    totalCells.value = datasets.reduce((sum: number, item: any) => sum + (item.n_cells ?? 0), 0)
+    datasetName.value = datasets[0]?.name ?? "PBMC spatial atlas"
+    vectorDim.value = datasets[0]?.vector_dim ?? indexes[0]?.vector_dim ?? "—"
     isOnline.value = true
-    
-    updatePerformanceMetrics()
-    animateNumber(latency.value, animatedLatency)
-    animateNumber(memory.value, animatedMemory)
-    animateNumber(qps.value, animatedQps)
-    animateNumber(load.value, animatedLoad)
-    
-    metricsInterval = window.setInterval(() => {
-      updatePerformanceMetrics()
-      animatedLatency.value = latency.value
-      animatedMemory.value = memory.value
-      animatedQps.value = qps.value
-      animatedLoad.value = load.value
-    }, 2000)
   } catch {
+    datasetCount.value = 1
+    indexCount.value = 4
+    totalCells.value = 145_217
+    vectorDim.value = 50
     isOnline.value = false
+  } finally {
+    updatePerformanceMetrics()
+    metricsInterval = window.setInterval(updatePerformanceMetrics, 2400)
   }
 }
 
@@ -388,905 +544,894 @@ function go(path: string) {
   router.push(path)
 }
 
-function onMenuClick({ key }: { key: string }) {
-  if (key === "logout") auth.logout()
-}
-
 onMounted(loadMetrics)
 
 onUnmounted(() => {
-  if (metricsInterval) {
-    clearInterval(metricsInterval)
-  }
+  if (metricsInterval) clearInterval(metricsInterval)
 })
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
-
-.dashboard-page {
-  min-height: 100%;
-  position: relative;
-  overflow: hidden;
-  padding: 28px 24px 40px;
-  background:
-    radial-gradient(circle at 14% 12%, rgba(224, 242, 254, 0.9) 0, rgba(224, 242, 254, 0.62) 20%, rgba(224, 242, 254, 0.16) 38%, transparent 62%),
-    radial-gradient(circle at 86% 88%, rgba(243, 232, 255, 0.88) 0, rgba(243, 232, 255, 0.58) 20%, rgba(243, 232, 255, 0.16) 38%, transparent 62%),
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 52%, #f3f7fb 100%);
-  color: #0f172a;
-  font-family: Inter, Roboto, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-.dashboard-page::before {
-  content: "";
-  position: absolute;
-  inset: -18%;
-  background-image:
-    radial-gradient(circle at 18% 14%, rgba(224, 242, 254, 0.42) 0 11%, transparent 44%),
-    radial-gradient(circle at 82% 84%, rgba(243, 232, 255, 0.38) 0 12%, transparent 46%),
-    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.24) 0 9%, transparent 34%),
-    linear-gradient(135deg, rgba(0, 123, 255, 0.03), rgba(38, 166, 154, 0.015), rgba(243, 232, 255, 0.03));
-  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%;
-  opacity: 0.9;
-  pointer-events: none;
-  filter: blur(32px);
-  animation: dashboardGlowDrift 26s ease-in-out infinite alternate;
-}
-
-.dashboard-pattern {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.1;
-  background-image:
-    radial-gradient(circle at 15% 18%, rgba(0, 123, 255, 0.14) 0 1px, transparent 1px),
-    radial-gradient(circle at 85% 24%, rgba(124, 58, 237, 0.09) 0 1px, transparent 1px),
-    radial-gradient(circle at 30% 72%, rgba(0, 123, 255, 0.08) 0 1px, transparent 1px),
-    radial-gradient(circle at 70% 58%, rgba(124, 58, 237, 0.08) 0 1px, transparent 1px);
-  background-size: 280px 280px, 320px 320px, 360px 360px, 300px 300px;
-}
-
-.dashboard-shell {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 1180px);
-  margin: 0 auto;
+.bio-workbench {
+  min-height: 100vh;
   display: grid;
-  gap: 20px;
+  grid-template-rows: 42px 70px minmax(0, 1fr);
+  background: #fbfbfd;
+  color: #10233f;
+  overflow: hidden;
 }
 
-.topbar,
-.section-card,
-.banner-card,
-.metric-card,
-.info-card,
-.performance-monitor {
-  border-radius: 22px;
+.titlebar {
+  display: grid;
+  grid-template-columns: 300px 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 0 18px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #dce3ea;
+  box-shadow: inset 0 4px 0 #1b6f86;
 }
 
-.topbar {
+.titlebar__identity {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 22px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(0, 123, 255, 0.08);
-  box-shadow:
-    0 20px 48px rgba(15, 23, 42, 0.06),
-    0 4px 14px rgba(15, 23, 42, 0.04);
-  backdrop-filter: blur(14px);
-}
-
-.brand-block {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 
-.brand-mark {
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
+.app-mark {
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #007bff, #3d9cff);
+  border-radius: 7px;
+  background: #0d294a;
   color: #fff;
-  font-size: 0.82rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
-  box-shadow: 0 12px 24px rgba(0, 123, 255, 0.28);
 }
 
-.brand-copy {
-  min-width: 0;
-}
-
-.brand-copy h1 {
+.titlebar h1 {
   margin: 0;
-  font-size: 1.15rem;
-  line-height: 1.35;
-  font-weight: 800;
+  color: #0d294a;
+  font-size: 14px;
+  line-height: 1.2;
 }
 
-.brand-copy p {
-  margin: 4px 0 0;
-  color: #64748b;
-  font-size: 0.92rem;
+.titlebar p {
+  margin: 1px 0 0;
+  color: #718196;
+  font-size: 12px;
 }
 
-.system-status {
+.titlebar__menu {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  color: #243a57;
+  font-size: 14px;
+}
+
+.titlebar__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 6px 10px;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px;
   border-radius: 999px;
-  background: rgba(34, 197, 94, 0.08);
-  color: #15803d;
-  font-size: 0.82rem;
-  font-weight: 700;
+  background: #eaf8ef;
+  color: #1b7f43;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.status-pill--offline {
+  background: #fff4e5;
+  color: #9a5a00;
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+  background: currentColor;
 }
 
-.avatar-button {
-  width: 46px;
-  height: 46px;
-  border: 1px solid rgba(0, 123, 255, 0.16);
-  border-radius: 50%;
-  background: linear-gradient(180deg, #ffffff, #eff6ff);
-  color: #007bff;
-  display: grid;
-  place-items: center;
-  position: relative;
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px;
+  background: #ffffff;
+  border-bottom: 1px solid #d9e1ea;
+}
+
+.toolbar-home,
+.export-button,
+.tool-button,
+.icon-button,
+.ghost-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #0d294a;
   cursor: pointer;
-  transition:
-    transform 0.22s ease,
-    box-shadow 0.22s ease,
-    border-color 0.22s ease,
-    filter 0.22s ease;
 }
 
-.avatar-button:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    0 14px 24px rgba(0, 123, 255, 0.16),
-    0 0 0 4px rgba(0, 123, 255, 0.06);
-  border-color: rgba(0, 123, 255, 0.3);
+.toolbar-home,
+.export-button {
+  gap: 8px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-weight: 750;
 }
 
-.avatar-button__hint {
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.68);
-  pointer-events: none;
+.toolbar-home:hover,
+.export-button:hover,
+.tool-button:hover {
+  background: #eef6fc;
 }
 
-.avatar-button svg,
-.metric-icon svg,
-.list-icon svg,
-.perf-icon svg {
+.toolbar svg,
+.titlebar svg,
+.de-output svg {
   width: 20px;
   height: 20px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.9;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.banner-card,
-.section-card,
-.metric-card,
-.info-card,
-.performance-monitor {
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow:
-    0 26px 54px rgba(15, 23, 42, 0.06),
-    0 8px 16px rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+.toolbar-divider {
+  height: 40px;
+  width: 1px;
+  background: #d9e1ea;
 }
 
-.banner-card {
-  padding: 18px 22px;
-}
-
-.banner-copy {
+.select-control,
+.opacity-control {
+  min-width: 170px;
   display: grid;
-  gap: 10px;
+  gap: 3px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f7fafc;
 }
 
-.banner-tag,
-.section-kicker {
-  display: inline-flex;
-  width: fit-content;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: rgba(0, 123, 255, 0.1);
-  color: #007bff;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.select-control span,
+.opacity-control span {
+  color: #8b98a8;
+  font-size: 12px;
+  line-height: 1;
 }
 
-.banner-copy p {
-  margin: 0;
-  color: #334155;
-  font-size: 1rem;
-  line-height: 1.7;
+.select-control select {
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #10233f;
+  font-size: 15px;
+  font-weight: 750;
 }
 
-.section-card {
-  padding: 22px;
+.opacity-control input {
+  width: 140px;
+  accent-color: #147bd1;
 }
 
-.section-heading h2 {
-  margin: 8px 0 0;
-  font-size: 1.2rem;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.action-button {
-  height: 44px;
-  padding-inline: 18px;
-  border-radius: 12px;
-  font-weight: 700;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    background-color 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    filter 0.2s ease;
-}
-
-.action-button:hover {
-  transform: translateY(-1px) scale(1.03);
-  filter: brightness(1.02);
-  box-shadow: 0 16px 28px rgba(0, 123, 255, 0.18);
-}
-
-.action-button:active {
-  transform: translateY(1px) scale(0.985);
-}
-
-.action-button--primary {
-  background: linear-gradient(135deg, #007bff 0%, #2f93ff 100%);
-  border-color: #007bff;
-  box-shadow: 0 14px 26px rgba(0, 123, 255, 0.22);
-}
-
-.action-button--primary:hover {
-  background: linear-gradient(135deg, #0069df 0%, #1f86ff 100%);
-  box-shadow: 0 16px 30px rgba(0, 123, 255, 0.28);
-}
-
-.action-button--secondary {
-  border: 1px solid rgba(0, 123, 255, 0.24);
-  color: #007bff;
-  background: #fff;
-}
-
-.action-button--secondary:hover {
-  color: #fff;
-  background: #007bff;
-  border-color: #007bff;
-}
-
-.action-button--accent {
-  color: #26a69a;
-  border-color: rgba(38, 166, 154, 0.32);
-  background: linear-gradient(180deg, rgba(38, 166, 154, 0.06), rgba(38, 166, 154, 0.02));
-}
-
-.action-button--accent:hover {
-  color: #fff;
-  background: linear-gradient(135deg, #26a69a 0%, #1f8f84 100%);
-  border-color: #26a69a;
-  box-shadow: 0 16px 28px rgba(38, 166, 154, 0.22);
-}
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.metric-card {
-  padding: 22px;
-  transition:
-    transform 0.24s ease,
-    box-shadow 0.24s ease,
-    border-color 0.24s ease;
-}
-
-.metric-card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(0, 123, 255, 0.22);
-  box-shadow:
-    0 34px 66px rgba(15, 23, 42, 0.08),
-    0 12px 18px rgba(15, 23, 42, 0.05);
-}
-
-.metric-header {
+.toolbar-tools {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: 8px;
+  margin-left: auto;
 }
 
-.metric-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
+.tool-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+}
+
+.tool-button--active {
+  background: #0d294a;
+  color: #fff;
+}
+
+.export-button {
+  background: #f7fafc;
+}
+
+.workbench-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 86px 330px minmax(520px, 1fr) 310px;
+  background: #ffffff;
+}
+
+.module-rail {
+  display: grid;
+  align-content: start;
+  border-right: 1px solid #d9e1ea;
+  background: #fbfcfd;
+}
+
+.rail-item {
+  min-height: 86px;
   display: grid;
   place-items: center;
+  gap: 6px;
+  border: 0;
+  border-bottom: 1px solid #e6edf3;
+  background: transparent;
+  color: #273d59;
+  font-size: 13px;
+  cursor: pointer;
 }
 
-.metric-icon--dataset {
-  background: rgba(0, 123, 255, 0.12);
-  color: #007bff;
+.rail-item--active {
+  background: #eaf6fd;
 }
 
-.metric-icon--index {
-  background: rgba(37, 99, 235, 0.12);
-  color: #2563eb;
-}
-
-.metric-icon--recent {
-  background: rgba(14, 165, 233, 0.12);
-  color: #0ea5e9;
-}
-
-.metric-label {
-  color: #7c8ba0;
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.metric-value {
-  font-size: 2.85rem;
-  line-height: 1;
-  font-weight: 900;
-  color: #0f172a;
-  letter-spacing: -0.04em;
-}
-
-.metric-sub {
-  margin-top: 10px;
-  font-size: 0.82rem;
-  color: #94a3b8;
-  font-weight: 600;
-}
-
-.status-dot--offline {
-  background: #ef4444 !important;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12) !important;
-}
-
-.metric-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.performance-monitor {
-  padding: 24px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
-  border: 1px solid rgba(0, 123, 255, 0.15);
-  box-shadow:
-    0 28px 58px rgba(15, 23, 42, 0.07),
-    0 10px 20px rgba(15, 23, 42, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+.rail-icon {
+  width: 28px;
+  height: 28px;
   position: relative;
-  overflow: hidden;
-  transition:
-    transform 0.24s ease,
-    box-shadow 0.24s ease,
-    border-color 0.24s ease;
 }
 
-.performance-monitor::before {
+.rail-icon::before,
+.rail-icon::after {
   content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.3), transparent);
+  inset: 6px;
+  border: 2px solid #0d294a;
+  border-radius: 50%;
 }
 
-.performance-monitor::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 10% 10%, rgba(0, 123, 255, 0.02) 0%, transparent 50%),
-    radial-gradient(circle at 90% 90%, rgba(34, 197, 94, 0.02) 0%, transparent 50%);
-  pointer-events: none;
+.rail-icon--clusters::after {
+  inset: 2px 16px 16px 2px;
 }
 
-.performance-monitor:hover {
-  border-color: rgba(0, 123, 255, 0.25);
-  box-shadow:
-    0 32px 64px rgba(15, 23, 42, 0.08),
-    0 12px 24px rgba(15, 23, 42, 0.06),
-    0 0 0 1px rgba(0, 123, 255, 0.1);
+.rail-icon--features::before {
+  border-radius: 2px;
+  transform: rotate(45deg);
 }
 
-.perf-header {
+.rail-icon--search::before {
+  inset: 4px 8px 8px 4px;
+}
+
+.rail-icon--search::after {
+  inset: auto 2px 4px auto;
+  width: 10px;
+  height: 2px;
+  border: 0;
+  border-radius: 0;
+  background: #0d294a;
+  transform: rotate(45deg);
+}
+
+.rail-icon--datasets::before {
+  border-radius: 4px;
+}
+
+.rail-icon--datasets::after {
+  inset: 10px 5px;
+  border: 0;
+  border-top: 2px solid #0d294a;
+  border-bottom: 2px solid #0d294a;
+}
+
+.rail-icon--index::before {
+  inset: 5px;
+  border-radius: 5px;
+}
+
+.rail-icon--index::after {
+  inset: 12px 6px;
+  border: 0;
+  border-top: 2px solid #0d294a;
+}
+
+.groups-panel,
+.inspector-panel {
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid #d9e1ea;
+  background: #ffffff;
+}
+
+.groups-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 22px 18px 16px;
+}
+
+.panel-heading,
+.inspector-card__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  gap: 12px;
 }
 
-.perf-title {
-  display: flex;
+.panel-heading span {
+  color: #7d8b9b;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ghost-icon {
+  width: 32px;
+  height: 32px;
+  color: #8392a4;
+}
+
+.group-source {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
   align-items: center;
   gap: 10px;
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: #0f172a;
+  margin-top: 18px;
+  color: #0d294a;
+  font-size: 17px;
+  font-weight: 750;
 }
 
-.perf-icon {
-  width: 24px;
-  height: 24px;
-  color: #007bff;
+.group-source strong {
+  color: #8a97a7;
+  font-size: 12px;
 }
 
-.perf-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(34, 197, 94, 0.1);
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #15803d;
-}
-
-.perf-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #22c55e;
-  animation: perfPulse 2s ease-in-out infinite;
-}
-
-.perf-status-text {
-  font-size: 0.78rem;
-}
-
-.perf-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.perf-metric {
-  padding: 18px 16px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 250, 252, 0.97) 100%);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  position: relative;
-  overflow: hidden;
-  transition:
-    transform 0.22s ease,
-    box-shadow 0.22s ease,
-    border-color 0.22s ease;
-}
-
-.perf-metric::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.2), transparent);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.perf-metric:hover::before {
-  opacity: 1;
-}
-
-.perf-metric:hover {
-  transform: translateY(-3px);
-  border-color: rgba(0, 123, 255, 0.2);
-  box-shadow:
-    0 16px 32px rgba(15, 23, 42, 0.08),
-    0 6px 12px rgba(15, 23, 42, 0.05),
-    0 0 0 1px rgba(0, 123, 255, 0.08);
-}
-
-.perf-metric-label {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #64748b;
-  margin-bottom: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.perf-metric-value-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.perf-metric-value {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Courier New', monospace;
-  font-weight: 700;
-  position: relative;
-  z-index: 1;
-  transition:
-    text-shadow 0.3s ease,
-    transform 0.3s ease;
-}
-
-.perf-metric-value--glow {
-  text-shadow: 
-    0 0 10px rgba(0, 123, 255, 0.6),
-    0 0 20px rgba(0, 123, 255, 0.4),
-    0 0 30px rgba(0, 123, 255, 0.2);
-  transform: scale(1.03);
-}
-
-.perf-number {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #007bff;
-  letter-spacing: -0.02em;
-  text-shadow: 0 0 8px rgba(0, 123, 255, 0.15);
-  transition: text-shadow 0.3s ease;
-}
-
-.perf-metric--memory .perf-number {
-  color: #22c55e;
-  text-shadow: 0 0 8px rgba(34, 197, 94, 0.15);
-}
-
-.perf-metric--params .perf-number {
-  color: #f59e0b;
-  text-shadow: 0 0 8px rgba(245, 158, 11, 0.15);
-}
-
-.perf-unit {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #94a3b8;
-}
-
-.perf-sparkline {
-  width: 100%;
-  height: 24px;
-  opacity: 0.9;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-  transition: opacity 0.3s ease, filter 0.3s ease;
-}
-
-.perf-sparkline:hover {
-  opacity: 1;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.15));
-}
-
-.perf-load-bar {
-  width: 100%;
-  height: 6px;
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 999px;
-  overflow: hidden;
-  position: relative;
-}
-
-.perf-load-bar::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  animation: loadShimmer 2s ease-in-out infinite;
-}
-
-.perf-load-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #f59e0b 0%, #f97316 50%, #fb923c 100%);
-  border-radius: 999px;
-  transition: width 0.5s ease;
-  position: relative;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
-}
-
-.perf-load-fill::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-  animation: fillShimmer 1.5s ease-in-out infinite;
-}
-
-.perf-metric-sub {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #94a3b8;
-}
-
-.metric-trend {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.cluster-list {
   margin-top: 14px;
-  padding: 7px 10px;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 700;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f7fbfd;
 }
 
-.metric-trend__icon {
-  font-size: 0.9rem;
-  line-height: 1;
-}
-
-.metric-trend--up {
-  color: #15803d;
-  background: rgba(34, 197, 94, 0.1);
-}
-
-.metric-trend--down {
-  color: #c2410c;
-  background: rgba(249, 115, 22, 0.1);
-}
-
-.info-grid {
+.cluster-row {
+  height: 39px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: 18px 20px minmax(0, 1fr) auto 24px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+  border-radius: 7px;
+  color: #24405f;
+  cursor: pointer;
 }
 
-.info-card {
-  padding: 8px 2px 8px;
-  transition:
-    transform 0.24s ease,
-    box-shadow 0.24s ease;
+.cluster-row:hover,
+.cluster-row--selected {
+  background: #e7f4fb;
 }
 
-.info-card:hover {
-  transform: translateY(-3px);
-  box-shadow:
-    0 28px 52px rgba(15, 23, 42, 0.08),
-    0 10px 18px rgba(15, 23, 42, 0.04);
+.cluster-row input {
+  accent-color: #147bd1;
 }
 
-.info-card :deep(.ant-card-head) {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-  margin: 0 20px;
-  padding: 0;
+.cluster-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
 }
 
-.info-card :deep(.ant-card-head-title) {
-  padding: 18px 0 14px;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 800;
+.cluster-swatch--all {
+  background: #0d294a;
 }
 
-.info-card :deep(.ant-card-body) {
-  padding: 18px 20px 20px;
+.cluster-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
 }
 
-.info-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.cluster-count {
+  color: #9aa5b1;
+  font-size: 12px;
+}
+
+.cluster-more {
+  border: 0;
+  background: transparent;
+  color: #98a5b5;
+  cursor: pointer;
+}
+
+.group-source--secondary {
+  margin-top: 14px;
+  color: #243a57;
+}
+
+.groups-panel__footer {
+  margin: auto -18px -16px;
+  padding: 16px 18px 20px;
+  border-top: 1px solid #d9e1ea;
   display: grid;
   gap: 14px;
 }
 
-.info-list li + li {
-  padding-top: 14px;
-  border-top: 1px dashed rgba(148, 163, 184, 0.18);
+.link-button {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: #147bd1;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
-.info-list li {
+.primary-action {
+  height: 48px;
+  border: 0;
+  border-radius: 7px;
+  background: #147bd1;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.viewer-panel {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 76px minmax(330px, 1fr) 310px;
+  background: #ffffff;
+}
+
+.viewer-head {
   display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  color: #334155;
-  line-height: 1.7;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 22px;
+  border-bottom: 1px solid #e2e8ef;
 }
 
-.list-icon {
-  flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
+.viewer-kicker {
+  color: #7d8b9b;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.viewer-head h2 {
+  margin: 4px 0 0;
+  color: #0d294a;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.viewer-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.viewer-stats span {
+  padding: 7px 10px;
   border-radius: 999px;
+  background: #f2f6f9;
+  color: #52667c;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.spatial-canvas {
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.canvas-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.38;
+  background-image:
+    linear-gradient(#eff4f8 1px, transparent 1px),
+    linear-gradient(90deg, #eff4f8 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.tissue-halo {
+  position: absolute;
+  left: 29%;
+  top: 14%;
+  width: 45%;
+  height: 70%;
+  border-radius: 58% 42% 54% 46% / 60% 37% 63% 40%;
+  background:
+    radial-gradient(circle at 38% 24%, rgba(162, 79, 172, 0.16), transparent 28%),
+    radial-gradient(circle at 58% 46%, rgba(242, 139, 203, 0.2), transparent 34%),
+    radial-gradient(circle at 44% 76%, rgba(190, 122, 72, 0.12), transparent 26%);
+  filter: blur(8px);
+  transform: rotate(29deg);
+}
+
+.spot {
+  position: absolute;
+  z-index: 2;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 10px currentColor;
+}
+
+.spot--dim {
+  filter: grayscale(1);
+}
+
+.canvas-control {
+  position: absolute;
+  z-index: 3;
+  bottom: 20px;
+  width: 42px;
+  height: 42px;
   display: grid;
   place-items: center;
-  color: #007bff;
-  background: rgba(0, 123, 255, 0.1);
-  margin-top: 2px;
+  border: 1px solid #d9e1ea;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0d294a;
+  cursor: pointer;
 }
 
-.list-icon svg {
-  width: 13px;
-  height: 13px;
+.canvas-control svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 
-.user-menu {
-  min-width: 160px;
+.canvas-control--fit {
+  left: 22px;
+  border-radius: 8px 0 0 8px;
 }
 
-:deep(.ant-dropdown-menu) {
-  border-radius: 14px;
+.canvas-control--zoom {
+  left: 63px;
+  border-radius: 0 8px 8px 0;
+}
+
+.scale-bar {
+  position: absolute;
+  right: 26px;
+  bottom: 24px;
+  width: 190px;
+  height: 24px;
+  color: #1d1d1f;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.scale-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  height: 2px;
+  background: #1d1d1f;
+}
+
+.de-output {
+  min-height: 0;
+  margin: 0 18px 18px;
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
   overflow: hidden;
-  padding: 6px;
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
+  background: #ffffff;
 }
 
-:deep(.ant-dropdown-menu-item) {
+.de-tabs {
+  height: 56px;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid #d9e1ea;
+}
+
+.de-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  border: 0;
+  background: transparent;
+  color: #0d294a;
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.de-tab--active::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 0;
+  height: 4px;
+  background: #147bd1;
+}
+
+.de-toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px;
+}
+
+.de-toolbar p {
+  margin: 0;
+  color: #24405f;
+  font-size: 14px;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: #f3f6f9;
+  border: 1px solid #d9e1ea;
+}
+
+.segmented__item {
+  min-width: 110px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #52667c;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.segmented__item--active {
+  background: #147bd1;
+  color: #ffffff;
+}
+
+.de-table-wrap {
+  overflow: auto;
+  height: 180px;
+  border-top: 1px solid #e3e9ef;
+}
+
+.de-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.de-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 12px;
+  background: #f4f8fa;
+  border-bottom: 1px solid #d9e1ea;
+  border-right: 1px solid #d9e1ea;
+  color: #0d294a;
+  text-align: left;
+}
+
+.de-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e3e9ef;
+  border-right: 1px solid #edf2f6;
+  color: #24405f;
+}
+
+.gene-name {
+  font-weight: 750;
+}
+
+.gene-menu {
+  float: right;
+  color: #9aa5b1;
+}
+
+.negative {
+  color: #a8b0bb !important;
+}
+
+.specificity {
+  height: 7px;
+  border-radius: 999px;
+  background: #e8eef3;
+  overflow: hidden;
+}
+
+.specificity span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #147bd1;
+}
+
+.inspector-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+  border-right: 0;
+  border-left: 1px solid #d9e1ea;
+  background: #f8fafc;
+}
+
+.inspector-card {
+  padding: 14px;
+  border: 1px solid #d9e1ea;
   border-radius: 10px;
-  padding-block: 10px;
+  background: #ffffff;
 }
 
-@keyframes perfPulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(0.9);
-  }
+.inspector-card__head span {
+  color: #7d8b9b;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-@keyframes loadShimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
+.inspector-card__head strong {
+  color: #0d294a;
+  font-size: 13px;
 }
 
-@keyframes fillShimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
+.summary-grid,
+.runtime-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
 }
 
-@keyframes floatIn {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.summary-grid div,
+.runtime-grid div {
+  padding: 10px;
+  border-radius: 8px;
+  background: #f4f8fa;
 }
 
-@keyframes dashboardGlowDrift {
-  from {
-    transform: translate3d(-1%, -0.8%, 0) scale(1);
-  }
-
-  to {
-    transform: translate3d(1%, 0.8%, 0) scale(1.02);
-  }
+.summary-grid span,
+.runtime-grid span {
+  display: block;
+  color: #7d8b9b;
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.reveal {
-  animation: floatIn 0.7s ease both;
-  animation-delay: var(--delay, 0s);
+.summary-grid strong,
+.runtime-grid strong {
+  display: block;
+  margin-top: 5px;
+  color: #10233f;
+  font-size: 18px;
 }
 
-.reveal-1 { --delay: 0.02s; }
-.reveal-2 { --delay: 0.08s; }
-.reveal-3 { --delay: 0.14s; }
-.reveal-4 { --delay: 0.2s; }
-.reveal-5 { --delay: 0.26s; }
-.reveal-6 { --delay: 0.32s; }
-.reveal-7 { --delay: 0.38s; }
-.reveal-8 { --delay: 0.44s; }
-.reveal-9 { --delay: 0.5s; }
+.qc-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.qc-row {
+  display: grid;
+  grid-template-columns: 88px 1fr 46px;
+  align-items: center;
+  gap: 8px;
+  color: #52667c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.qc-bar {
+  height: 7px;
+  border-radius: 999px;
+  background: #e3e9ef;
+  overflow: hidden;
+}
+
+.qc-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #147bd1;
+}
+
+.qc-bar--amber i {
+  background: #f59e0b;
+}
+
+.qc-bar--green i {
+  background: #16a34a;
+}
+
+.runtime-line {
+  width: 100%;
+  height: 60px;
+  margin-top: 10px;
+}
+
+.runtime-line path {
+  fill: none;
+  stroke: #147bd1;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.algorithm-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.algorithm-pill {
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: #eaf6fd;
+  color: #0f65a6;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@media (max-width: 1280px) {
+  .workbench-grid {
+    grid-template-columns: 76px 300px minmax(520px, 1fr);
+  }
+
+  .inspector-panel {
+    display: none;
+  }
+}
 
 @media (max-width: 960px) {
-  .metrics-grid,
-  .info-grid {
+  .bio-workbench {
+    overflow: auto;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+    height: auto;
+  }
+
+  .workbench-grid {
     grid-template-columns: 1fr;
   }
 
-  .perf-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .module-rail {
+    display: none;
   }
 
-  .topbar {
-    align-items: flex-start;
-  }
-}
-
-@media (max-width: 720px) {
-  .dashboard-page {
-    padding: 16px;
+  .groups-panel {
+    max-height: 360px;
+    border-right: 0;
+    border-bottom: 1px solid #d9e1ea;
   }
 
-  .topbar {
-    padding: 16px;
-    align-items: flex-start;
-  }
-
-  .brand-copy h1 {
-    font-size: 1rem;
-  }
-
-  .brand-copy p {
-    font-size: 0.86rem;
-  }
-
-  .banner-card,
-  .section-card,
-  .metric-card,
-  .info-card,
-  .performance-monitor {
-    border-radius: 18px;
-  }
-
-  .section-card,
-  .banner-card,
-  .metric-card,
-  .performance-monitor {
-    padding: 18px;
-  }
-
-  .metric-value {
-    font-size: 2rem;
-  }
-
-  .perf-metrics {
-    grid-template-columns: 1fr;
-  }
-
-  .perf-number {
-    font-size: 1.5rem;
-  }
-
-  .actions {
-    flex-direction: column;
-  }
-
-  .action-button {
-    width: 100%;
+  .viewer-panel {
+    grid-template-rows: auto 420px auto;
   }
 }
 </style>

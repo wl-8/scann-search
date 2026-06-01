@@ -587,4 +587,67 @@ onMounted(loadResources)
     transform: translate3d(1%, 0.8%, 0) scale(1.02);
   }
 }
+
+.search-page {
+  padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(245, 245, 247, 0.98)),
+    var(--app-bg);
+}
+
+.search-page::before {
+  display: none;
+}
+
+.page-icon {
+  border-radius: 12px;
+  background: rgba(0, 113, 227, 0.1);
+  color: var(--blue);
+}
+
+.page-crumb {
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.page-header h2 {
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.resource-card,
+.results-card {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: saturate(180%) blur(22px);
+}
+
+.results-card__toolbar {
+  background: rgba(255, 255, 255, 0.68);
+  border-bottom-color: var(--line);
+}
+
+.toolbar-band {
+  border-radius: 12px;
+  background: rgba(120, 120, 128, 0.08);
+  border-color: var(--line);
+}
+
+.toolbar-button {
+  border-radius: 10px;
+}
+
+.toolbar-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+  color: var(--blue);
+}
+
+@media (max-width: 720px) {
+  .search-page {
+    padding: 16px;
+  }
+}
 </style>

@@ -192,19 +192,18 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 
 <style scoped>
 .search-card {
-	border-radius: 18px;
-	background: #ffffff;
-	box-shadow:
-		0 24px 54px rgba(15, 23, 42, 0.06),
-		0 8px 16px rgba(15, 23, 42, 0.04);
-	border: 1px solid rgba(148, 163, 184, 0.14);
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.76);
+	box-shadow: var(--shadow-sm);
+	border: 1px solid var(--line);
+	backdrop-filter: saturate(180%) blur(22px);
 	overflow: hidden;
 }
 
 .search-card__head {
 	padding: 18px 18px 14px;
-	border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-	background: linear-gradient(180deg, #fbfdff 0%, #f8fafc 100%);
+	border-bottom: 1px solid var(--line);
+	background: rgba(255, 255, 255, 0.58);
 }
 
 .search-card__kicker {
@@ -212,19 +211,19 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 	font-weight: 800;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: #007bff;
+	color: var(--blue);
 }
 
 .search-card__head h3 {
 	margin: 6px 0 0;
 	font-size: 1.05rem;
 	font-weight: 800;
-	color: #0f172a;
+	color: var(--text);
 }
 
 .search-card__head p {
 	margin: 8px 0 0;
-	color: #64748b;
+	color: var(--text-muted);
 	line-height: 1.6;
 }
 
@@ -239,7 +238,7 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .form-section + .form-section {
 	margin-top: 8px;
 	padding-top: 18px;
-	border-top: 1px solid rgba(226, 232, 240, 0.95);
+	border-top: 1px solid var(--line);
 }
 
 .form-section__title {
@@ -248,7 +247,7 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 	font-weight: 800;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: #64748b;
+	color: var(--text-muted);
 }
 
 .radio-group {
@@ -256,8 +255,8 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 	gap: 14px;
 	padding: 8px 12px;
 	border-radius: 12px;
-	background: #f8fafc;
-	border: 1px solid rgba(148, 163, 184, 0.16);
+	background: rgba(120, 120, 128, 0.1);
+	border: 1px solid var(--line);
 }
 
 .control-input,
@@ -271,7 +270,7 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .search-form :deep(.ant-select-selector),
 .search-form :deep(.ant-input-textarea) {
 	border-radius: 12px !important;
-	border-color: #dbe4ee !important;
+	border-color: rgba(0, 0, 0, 0.12) !important;
 	box-shadow: none !important;
 	transition:
 		border-color 0.2s ease,
@@ -283,13 +282,13 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .search-form :deep(.ant-input-number-input),
 .search-form :deep(.ant-select-selection-item),
 .search-form :deep(.ant-select-selection-placeholder) {
-	color: #0f172a;
+	color: var(--text);
 }
 
 .search-form :deep(.ant-input:hover),
 .search-form :deep(.ant-input-number:hover),
 .search-form :deep(.ant-select:not(.ant-select-disabled):hover .ant-select-selector) {
-	border-color: rgba(0, 123, 255, 0.36) !important;
+	border-color: rgba(0, 113, 227, 0.34) !important;
 }
 
 .search-form :deep(.ant-input:focus),
@@ -298,12 +297,12 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .search-form :deep(.ant-select-focused .ant-select-selector),
 .search-form :deep(.ant-input-affix-wrapper-focused),
 .search-form :deep(.ant-input-number-focused .ant-input-number-input) {
-	border-color: #007bff !important;
-	box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.12) !important;
+	border-color: var(--blue) !important;
+	box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12) !important;
 }
 
 .search-form :deep(.ant-radio-wrapper) {
-	color: #334155;
+	color: #424245;
 	font-weight: 600;
 }
 
@@ -314,9 +313,11 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .submit-button {
 	width: 100%;
 	height: 44px;
-	border-radius: 14px;
+	border-radius: 12px;
 	font-weight: 800;
-	box-shadow: 0 14px 26px rgba(0, 123, 255, 0.2);
+	background: #1d1d1f;
+	border-color: #1d1d1f;
+	box-shadow: 0 14px 26px rgba(0, 0, 0, 0.14);
 	transition:
 		transform 0.18s ease,
 		box-shadow 0.18s ease,
@@ -326,7 +327,9 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .submit-button:hover {
 	transform: translateY(-1px) scale(1.02);
 	filter: brightness(1.03);
-	box-shadow: 0 18px 30px rgba(0, 123, 255, 0.24);
+	background: #000;
+	border-color: #000;
+	box-shadow: 0 18px 30px rgba(0, 0, 0, 0.18);
 }
 
 .submit-button:active {
