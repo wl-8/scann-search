@@ -41,6 +41,10 @@ function render() {
 	if (!plotEl.value) return
 	try {
 		const points = props.points || []
+		if (!points.length) {
+			Plotly.purge(plotEl.value)
+			return
+		}
 		const dim = props.dimension ?? 2
 		const colorField = (props.colorBy ?? "cell_type") as keyof Point
 		const categories = points.map((p) => String((p as any)[colorField] ?? "unknown"))

@@ -1,19 +1,19 @@
 <template>
   <AppLayout>
-    <div class="multi-search-page">
-      <div class="page-header">
+    <div class="multi-search-page workbench-page workbench-page--grid">
+      <div class="page-header workbench-page__header">
         <div>
-          <div class="page-crumb">检索 / Multi</div>
-          <h2>批量检索与过滤策略对比</h2>
+          <div class="page-crumb workbench-page__eyebrow">检索 / Multi</div>
+          <h2 class="workbench-page__title">批量检索与过滤策略对比</h2>
         </div>
-        <div class="page-meta">
+        <div class="page-meta workbench-page__pill">
           <span v-if="resourceLoading">资源加载中...</span>
           <span v-else>选择数据集与索引后开始批量检索或策略对比</span>
         </div>
       </div>
 
-      <a-card class="resource-card" :bordered="false">
-        <div class="resource-card__title">后端资源</div>
+      <a-card class="resource-card workbench-panel" :bordered="false">
+        <div class="resource-card__title workbench-section-title">后端资源</div>
         <a-form layout="vertical">
           <a-row :gutter="16">
             <a-col :xs="24" :md="8">
@@ -48,8 +48,8 @@
         <a-tab-pane key="batch" tab="批量检索">
           <a-row :gutter="16">
             <a-col :xs="24" :lg="10">
-              <a-card class="panel-card" :bordered="false">
-                <div class="panel-title">批量检索设置</div>
+              <a-card class="panel-card workbench-panel" :bordered="false">
+                <div class="panel-title workbench-section-title">批量检索设置</div>
                 <a-form layout="vertical">
                   <a-form-item label="Cell IDs（逗号或换行分隔）">
                     <a-textarea v-model:value="batchCellIds" :auto-size="{ minRows: 4, maxRows: 8 }" placeholder="cell_0001, cell_0002, ..." />
@@ -81,8 +81,8 @@
               </a-card>
             </a-col>
             <a-col :xs="24" :lg="14">
-              <a-card class="panel-card" :bordered="false">
-                <div class="panel-title">批量检索结果</div>
+              <a-card class="panel-card workbench-panel" :bordered="false">
+                <div class="panel-title workbench-section-title">批量检索结果</div>
                 <div v-if="batchResult" class="summary-bar">
                   <span>查询数：{{ batchResult.n_queries }}</span>
                   <span>返回：{{ batchResult.n_returned }}</span>
@@ -106,8 +106,8 @@
         <a-tab-pane key="compare" tab="过滤策略对比">
           <a-row :gutter="16">
             <a-col :xs="24" :lg="10">
-              <a-card class="panel-card" :bordered="false">
-                <div class="panel-title">策略对比设置</div>
+              <a-card class="panel-card workbench-panel" :bordered="false">
+                <div class="panel-title workbench-section-title">策略对比设置</div>
                 <a-form layout="vertical">
                   <a-form-item label="查询类型">
                     <a-radio-group v-model:value="compareQueryType">
@@ -147,8 +147,8 @@
               </a-card>
             </a-col>
             <a-col :xs="24" :lg="14">
-              <a-card class="panel-card" :bordered="false">
-                <div class="panel-title">策略对比结果</div>
+              <a-card class="panel-card workbench-panel" :bordered="false">
+                <div class="panel-title workbench-section-title">策略对比结果</div>
                 <div v-if="compareResult" class="summary-bar">
                   <span>总细胞：{{ compareResult.n_total_cells }}</span>
                   <span>匹配数：{{ compareResult.n_matching_filter }}</span>
@@ -484,6 +484,19 @@ onMounted(loadResources)
   margin-bottom: 12px;
 }
 
+.multi-tabs :deep(.ant-tab-pane > .ant-row) {
+  display: grid !important;
+  grid-template-columns: minmax(360px, 430px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.multi-tabs :deep(.ant-tab-pane > .ant-row > .ant-col) {
+  width: auto;
+  max-width: none;
+  flex: none;
+}
+
 .panel-card {
   border-radius: 18px;
   background: #fff;
@@ -533,6 +546,10 @@ onMounted(loadResources)
   .page-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .multi-tabs :deep(.ant-tab-pane > .ant-row) {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -1,18 +1,18 @@
 <template>
   <AppLayout>
-    <div class="admin-page">
-      <div class="admin-page__header">
+    <div class="admin-page workbench-page workbench-page--grid">
+      <div class="admin-page__header workbench-page__header">
         <div>
-          <div class="admin-page__eyebrow">Admin Console</div>
-          <h2>用户管理</h2>
+          <div class="admin-page__eyebrow workbench-page__eyebrow">Admin Console</div>
+          <h2 class="workbench-page__title">用户管理</h2>
         </div>
-        <p>审批注册、调整角色、封禁账号。</p>
+        <p class="workbench-page__meta">审批注册、调整角色、封禁账号。</p>
       </div>
 
       <a-tabs v-model:activeKey="activeTab" class="admin-tabs">
         <a-tab-pane key="all" tab="全部用户">
-          <a-card class="admin-card" :bordered="false">
-            <div class="table-toolbar">
+          <a-card class="admin-card workbench-panel" :bordered="false">
+            <div class="table-toolbar workbench-table-toolbar">
               <span class="toolbar-title">用户列表</span>
               <a-button @click="loadAllUsers" :loading="loading">刷新</a-button>
             </div>
@@ -56,8 +56,8 @@
         </a-tab-pane>
 
         <a-tab-pane key="pending" tab="待审核">
-          <a-card class="admin-card" :bordered="false">
-            <div class="table-toolbar">
+          <a-card class="admin-card workbench-panel" :bordered="false">
+            <div class="table-toolbar workbench-table-toolbar">
               <span class="toolbar-title">待审核用户</span>
               <a-button @click="loadPendingUsers" :loading="pendingLoading">刷新</a-button>
             </div>

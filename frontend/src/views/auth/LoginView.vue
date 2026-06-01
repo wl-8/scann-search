@@ -2,7 +2,7 @@
   <div class="login-page">
     <div class="login-card">
       <div class="login-card__header">
-        <p class="login-card__eyebrow">Welcome back</p>
+        <p class="login-card__eyebrow">Workspace Login</p>
         <h2>登录</h2>
         <p class="login-card__subtitle">使用你的账号继续访问系统。</p>
       </div>
@@ -124,8 +124,11 @@ async function onRegister() {
   position: relative;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 245, 247, 0.98) 100%),
-    #f5f5f7;
+    linear-gradient(#eff4f8 1px, transparent 1px),
+    linear-gradient(90deg, #eff4f8 1px, transparent 1px),
+    #f3f6f9;
+  background-size: 44px 44px;
+  color: var(--bio-text);
 }
 
 .login-page::before {
@@ -133,11 +136,9 @@ async function onRegister() {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(0, 0, 0, 0.026) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.026) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.46), transparent 72%);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(243, 246, 249, 0.94)),
+    radial-gradient(circle at 50% 20%, rgba(20, 123, 209, 0.12), transparent 34%);
 }
 
 .login-page::after {
@@ -145,19 +146,14 @@ async function onRegister() {
 }
 
 .login-card {
-  width: min(100%, 440px);
+  width: min(100%, 460px);
   position: relative;
   z-index: 1;
-  padding: 40px 34px 34px;
-  border-radius: 26px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: saturate(180%) blur(28px);
-  -webkit-backdrop-filter: saturate(180%) blur(28px);
-  box-shadow:
-    0 34px 86px rgba(0, 0, 0, 0.12),
-    0 2px 8px rgba(0, 0, 0, 0.04);
-  color: #1d1d1f;
+  padding: 34px;
+  border: 1px solid var(--bio-line);
+  border-radius: 9px;
+  background: #ffffff;
+  box-shadow: 0 18px 44px rgba(13, 41, 74, 0.12);
 }
 
 .login-card__header {
@@ -166,24 +162,24 @@ async function onRegister() {
 
 .login-card__eyebrow {
   margin: 0 0 8px;
-  font-size: 0.78rem;
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #0071e3;
+  color: var(--bio-muted);
 }
 
 .login-card h2 {
   margin: 0;
-  font-size: 2rem;
+  font-size: 28px;
   line-height: 1.2;
-  font-weight: 820;
-  color: #1d1d1f;
+  font-weight: 850;
+  color: var(--bio-navy);
 }
 
 .login-card__subtitle {
   margin: 10px 0 0;
-  color: #6e6e73;
+  color: #52667c;
   line-height: 1.6;
 }
 
@@ -192,29 +188,28 @@ async function onRegister() {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin: 18px 0 22px;
-  padding: 6px;
-  border-radius: 13px;
-  background: rgba(120, 120, 128, 0.12);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 5px;
+  border-radius: 9px;
+  background: var(--bio-panel-muted);
+  border: 1px solid var(--bio-line);
 }
 
 .tab-button {
-  padding: 10px 12px;
+  min-height: 38px;
+  padding: 8px 12px;
   border: none;
-  border-radius: 10px;
+  border-radius: 7px;
   background: transparent;
-  color: #6e6e73;
-  font-weight: 700;
+  color: #52667c;
+  font-weight: 800;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition: background 0.18s ease, color 0.18s ease;
 }
 
 .tab-button.is-active {
   background: #ffffff;
-  color: #1d1d1f;
-  box-shadow:
-    0 8px 18px rgba(0, 0, 0, 0.08),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  color: var(--bio-navy);
+  box-shadow: inset 0 0 0 1px var(--bio-line);
 }
 
 .login-form {
@@ -224,7 +219,7 @@ async function onRegister() {
 
 .form-hint {
   margin: -6px 0 0;
-  color: #6e6e73;
+  color: #52667c;
   font-size: 0.84rem;
 }
 
@@ -234,64 +229,57 @@ async function onRegister() {
 }
 
 .field label {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #1d1d1f;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--bio-navy);
 }
 
 .login-page input {
   width: 100%;
-  padding: 14px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.72);
-  color: #1d1d1f;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--bio-line);
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--bio-text);
   box-sizing: border-box;
   outline: none;
   transition:
-    border-color 0.24s ease,
-    box-shadow 0.24s ease,
-    transform 0.24s ease,
-    background-color 0.24s ease;
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .login-page input::placeholder {
-  color: #86868b;
+  color: #8b98a8;
 }
 
 .login-page input:focus {
-  border-color: rgba(0, 113, 227, 0.7);
-  box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
-  background: #ffffff;
-  transform: translateY(-1px);
+  border-color: var(--bio-blue);
+  box-shadow: 0 0 0 3px rgba(20, 123, 209, 0.12);
 }
 
 .login-button {
   margin-top: 4px;
-  padding: 14px 18px;
+  min-height: 44px;
+  padding: 11px 18px;
   border: none;
-  border-radius: 14px;
-  background: #1d1d1f;
+  border-radius: 8px;
+  background: var(--bio-blue);
   color: #ffffff;
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    filter 0.2s ease;
+  box-shadow: none;
+  transition: background 0.18s ease, transform 0.18s ease;
 }
 
 .login-button:hover {
-  filter: brightness(1.08);
+  background: #0f65a6;
   transform: translateY(-1px);
-  box-shadow: 0 20px 38px rgba(0, 0, 0, 0.22);
 }
 
 .login-button:active {
-  transform: translateY(1px) scale(0.985);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+  transform: translateY(0);
 }
 
 @media (max-width: 640px) {
@@ -300,8 +288,7 @@ async function onRegister() {
   }
 
   .login-card {
-    padding: 28px 20px;
-    border-radius: 20px;
+    padding: 26px 20px;
   }
 
   .login-card h2 {
@@ -310,7 +297,8 @@ async function onRegister() {
 
   .login-page input,
   .login-button {
-    border-radius: 12px;
+    border-radius: 8px;
   }
+
 }
 </style>

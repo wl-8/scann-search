@@ -1,17 +1,17 @@
 <template>
   <AppLayout>
-    <div class="visualize-page">
-      <a-card class="control-panel" :bordered="false">
+    <div class="visualize-page workbench-page workbench-page--grid">
+      <a-card class="control-panel workbench-panel" :bordered="false">
         <div class="control-panel__inner">
           <div class="control-panel__header">
             <div>
-              <div class="control-panel__eyebrow">UMAP Control Bar</div>
-              <h2>单细胞数据 UMAP 可视化</h2>
+              <div class="control-panel__eyebrow workbench-page__eyebrow">UMAP Control Bar</div>
+              <h2 class="workbench-page__title">单细胞数据 UMAP 可视化</h2>
             </div>
-            <p>选择维度、着色方式与 Top-K，然后刷新图谱查看分布。</p>
+            <p class="workbench-page__meta">选择维度、着色方式与 Top-K，然后刷新图谱查看分布。</p>
           </div>
 
-          <a-row :gutter="16" align="middle" class="control-row">
+          <a-row :gutter="16" align="middle" class="control-row workbench-control-band">
           <a-col :xs="24" :md="6">
             <a-select
               v-model:value="selectedDatasetId"
@@ -45,7 +45,7 @@
 
       <a-row :gutter="16" class="visualize-layout">
         <a-col :xs="24" :lg="16">
-          <a-card class="chart-card" :bordered="false">
+          <a-card class="chart-card workbench-panel" :bordered="false">
             <template #title>
               <div class="card-title card-title--accent">
                 <span class="card-title__bar" aria-hidden="true"></span>
@@ -61,6 +61,7 @@
                 <a-empty description="暂无数据，请点击「刷新图谱」" />
               </div>
               <UmapPlot
+                v-if="points.length"
                 :points="points"
                 :dimension="dimension"
                 :colorBy="colorBy"
@@ -74,7 +75,7 @@
 
         <a-col :xs="24" :lg="8">
           <div class="sidebar-stack">
-            <a-card class="info-card" :bordered="false">
+            <a-card class="info-card workbench-panel" :bordered="false">
               <template #title>
                 <div class="card-title"><span>高亮定位</span></div>
               </template>
@@ -84,7 +85,7 @@
               </div>
             </a-card>
 
-            <a-card class="info-card" :bordered="false">
+            <a-card class="info-card workbench-panel" :bordered="false">
               <template #title>
                 <div class="card-title"><span>选中细胞</span></div>
               </template>
@@ -111,7 +112,7 @@
               </div>
             </a-card>
 
-            <a-card class="info-card" :bordered="false">
+            <a-card class="info-card workbench-panel" :bordered="false">
               <template #title>
                 <div class="card-title"><span>相似细胞结果</span></div>
               </template>
@@ -126,7 +127,7 @@
               />
             </a-card>
 
-            <a-card class="info-card" :bordered="false">
+            <a-card class="info-card workbench-panel" :bordered="false">
               <template #title>
                 <div class="card-title"><span>数据分布统计</span></div>
               </template>

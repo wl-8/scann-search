@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
-    <div class="search-page">
-      <div class="page-header">
+    <div class="search-page workbench-page workbench-page--grid">
+      <div class="page-header workbench-page__header">
       <div class="page-title">
         <span class="page-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
@@ -9,49 +9,58 @@
           </svg>
         </span>
         <div>
-          <div class="page-crumb">检索 / Search</div>
-          <h2>单细胞 ANN 检索页面</h2>
+          <div class="page-crumb workbench-page__eyebrow">检索 / Search</div>
+          <h2 class="workbench-page__title">单细胞 ANN 检索页面</h2>
         </div>
       </div>
-      <div class="page-meta">
+      <div class="page-meta workbench-page__pill">
         <span v-if="loading">检索中...</span>
         <span v-else-if="lastElapsed !== null">后端耗时：{{ Number(lastElapsed).toFixed(2) }} ms，返回 {{ results.length }} 条</span>
         <span v-else>选择数据集和索引后开始检索</span>
       </div>
     </div>
 
-    <div class="search-layout">
-      <div class="search-column search-column--form">
-        <a-card class="resource-card" :bordered="false">
-          <div class="resource-card__title">后端资源</div>
+      <a-card class="resource-card resource-card--strip workbench-panel" :bordered="false">
+          <div class="resource-card__title workbench-section-title">后端资源</div>
           <a-form layout="vertical">
-            <a-form-item label="数据集">
-              <a-select
-                v-model:value="selectedDatasetId"
-                :options="datasetOptions"
-                placeholder="选择 ready 数据集"
-                :loading="resourceLoading"
-                @change="onDatasetChange"
-              />
-            </a-form-item>
-            <a-form-item label="索引">
-              <a-select
-                v-model:value="selectedIndexId"
-                :options="indexOptions"
-                placeholder="选择 ready 索引"
-                :loading="resourceLoading"
-              />
-            </a-form-item>
-            <a-button block @click="loadResources" :loading="resourceLoading">刷新数据集/索引</a-button>
+            <a-row :gutter="14" align="bottom">
+              <a-col :xs="24" :lg="10">
+                <a-form-item label="数据集">
+                  <a-select
+                    v-model:value="selectedDatasetId"
+                    :options="datasetOptions"
+                    placeholder="选择 ready 数据集"
+                    :loading="resourceLoading"
+                    @change="onDatasetChange"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :lg="10">
+                <a-form-item label="索引">
+                  <a-select
+                    v-model:value="selectedIndexId"
+                    :options="indexOptions"
+                    placeholder="选择 ready 索引"
+                    :loading="resourceLoading"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :lg="4">
+                <a-button block @click="loadResources" :loading="resourceLoading">刷新资源</a-button>
+              </a-col>
+            </a-row>
           </a-form>
         </a-card>
+
+    <div class="search-layout">
+      <div class="search-column search-column--form">
         <SearchForm v-model:modelValue="formData" :obsStats="obsStats" @submit="onSearch" />
       </div>
 
       <div class="search-column search-column--results">
-        <a-card class="results-card" :bordered="false">
+        <a-card class="results-card workbench-panel" :bordered="false">
           <div class="results-card__toolbar">
-            <div class="toolbar-band">
+            <div class="toolbar-band workbench-control-band">
               <div class="toolbar-band__group toolbar-band__group--meta">
                 <span class="toolbar-label">真实后端检索</span>
                 <span v-if="selectedIndexId" class="toolbar-value">索引 #{{ selectedIndexId }}</span>
@@ -314,7 +323,6 @@ onMounted(loadResources)
 }
 
 .resource-card {
-  margin-bottom: 16px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow:
@@ -424,7 +432,7 @@ onMounted(loadResources)
 
 .results-card__body {
   position: relative;
-  min-height: calc(100vh - 220px);
+  min-height: 420px;
   padding: 8px 12px 16px;
 }
 
@@ -492,7 +500,7 @@ onMounted(loadResources)
 }
 
 .empty-state {
-  min-height: 220px;
+  min-height: 260px;
   display: grid;
   place-items: center;
   color: #94a3b8;
@@ -665,6 +673,19 @@ onMounted(loadResources)
 .search-layout {
   width: 100%;
   margin: 0;
+  grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
+}
+
+.resource-card--strip :deep(.ant-card-body) {
+  padding: 16px 18px 4px;
+}
+
+.resource-card--strip :deep(.ant-form-item) {
+  margin-bottom: 12px;
+}
+
+.search-column--form {
+  position: static;
 }
 
 .page-icon {
@@ -693,6 +714,14 @@ onMounted(loadResources)
   background: var(--bio-panel);
   box-shadow: none;
   backdrop-filter: none;
+}
+
+.results-card {
+  min-height: 540px;
+}
+
+.resource-card.resource-card--strip {
+  min-height: 0 !important;
 }
 
 .results-card__toolbar {

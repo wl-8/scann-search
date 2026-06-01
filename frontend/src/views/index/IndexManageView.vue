@@ -1,14 +1,17 @@
 <template>
   <AppLayout>
-    <div class="index-page">
-      <div class="page-header">
-        <h2>索引管理</h2>
-        <p>为数据集构建与管理向量索引（支持 flat / hnsw / ivf）。</p>
+    <div class="index-page workbench-page">
+      <div class="page-header workbench-page__header">
+        <div>
+          <div class="workbench-page__eyebrow">Index Builder</div>
+          <h2 class="workbench-page__title">索引管理</h2>
+        </div>
+        <p class="workbench-page__meta">为数据集构建与管理向量索引（支持 flat / hnsw / ivf）。</p>
       </div>
 
-      <a-row :gutter="16">
+      <a-row :gutter="16" class="index-grid">
         <a-col :xs="24" :md="8">
-          <a-card :bordered="false">
+          <a-card class="workbench-panel" :bordered="false">
             <a-form layout="vertical">
               <a-form-item label="数据集">
                 <a-select v-model:value="selectedDatasetId" :options="datasetOptions" @change="onDatasetChange" />
@@ -28,7 +31,7 @@
         </a-col>
 
         <a-col :xs="24" :md="16">
-          <a-card :bordered="false" title="索引列表">
+          <a-card class="workbench-panel" :bordered="false" title="索引列表">
             <a-table :columns="columns" :data-source="indexes" :row-key="'id'" :loading="loading" :pagination="false">
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'dataset_id'">
@@ -166,6 +169,19 @@ onMounted(loadResources)
   font-size: 13px;
 }
 
+.index-grid {
+  display: grid !important;
+  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.index-grid :deep(.ant-col) {
+  width: auto;
+  max-width: none;
+  flex: none;
+}
+
 .index-page :deep(.ant-card) {
   border-radius: 9px;
   border: 1px solid var(--bio-line);
@@ -180,5 +196,15 @@ onMounted(loadResources)
 .index-page :deep(.ant-card-head-title) {
   color: var(--bio-navy);
   font-weight: 850;
+}
+
+.index-page :deep(.ant-table-wrapper) {
+  min-height: 300px;
+}
+
+@media (max-width: 992px) {
+  .index-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

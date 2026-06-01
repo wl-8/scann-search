@@ -1,5 +1,5 @@
 <template>
-	<a-card class="upload-card" :bordered="false" title="上传数据集">
+	<a-card class="upload-card workbench-panel" :bordered="false" title="上传数据集">
 		<div class="upload-card__body">
 			<a-upload-dragger
 				:before-upload="beforeUpload"
@@ -356,7 +356,7 @@ async function submitRegister() {
 }
 
 .upload-dragger__content {
-	min-height: 190px;
+	min-height: 155px;
 	padding: 18px 16px;
 }
 

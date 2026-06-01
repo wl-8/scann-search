@@ -170,3 +170,124 @@ select {
 .ant-tabs .ant-tabs-ink-bar {
 	background: var(--bio-blue);
 }
+
+.workbench-page {
+	min-height: 100%;
+	align-content: start;
+	padding: 18px;
+	background: #ffffff;
+	border: 1px solid var(--bio-line);
+	color: var(--bio-text);
+}
+
+.workbench-page--grid {
+	display: grid;
+	gap: 16px;
+}
+
+.workbench-page--grid > .workbench-page__header {
+	margin-bottom: 0;
+}
+
+.workbench-page__header {
+	min-height: 68px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 16px;
+	padding: 0 4px 14px;
+	border-bottom: 1px solid var(--bio-line);
+}
+
+.workbench-page__eyebrow {
+	color: var(--bio-muted);
+	font-size: 12px;
+	font-weight: 850;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.workbench-page__title {
+	margin: 4px 0 0;
+	color: var(--bio-navy);
+	font-size: 21px;
+	line-height: 1.2;
+	font-weight: 850;
+	letter-spacing: 0;
+}
+
+.workbench-page__meta {
+	color: #52667c;
+	font-size: 13px;
+	line-height: 1.6;
+}
+
+.workbench-page__pill {
+	display: inline-flex;
+	align-items: center;
+	min-height: 28px;
+	padding: 6px 10px;
+	border-radius: 999px;
+	background: var(--bio-panel-muted);
+	color: #52667c;
+	font-size: 12px;
+	font-weight: 800;
+}
+
+.workbench-panel.ant-card,
+.workbench-panel {
+	border-radius: 9px;
+	border: 1px solid var(--bio-line);
+	background: var(--bio-panel);
+	box-shadow: none;
+}
+
+.workbench-panel.ant-card > .ant-card-head {
+	border-bottom-color: var(--bio-line);
+	background: #ffffff;
+}
+
+.workbench-panel.ant-card > .ant-card-head .ant-card-head-title {
+	color: var(--bio-navy);
+	font-weight: 850;
+}
+
+.workbench-section-title {
+	margin-bottom: 12px;
+	color: var(--bio-navy);
+	font-size: 14px;
+	font-weight: 850;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.workbench-control-band {
+	border-radius: 9px;
+	border: 1px solid var(--bio-line);
+	background: var(--bio-panel-muted);
+}
+
+.workbench-table-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #edf2f6;
+	color: #52667c;
+}
+
+@media (max-width: 992px) {
+	.workbench-page__header {
+		min-height: auto;
+		align-items: flex-start;
+		flex-direction: column;
+	}
+}
+
+@media (max-width: 720px) {
+	.workbench-page {
+		padding: 12px;
+	}
+}

@@ -1,12 +1,12 @@
 <template>
   <AppLayout>
-    <div class="dataset-page">
-      <div class="dataset-page__header">
+    <div class="dataset-page workbench-page workbench-page--grid">
+      <div class="dataset-page__header workbench-page__header">
         <div>
-          <div class="dataset-page__eyebrow">Dataset Management</div>
-          <h2>数据集管理</h2>
+          <div class="dataset-page__eyebrow workbench-page__eyebrow">Dataset Management</div>
+          <h2 class="workbench-page__title">数据集管理</h2>
         </div>
-        <p>上传数据、查看状态的管理控制台。</p>
+        <p class="workbench-page__meta">上传数据、查看状态的管理控制台。</p>
       </div>
 
       <a-row :gutter="16" class="dataset-grid">
@@ -14,7 +14,7 @@
           <UploadForm @uploaded="onUploaded" />
         </a-col>
         <a-col :xs="24" :lg="14">
-          <a-card class="dataset-table-card" :bordered="false" title="数据集列表">
+          <a-card class="dataset-table-card workbench-panel" :bordered="false" title="数据集列表">
             <a-table
               class="dataset-table"
               :columns="columns"
@@ -434,11 +434,21 @@ async function removeDataset(datasetId: number) {
 }
 
 .dataset-grid {
-  align-items: stretch;
+  display: grid !important;
+  grid-template-columns: minmax(420px, 520px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.dataset-grid :deep(.ant-col) {
+  width: auto;
+  max-width: none;
+  flex: none;
 }
 
 .dataset-table-card {
   height: 100%;
+  min-height: 520px;
   border-radius: 16px;
   background: #fff;
   border: 1px solid rgba(148, 163, 184, 0.14);
@@ -601,6 +611,10 @@ pre {
   .dataset-page__header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .dataset-grid {
+    grid-template-columns: 1fr;
   }
 }
 

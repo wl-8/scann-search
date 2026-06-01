@@ -1,17 +1,17 @@
 <template>
   <AppLayout>
-    <div class="benchmark-page">
-      <div class="benchmark-page__header">
+    <div class="benchmark-page workbench-page workbench-page--grid">
+      <div class="benchmark-page__header workbench-page__header">
         <div>
-          <div class="benchmark-page__eyebrow">Performance Lab</div>
-          <h2>算法性能评测</h2>
+          <div class="benchmark-page__eyebrow workbench-page__eyebrow">Performance Lab</div>
+          <h2 class="workbench-page__title">算法性能评测</h2>
         </div>
-        <p>选择数据集与算法组合，生成召回率/延迟对比。</p>
+        <p class="workbench-page__meta">选择数据集与算法组合，生成召回率/延迟对比。</p>
       </div>
 
-      <a-row :gutter="16">
+      <a-row :gutter="16" class="benchmark-grid">
         <a-col :xs="24" :lg="8">
-          <a-card class="panel-card" :bordered="false" title="运行评测">
+          <a-card class="panel-card workbench-panel" :bordered="false" title="运行评测">
             <a-form layout="vertical">
               <a-form-item label="数据集">
                 <a-select v-model:value="runDatasetId" :options="datasetOptions" placeholder="选择数据集" />
@@ -55,8 +55,8 @@
         </a-col>
 
         <a-col :xs="24" :lg="16">
-          <a-card class="panel-card" :bordered="false" title="评测批次">
-            <div class="table-toolbar">
+          <a-card class="panel-card workbench-panel" :bordered="false" title="评测批次">
+            <div class="table-toolbar workbench-table-toolbar">
               <a-select v-model:value="filterDatasetId" :options="datasetOptions" allow-clear placeholder="按数据集过滤" style="min-width: 200px" />
               <a-input v-model:value="filterLabel" placeholder="标签关键词" style="min-width: 200px" />
               <a-button @click="loadBatches" :loading="listLoading">查询</a-button>
@@ -85,7 +85,7 @@
             </a-table>
           </a-card>
 
-          <a-card v-if="selectedBatch" class="panel-card detail-card" :bordered="false" title="批次详情">
+          <a-card v-if="selectedBatch" class="panel-card detail-card workbench-panel" :bordered="false" title="批次详情">
             <div class="detail-meta">
               <span>批次 #{{ selectedBatch.id }}</span>
               <span>数据集：{{ datasetName(selectedBatch.dataset_id) }}</span>
@@ -352,10 +352,27 @@ onMounted(async () => {
   width: 100%;
 }
 
+.benchmark-grid {
+  display: grid !important;
+  grid-template-columns: minmax(360px, 430px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.benchmark-grid :deep(.ant-col) {
+  width: auto;
+  max-width: none;
+  flex: none;
+}
+
 @media (max-width: 992px) {
   .benchmark-page__header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .benchmark-grid {
+    grid-template-columns: 1fr;
   }
 }
 

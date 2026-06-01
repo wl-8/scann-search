@@ -1,31 +1,31 @@
 <template>
   <AppLayout>
-    <div class="export-page">
-      <div class="export-page__header">
+    <div class="export-page workbench-page workbench-page--grid">
+      <div class="export-page__header workbench-page__header">
         <div>
-          <div class="export-page__eyebrow">Export Center</div>
-          <h2>结果导出</h2>
+          <div class="export-page__eyebrow workbench-page__eyebrow">Export Center</div>
+          <h2 class="workbench-page__title">结果导出</h2>
         </div>
-        <p>导出最近一次检索、过滤或指定 Benchmark 批次的 CSV。</p>
+        <p class="workbench-page__meta">导出最近一次检索、过滤或指定 Benchmark 批次的 CSV。</p>
       </div>
 
-      <a-row :gutter="16">
+      <a-row :gutter="16" class="export-grid">
         <a-col :xs="24" :lg="8">
-          <a-card class="export-card" :bordered="false">
+          <a-card class="export-card workbench-panel" :bordered="false">
             <div class="export-card__title">检索结果导出</div>
             <p class="export-card__desc">导出最近一次 ANN 检索结果（需要先在检索页执行查询）。</p>
             <a-button type="primary" block :loading="searchLoading" @click="exportSearch">导出检索 CSV</a-button>
           </a-card>
         </a-col>
         <a-col :xs="24" :lg="8">
-          <a-card class="export-card" :bordered="false">
+          <a-card class="export-card workbench-panel" :bordered="false">
             <div class="export-card__title">过滤结果导出</div>
             <p class="export-card__desc">导出最近一次细胞过滤结果（需要先执行条件过滤）。</p>
             <a-button type="primary" block :loading="filterLoading" @click="exportFilter">导出过滤 CSV</a-button>
           </a-card>
         </a-col>
         <a-col :xs="24" :lg="8">
-          <a-card class="export-card" :bordered="false">
+          <a-card class="export-card workbench-panel" :bordered="false">
             <div class="export-card__title">Benchmark 导出</div>
             <p class="export-card__desc">输入批次 ID（可多个），导出性能评测 CSV。</p>
             <a-input v-model:value="batchIdsText" placeholder="例如: 12, 15" style="margin-bottom: 12px" />
@@ -162,10 +162,27 @@ async function exportBenchmark() {
   line-height: 1.6;
 }
 
+.export-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.export-grid :deep(.ant-col) {
+  width: auto;
+  max-width: none;
+  flex: none;
+}
+
 @media (max-width: 992px) {
   .export-page__header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .export-grid {
+    grid-template-columns: 1fr;
   }
 }
 

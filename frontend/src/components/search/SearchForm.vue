@@ -1,8 +1,8 @@
 <template>
-	<a-card class="search-card" :bordered="false">
+	<a-card class="search-card workbench-panel" :bordered="false">
 		<div class="search-card__head">
 			<div>
-				<div class="search-card__kicker">Search Console</div>
+				<div class="search-card__kicker workbench-page__eyebrow">Search Console</div>
 				<h3>检索控制台</h3>
 			</div>
 			<p>在这里配置查询类型、索引参数和过滤条件。</p>
