@@ -168,4 +168,55 @@ async function exportBenchmark() {
     align-items: flex-start;
   }
 }
+
+.export-page {
+  min-height: 100%;
+  align-content: start;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--bio-line);
+}
+
+.export-page__header {
+  min-height: 68px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--bio-line);
+}
+
+.export-page__eyebrow {
+  color: var(--bio-muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.export-page__header h2 {
+  color: var(--bio-navy);
+  font-size: 21px;
+  font-weight: 850;
+}
+
+.export-page__header p {
+  color: #52667c;
+  font-size: 13px;
+}
+
+.export-card {
+  min-height: 190px;
+  border-radius: 9px;
+  border: 1px solid var(--bio-line);
+  background: var(--bio-panel);
+  box-shadow: none;
+}
+
+.export-card__title {
+  color: var(--bio-navy);
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.export-card__desc {
+  color: #52667c;
+}
 </style>

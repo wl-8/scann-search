@@ -1,305 +1,575 @@
 <template>
-	<a-layout class="app-layout">
-		<a-layout-sider breakpoint="lg" collapsible v-model:collapsed="collapsed" class="sider">
-			<div class="sider-top">
-				<div class="brand">
-					<span class="brand__logo" aria-hidden="true">S</span>
-					<span class="brand__accent">scann</span><span class="brand__muted">-search</span>
+	<div class="workbench-shell">
+		<header class="titlebar">
+			<div class="titlebar__identity">
+				<div class="app-mark">S</div>
+				<div>
+					<h1>scann-search Workbench</h1>
+					<p>Single-cell ANN analysis console</p>
 				</div>
 			</div>
-			<div class="sider-body">
-				<a-menu theme="light" mode="inline" :selectedKeys="[activeKey]" @click="onMenuClick">
-					<a-menu-item key="/dashboard">仪表盘</a-menu-item>
-					<a-menu-item key="/search">检索</a-menu-item>
-					<a-menu-item key="/search/multi">批量检索</a-menu-item>
-					<a-menu-item key="/visualize">可视化</a-menu-item>
-					<a-menu-item key="/datasets">数据集管理</a-menu-item>
-					<a-menu-item key="/indexes">索引管理</a-menu-item>
-					<a-menu-item v-if="auth.isResearcher || auth.isAdmin" key="/benchmark">性能评测</a-menu-item>
-					<a-menu-item v-if="auth.isResearcher || auth.isAdmin" key="/export">结果导出</a-menu-item>
-					<a-menu-item v-if="auth.isAdmin" key="/admin/users">用户管理</a-menu-item>
-				</a-menu>
+
+			<div class="titlebar__status">
+				<span class="status-pill" :class="{ 'status-pill--offline': statusOffline }">
+					<span class="status-dot"></span>
+					{{ statusLabel }}
+				</span>
+				<span class="user-chip" aria-label="当前用户">
+					<span class="user-chip__avatar">{{ auth.user?.username?.charAt(0)?.toUpperCase() || "?" }}</span>
+					<span class="user-chip__name">{{ auth.user?.username || "guest" }}</span>
+				</span>
+				<button class="icon-button" type="button" aria-label="退出登录" @click="auth.logout()">
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path d="M10 17l1.4-1.4L8.8 13H20v-2H8.8l2.6-2.6L10 7l-5 5 5 5Z" />
+						<path d="M4 5h6V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h6v-2H4V5Z" />
+					</svg>
+				</button>
 			</div>
-		</a-layout-sider>
-		<a-layout class="main-layout">
-			<a-layout-header class="header">
-				<div class="title">
-					<span class="title__accent">单细胞 ANN</span>
-					<span class="title__muted">检索系统</span>
-				</div>
-				<div class="header-actions">
-					<div class="user-chip" aria-label="当前用户">
-						<span class="user-chip__avatar">{{ auth.user?.username?.charAt(0)?.toUpperCase() || '?' }}</span>
-						<span class="user-chip__name">{{ auth.user?.username || 'guest' }}</span>
+		</header>
+
+		<section class="toolbar">
+			<button class="toolbar-home" type="button" @click="go('/dashboard')">
+				<svg viewBox="0 0 24 24" aria-hidden="true">
+					<path d="M3 11.5 12 4l9 7.5" />
+					<path d="M5.5 10.5V20h13v-9.5" />
+				</svg>
+				Home
+			</button>
+
+			<div class="toolbar-divider"></div>
+
+			<div class="toolbar-main">
+				<slot name="toolbarControls">
+					<div class="toolbar-chip">
+						<span>Workspace</span>
+						<strong>{{ activeTitle }}</strong>
 					</div>
-					<a-button class="logout-button" type="text" @click="auth.logout()">
+
+					<div class="toolbar-chip">
+						<span>Analysis mode</span>
+						<strong>{{ activeMode }}</strong>
+					</div>
+				</slot>
+			</div>
+
+			<div class="toolbar-spacer"></div>
+
+			<div class="toolbar-tools" aria-label="快捷工具">
+				<slot name="toolbarActions">
+					<button class="tool-button" type="button" title="ANN Search" @click="go('/search')">
 						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M10 17l1.4-1.4L8.8 13H20v-2H8.8l2.6-2.6L10 7l-5 5 5 5Z" />
-							<path d="M4 5h6V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h6v-2H4V5Z" />
+							<circle cx="10.5" cy="10.5" r="5.5" />
+							<path d="M15 15l5 5" />
 						</svg>
-						<span>退出</span>
-					</a-button>
-				</div>
-			</a-layout-header>
-			<a-layout-content class="content">
+					</button>
+					<button class="tool-button" type="button" title="Visualization" @click="go('/visualize')">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M4 19V5M4 19h16" />
+							<path d="M8 16v-5M12 16V8M16 16v-7" />
+						</svg>
+					</button>
+					<button class="export-button" type="button" @click="go('/export')">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M12 3v12" />
+							<path d="m7 10 5 5 5-5" />
+							<path d="M4 20h16" />
+						</svg>
+						Export
+					</button>
+				</slot>
+			</div>
+		</section>
+
+		<div class="workbench-body">
+			<nav class="module-rail" aria-label="分析模块">
+				<button
+					v-for="item in visibleModules"
+					:key="item.path"
+					class="rail-item"
+					:class="{ 'rail-item--active': item.path === activeKey }"
+					type="button"
+					@click="go(item.path)"
+				>
+					<span class="rail-icon" :class="`rail-icon--${item.icon}`" aria-hidden="true"></span>
+					<span>{{ item.label }}</span>
+				</button>
+			</nav>
+
+			<main class="workbench-content" :class="{ 'workbench-content--flush': flushContent }">
 				<slot />
-			</a-layout-content>
-		</a-layout>
-	</a-layout>
+			</main>
+		</div>
+	</div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue"
+import { computed } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
+
+type ModuleItem = {
+	path: string
+	label: string
+	title: string
+	mode: string
+	icon: string
+	researcher?: boolean
+	admin?: boolean
+}
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
-const collapsed = ref(false)
+
+withDefaults(defineProps<{
+	statusLabel?: string
+	statusOffline?: boolean
+	flushContent?: boolean
+}>(), {
+	statusLabel: "Workspace ready",
+	statusOffline: false,
+	flushContent: false,
+})
+
+const modules: ModuleItem[] = [
+	{ path: "/dashboard", label: "Clusters", title: "Spatial Projection", mode: "Workbench", icon: "clusters" },
+	{ path: "/search", label: "Search", title: "ANN Search", mode: "Query", icon: "search" },
+	{ path: "/search/multi", label: "Batch", title: "Batch Search", mode: "Strategy", icon: "multi" },
+	{ path: "/visualize", label: "Features", title: "UMAP Viewer", mode: "Projection", icon: "features" },
+	{ path: "/datasets", label: "Datasets", title: "Dataset Manager", mode: "Data", icon: "datasets" },
+	{ path: "/indexes", label: "Indexes", title: "Index Builder", mode: "ANN", icon: "index" },
+	{ path: "/benchmark", label: "Benchmark", title: "Performance Lab", mode: "Evaluation", icon: "benchmark", researcher: true },
+	{ path: "/export", label: "Export", title: "Export Center", mode: "CSV", icon: "export", researcher: true },
+	{ path: "/admin/users", label: "Users", title: "User Console", mode: "Admin", icon: "users", admin: true },
+]
+
+const visibleModules = computed(() =>
+	modules.filter((item) => {
+		if (item.admin) return auth.isAdmin
+		if (item.researcher) return auth.isResearcher || auth.isAdmin
+		return true
+	})
+)
 
 const activeKey = computed(() => {
 	const path = route.path
-		if (path.startsWith("/search/multi")) return "/search/multi"
-		if (path.startsWith("/search")) return "/search"
+	if (path.startsWith("/search/multi")) return "/search/multi"
+	if (path.startsWith("/search")) return "/search"
 	if (path.startsWith("/visualize")) return "/visualize"
 	if (path.startsWith("/datasets")) return "/datasets"
 	if (path.startsWith("/indexes")) return "/indexes"
-		if (path.startsWith("/benchmark")) return "/benchmark"
-		if (path.startsWith("/export")) return "/export"
-		if (path.startsWith("/admin")) return "/admin/users"
+	if (path.startsWith("/benchmark")) return "/benchmark"
+	if (path.startsWith("/export")) return "/export"
+	if (path.startsWith("/admin")) return "/admin/users"
 	return "/dashboard"
 })
 
-function onMenuClick({ key }: { key: string }) {
-	router.push(key)
+const activeModule = computed(() => visibleModules.value.find((item) => item.path === activeKey.value) ?? modules[0])
+const activeTitle = computed(() => activeModule.value.title)
+const activeMode = computed(() => activeModule.value.mode)
+
+function go(path: string) {
+	router.push(path)
 }
 </script>
 
 <style scoped>
-.app-layout {
-	display: flex;
+.workbench-shell {
 	height: 100vh;
+	display: grid;
+	grid-template-rows: 42px 70px minmax(0, 1fr);
 	overflow: hidden;
-	background: var(--app-bg);
+	background: #fbfbfd;
+	color: var(--bio-text);
 }
-.sider {
-	position: relative;
-	z-index: 5;
-	flex: 0 0 auto;
-	height: 100vh;
-	overflow-y: auto;
-	background: rgba(245, 245, 247, 0.86);
-	border-right: 1px solid var(--line);
-	box-shadow: 10px 0 30px rgba(0, 0, 0, 0.035);
-	backdrop-filter: saturate(180%) blur(22px);
-}
-.sider :deep(.ant-layout-sider-children) {
-	display: flex;
-	flex-direction: column;
-	height: 100%;
-}
-.sider-top {
-	flex: 0 0 auto;
-	padding: 18px 16px 16px;
-	background:
-		linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(245, 245, 247, 0.72));
-	border-bottom: 1px solid var(--line);
-}
-.sider-body {
-	flex: 1;
-	min-height: 0;
-	padding: 10px 0;
-}
-.brand {
-	display: flex;
+
+.titlebar {
+	display: grid;
+	grid-template-columns: minmax(260px, 1fr) auto;
 	align-items: center;
-	gap: 4px;
-	color: var(--text);
-	font-weight: 760;
-	font-size: 17px;
+	gap: 18px;
+	padding: 0 18px;
+	background: #f5f7fa;
+	border-bottom: 1px solid #dce3ea;
+	box-shadow: inset 0 4px 0 #1b6f86;
 }
-.brand__logo {
-	width: 30px;
-	height: 30px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	margin-right: 6px;
-	border-radius: 9px;
-	background: #1d1d1f;
-	color: #fff;
-	font-size: 0.88rem;
-	font-weight: 800;
-	box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
-}
-.brand__accent {
-	color: var(--text);
-}
-.brand__muted {
-	color: var(--text-muted);
-}
-.sider.ant-layout-sider-collapsed .brand__accent,
-.sider.ant-layout-sider-collapsed .brand__muted {
-	display: none;
-}
-.sider :deep(.ant-menu) {
-	background: transparent;
-	border-inline-end: 0;
-}
-.sider :deep(.ant-menu-light .ant-menu-item) {
-	height: 46px;
-	line-height: 46px;
-	margin: 6px 12px;
-	width: calc(100% - 24px);
-	border-radius: 10px;
-	color: #424245;
-	font-weight: 650;
-	transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-.sider :deep(.ant-menu-light .ant-menu-item:hover) {
-	background: rgba(0, 0, 0, 0.045);
-	color: #1d1d1f;
-	transform: translateX(2px);
-}
-.sider :deep(.ant-menu-light .ant-menu-item-selected) {
-	margin: 6px 12px;
-	width: calc(100% - 24px);
-	background: rgba(255, 255, 255, 0.86);
-	box-shadow:
-		inset 3px 0 0 #1d1d1f,
-		0 10px 22px rgba(0, 0, 0, 0.045);
-	color: #1d1d1f;
-}
-.sider :deep(.ant-menu-light .ant-menu-item-selected::after) {
-	display: none;
-}
-.sider :deep(.ant-layout-sider-trigger) {
-	height: 52px;
-	line-height: 52px;
-	background: rgba(245, 245, 247, 0.9);
-	border-top: 1px solid var(--line);
-	color: #6e6e73;
-	transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-.sider :deep(.ant-layout-sider-trigger:hover) {
-	background: rgba(255, 255, 255, 0.86);
-	color: #1d1d1f;
-}
-.sider :deep(.ant-layout-sider-trigger:hover .anticon) {
-	transform: translateX(2px);
-}
-.main-layout {
-	position: relative;
-	z-index: 1;
-	flex: 1;
+
+.titlebar__identity {
 	min-width: 0;
-	min-height: 0;
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-}
-.header {
-	flex: 0 0 64px;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	background: rgba(251, 251, 253, 0.72);
-	padding: 0 22px;
-	border-bottom: 1px solid var(--line);
-	box-shadow: 0 1px 0 rgba(0, 0, 0, 0.025);
-	backdrop-filter: saturate(180%) blur(22px);
+	gap: 10px;
 }
-.title {
-	display: flex;
-	align-items: baseline;
-	gap: 6px;
-	font-size: 1.02rem;
+
+.app-mark {
+	width: 26px;
+	height: 26px;
+	display: grid;
+	place-items: center;
+	border-radius: 7px;
+	background: var(--bio-navy);
+	color: #fff;
 	font-weight: 800;
-	letter-spacing: 0.01em;
 }
-.title__accent {
-	color: #0071e3;
+
+.titlebar h1 {
+	margin: 0;
+	color: var(--bio-navy);
+	font-size: 14px;
+	line-height: 1.2;
 }
-.title__muted {
-	color: var(--text);
+
+.titlebar p {
+	margin: 1px 0 0;
+	color: var(--bio-muted);
+	font-size: 12px;
 }
-.header-actions {
+
+.titlebar__status {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 10px;
 }
+
+.status-pill,
 .user-chip {
 	display: inline-flex;
 	align-items: center;
-	gap: 10px;
-	height: 36px;
-	padding: 0 12px 0 4px;
+	gap: 7px;
+	height: 26px;
+	padding: 0 10px;
 	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.78);
-	border: 1px solid var(--line);
+	font-size: 12px;
+	font-weight: 750;
 }
+
+.status-pill {
+	background: #eaf8ef;
+	color: #1b7f43;
+}
+
+.status-pill--offline {
+	background: #fff4e5;
+	color: #9a5a00;
+}
+
+.status-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+.user-chip {
+	background: #eef6fc;
+	color: var(--bio-navy);
+}
+
 .user-chip__avatar {
-	min-width: 28px;
-	height: 28px;
-	padding: 0 8px;
+	width: 18px;
+	height: 18px;
+	display: inline-grid;
+	place-items: center;
+	border-radius: 50%;
+	background: #ffffff;
+	color: var(--bio-blue);
+	font-size: 11px;
+	font-weight: 850;
+}
+
+.toolbar {
+	display: flex;
+	align-items: center;
+	gap: 0;
+	padding: 10px 18px 10px 0;
+	background: #ffffff;
+	border-bottom: 1px solid var(--bio-line);
+}
+
+.toolbar-home,
+.export-button,
+.tool-button,
+.icon-button {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: 999px;
-	background: rgba(0, 113, 227, 0.1);
-	color: #0071e3;
-	font-size: 0.82rem;
-	font-weight: 800;
-	letter-spacing: 0.02em;
-}
-.user-chip__name {
-	color: #334155;
-	font-size: 0.92rem;
-	font-weight: 600;
-}
-.logout-button {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	height: 36px;
-	padding: 0 12px;
-	border-radius: 999px;
-	color: #475569;
-	transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-.logout-button:hover {
-	background: rgba(239, 68, 68, 0.08);
-	color: var(--red);
-	transform: translateY(-1px);
-}
-.logout-button :deep(svg) {
-	width: 15px;
-	height: 15px;
-	fill: currentColor;
-}
-.logout-button :deep(span) {
-	font-weight: 600;
-}
-.content {
-	position: relative;
-	z-index: 1;
-	flex: 1;
-	min-height: 0;
-	overflow-y: auto;
-	padding: 18px;
-	background:
-		linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(245, 245, 247, 0.96)),
-		var(--app-bg);
+	border: 0;
+	background: transparent;
+	color: var(--bio-navy);
+	cursor: pointer;
 }
 
-@media (max-width: 992px) {
-	.header {
-		padding-inline: 16px;
+.toolbar-home,
+.export-button {
+	gap: 8px;
+	height: 42px;
+	padding: 0 12px;
+	border-radius: 8px;
+	font-weight: 750;
+}
+
+.toolbar-home {
+	width: 86px;
+	flex: 0 0 86px;
+	padding: 0;
+	border-radius: 0;
+}
+
+.toolbar-home:hover,
+.export-button:hover,
+.tool-button:hover,
+.icon-button:hover {
+	background: #eef6fc;
+}
+
+.toolbar svg,
+.titlebar svg {
+	width: 20px;
+	height: 20px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.toolbar-divider {
+	width: 1px;
+	height: 40px;
+	margin-right: 16px;
+	background: var(--bio-line);
+}
+
+.toolbar-chip {
+	min-width: 170px;
+	display: grid;
+	gap: 3px;
+	margin-right: 16px;
+	padding: 8px 12px;
+	border-radius: 8px;
+	background: var(--bio-panel-muted);
+}
+
+.toolbar-main {
+	display: flex;
+	align-items: center;
+	gap: 0;
+	min-width: 0;
+}
+
+.toolbar-chip span {
+	color: #8b98a8;
+	font-size: 12px;
+	line-height: 1;
+}
+
+.toolbar-chip strong {
+	color: var(--bio-text);
+	font-size: 15px;
+	line-height: 1;
+}
+
+.toolbar-spacer {
+	flex: 1;
+}
+
+.toolbar-tools {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.tool-button,
+.icon-button {
+	width: 42px;
+	height: 42px;
+	border-radius: 8px;
+}
+
+.export-button {
+	margin-left: 8px;
+	background: var(--bio-panel-muted);
+}
+
+.workbench-body {
+	min-height: 0;
+	display: grid;
+	grid-template-columns: 86px minmax(0, 1fr);
+	background: #ffffff;
+}
+
+.module-rail {
+	min-height: 0;
+	display: grid;
+	align-content: start;
+	overflow-y: auto;
+	border-right: 1px solid var(--bio-line);
+	background: #fbfcfd;
+}
+
+.rail-item {
+	min-height: 72px;
+	display: grid;
+	place-items: center;
+	gap: 5px;
+	border: 0;
+	border-bottom: 1px solid #e6edf3;
+	background: transparent;
+	color: #273d59;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.rail-item--active {
+	background: var(--bio-ice);
+	color: var(--bio-navy);
+}
+
+.rail-icon {
+	position: relative;
+	width: 28px;
+	height: 28px;
+}
+
+.rail-icon::before,
+.rail-icon::after {
+	content: "";
+	position: absolute;
+	inset: 6px;
+	border: 2px solid var(--bio-navy);
+	border-radius: 50%;
+}
+
+.rail-icon--clusters::after {
+	inset: 2px 16px 16px 2px;
+}
+
+.rail-icon--search::before {
+	inset: 4px 8px 8px 4px;
+}
+
+.rail-icon--search::after {
+	inset: auto 2px 4px auto;
+	width: 10px;
+	height: 2px;
+	border: 0;
+	border-radius: 0;
+	background: var(--bio-navy);
+	transform: rotate(45deg);
+}
+
+.rail-icon--multi::before {
+	inset: 4px 14px 12px 4px;
+}
+
+.rail-icon--multi::after {
+	inset: 12px 4px 4px 14px;
+}
+
+.rail-icon--features::before {
+	border-radius: 2px;
+	transform: rotate(45deg);
+}
+
+.rail-icon--datasets::before {
+	border-radius: 4px;
+}
+
+.rail-icon--datasets::after {
+	inset: 10px 5px;
+	border: 0;
+	border-top: 2px solid var(--bio-navy);
+	border-bottom: 2px solid var(--bio-navy);
+}
+
+.rail-icon--index::before {
+	inset: 5px;
+	border-radius: 5px;
+}
+
+.rail-icon--index::after {
+	inset: 12px 6px;
+	border: 0;
+	border-top: 2px solid var(--bio-navy);
+}
+
+.rail-icon--benchmark::before {
+	inset: 5px 18px 5px 5px;
+	border-radius: 2px;
+}
+
+.rail-icon--benchmark::after {
+	inset: 9px 5px 5px 15px;
+	border-radius: 2px;
+}
+
+.rail-icon--export::before {
+	inset: 15px 4px 5px;
+	border-radius: 0;
+	border-width: 0 0 2px;
+}
+
+.rail-icon--export::after {
+	inset: 4px 9px 8px;
+	border: 0;
+	border-left: 2px solid var(--bio-navy);
+	border-bottom: 2px solid var(--bio-navy);
+	transform: rotate(-45deg);
+}
+
+.rail-icon--users::before {
+	inset: 4px 13px 12px 5px;
+}
+
+.rail-icon--users::after {
+	inset: 11px 5px 4px 13px;
+}
+
+.workbench-content {
+	min-width: 0;
+	min-height: 0;
+	overflow: auto;
+	padding: 18px;
+	background: #f3f6f9;
+}
+
+.workbench-content--flush {
+	padding: 0;
+	background: #ffffff;
+}
+
+@media (max-width: 960px) {
+	.workbench-shell {
+		grid-template-rows: 48px auto minmax(0, 1fr);
 	}
 
+	.titlebar {
+		grid-template-columns: 1fr auto;
+		padding-inline: 12px;
+	}
+
+	.titlebar p,
+	.status-pill,
 	.user-chip__name {
 		display: none;
+	}
+
+	.toolbar {
+		flex-wrap: wrap;
+		gap: 10px;
+		padding: 10px 12px;
+	}
+
+	.toolbar-chip {
+		min-width: 130px;
+	}
+
+	.workbench-body {
+		grid-template-columns: 72px minmax(0, 1fr);
+	}
+
+	.workbench-content {
+		padding: 12px;
 	}
 }
 </style>

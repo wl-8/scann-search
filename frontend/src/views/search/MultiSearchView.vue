@@ -535,4 +535,61 @@ onMounted(loadResources)
     align-items: flex-start;
   }
 }
+
+.multi-search-page {
+  min-height: 100%;
+  align-content: start;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--bio-line);
+}
+
+.page-header {
+  min-height: 68px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--bio-line);
+}
+
+.page-crumb {
+  color: var(--bio-muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+}
+
+.page-header h2 {
+  color: var(--bio-navy);
+  font-size: 21px;
+  font-weight: 850;
+}
+
+.page-meta {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--bio-panel-muted);
+  color: #52667c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.resource-card,
+.panel-card {
+  border-radius: 9px;
+  border: 1px solid var(--bio-line);
+  background: var(--bio-panel);
+  box-shadow: none;
+}
+
+.resource-card__title,
+.panel-title {
+  color: var(--bio-navy);
+  font-weight: 850;
+}
+
+.multi-tabs :deep(.ant-tabs-nav) {
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--bio-line);
+}
 </style>

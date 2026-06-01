@@ -141,5 +141,44 @@ onMounted(loadResources)
 <style scoped>
 .index-page {
   padding: 18px;
+  min-height: 100%;
+  background: #ffffff;
+  border: 1px solid var(--bio-line);
+}
+
+.page-header {
+  min-height: 68px;
+  margin-bottom: 16px;
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--bio-line);
+}
+
+.page-header h2 {
+  margin: 0;
+  color: var(--bio-navy);
+  font-size: 21px;
+  font-weight: 850;
+}
+
+.page-header p {
+  margin: 6px 0 0;
+  color: #52667c;
+  font-size: 13px;
+}
+
+.index-page :deep(.ant-card) {
+  border-radius: 9px;
+  border: 1px solid var(--bio-line);
+  background: var(--bio-panel);
+  box-shadow: none;
+}
+
+.index-page :deep(.ant-card-head) {
+  border-bottom-color: var(--bio-line);
+}
+
+.index-page :deep(.ant-card-head-title) {
+  color: var(--bio-navy);
+  font-weight: 850;
 }
 </style>

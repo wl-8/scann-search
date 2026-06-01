@@ -1,66 +1,36 @@
 <template>
-  <div class="bio-workbench">
-    <header class="titlebar">
-      <div class="titlebar__identity">
-        <div class="app-mark">S</div>
-        <div>
-          <h1>scann-search Workbench</h1>
-          <p>Single-cell ANN analysis console</p>
-        </div>
+  <AppLayout
+    :status-label="isOnline ? 'Backend online' : 'Backend offline'"
+    :status-offline="!isOnline"
+    flush-content
+  >
+    <template #toolbarControls>
+      <div class="dashboard-toolbar-controls">
+        <label class="select-control">
+          <span>Projection type</span>
+          <select v-model="projectionType">
+            <option value="spatial">Spatial</option>
+            <option value="umap">UMAP</option>
+            <option value="pca">PCA</option>
+          </select>
+        </label>
+
+        <label class="select-control">
+          <span>Dataset</span>
+          <select>
+            <option>{{ datasetName }}</option>
+          </select>
+        </label>
+
+        <label class="opacity-control">
+          <span>Spot opacity</span>
+          <input v-model.number="spotOpacity" type="range" min="35" max="100" />
+        </label>
       </div>
-      <div class="titlebar__menu" aria-label="应用菜单">
-        <span>File</span>
-        <span>Analyze</span>
-        <span>View</span>
-        <span>Export</span>
-      </div>
-      <div class="titlebar__status">
-        <span class="status-pill" :class="{ 'status-pill--offline': !isOnline }">
-          <span class="status-dot"></span>
-          {{ isOnline ? "Backend online" : "Backend offline" }}
-        </span>
-        <button class="icon-button" type="button" aria-label="退出登录" @click="auth.logout()">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M10 17l1.4-1.4L8.8 13H20v-2H8.8l2.6-2.6L10 7l-5 5 5 5Z" />
-            <path d="M4 5h6V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h6v-2H4V5Z" />
-          </svg>
-        </button>
-      </div>
-    </header>
+    </template>
 
-    <section class="toolbar">
-      <button class="toolbar-home" type="button" @click="go('/dashboard')">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3 11.5 12 4l9 7.5" />
-          <path d="M5.5 10.5V20h13v-9.5" />
-        </svg>
-        Home
-      </button>
-
-      <div class="toolbar-divider"></div>
-
-      <label class="select-control">
-        <span>Projection type</span>
-        <select v-model="projectionType">
-          <option value="spatial">Spatial</option>
-          <option value="umap">UMAP</option>
-          <option value="pca">PCA</option>
-        </select>
-      </label>
-
-      <label class="select-control">
-        <span>Dataset</span>
-        <select>
-          <option>{{ datasetName }}</option>
-        </select>
-      </label>
-
-      <label class="opacity-control">
-        <span>Spot opacity</span>
-        <input v-model.number="spotOpacity" type="range" min="35" max="100" />
-      </label>
-
-      <div class="toolbar-tools">
+    <template #toolbarActions>
+      <div class="dashboard-toolbar-actions">
         <button class="tool-button tool-button--active" type="button" title="Pan">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 2v20M2 12h20" />
@@ -79,42 +49,19 @@
             <path d="M6.5 12.5 4 15c-1.4 1.4-1.4 3.6 0 5 1.2-1.7 2.9-2.6 5-2.5l2.5-2.5" />
           </svg>
         </button>
+
+        <button class="export-button" type="button" @click="go('/export')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v12" />
+            <path d="m7 10 5 5 5-5" />
+            <path d="M4 20h16" />
+          </svg>
+          Export
+        </button>
       </div>
+    </template>
 
-      <button class="export-button" type="button" @click="go('/export')">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 3v12" />
-          <path d="m7 10 5 5 5-5" />
-          <path d="M4 20h16" />
-        </svg>
-        Export
-      </button>
-    </section>
-
-    <main class="workbench-grid">
-      <nav class="module-rail" aria-label="分析模块">
-        <button class="rail-item rail-item--active" type="button">
-          <span class="rail-icon rail-icon--clusters"></span>
-          <span>Clusters</span>
-        </button>
-        <button class="rail-item" type="button" @click="go('/visualize')">
-          <span class="rail-icon rail-icon--features"></span>
-          <span>Features</span>
-        </button>
-        <button class="rail-item" type="button" @click="go('/search')">
-          <span class="rail-icon rail-icon--search"></span>
-          <span>Search</span>
-        </button>
-        <button class="rail-item" type="button" @click="go('/datasets')">
-          <span class="rail-icon rail-icon--datasets"></span>
-          <span>Datasets</span>
-        </button>
-        <button class="rail-item" type="button" @click="go('/indexes')">
-          <span class="rail-icon rail-icon--index"></span>
-          <span>Indexes</span>
-        </button>
-      </nav>
-
+    <main class="dashboard-workbench">
       <aside class="groups-panel">
         <div class="panel-heading">
           <span>Pipeline-generated groups</span>
@@ -365,13 +312,14 @@
         </section>
       </aside>
     </main>
-  </div>
+  </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue"
 import { useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
+import AppLayout from "@/components/layout/AppLayout.vue"
 import { listDatasets, listIndexes } from "@/api/search"
 
 type Cluster = {
@@ -552,18 +500,19 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.bio-workbench {
-  min-height: 100vh;
+.dashboard-workbench {
+  height: 100%;
+  min-height: 0;
   display: grid;
-  grid-template-rows: 42px 70px minmax(0, 1fr);
-  background: #fbfbfd;
+  grid-template-columns: 330px minmax(520px, 1fr) 310px;
+  background: #ffffff;
   color: #10233f;
   overflow: hidden;
 }
 
 .titlebar {
   display: grid;
-  grid-template-columns: 300px 1fr auto;
+  grid-template-columns: minmax(280px, 1fr) auto;
   align-items: center;
   gap: 18px;
   padding: 0 18px;
@@ -603,14 +552,6 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
-.titlebar__menu {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  color: #243a57;
-  font-size: 14px;
-}
-
 .titlebar__status {
   display: flex;
   align-items: center;
@@ -645,8 +586,8 @@ onUnmounted(() => {
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 10px 18px;
+  gap: 0;
+  padding: 10px 18px 10px 0;
   background: #ffffff;
   border-bottom: 1px solid #d9e1ea;
 }
@@ -674,14 +615,20 @@ onUnmounted(() => {
   font-weight: 750;
 }
 
+.toolbar-home {
+  width: 86px;
+  flex: 0 0 86px;
+  padding: 0;
+  border-radius: 0;
+}
+
 .toolbar-home:hover,
 .export-button:hover,
 .tool-button:hover {
   background: #eef6fc;
 }
 
-.toolbar svg,
-.titlebar svg,
+.dashboard-toolbar-actions svg,
 .de-output svg {
   width: 20px;
   height: 20px;
@@ -695,6 +642,7 @@ onUnmounted(() => {
 .toolbar-divider {
   height: 40px;
   width: 1px;
+  margin-right: 16px;
   background: #d9e1ea;
 }
 
@@ -703,6 +651,7 @@ onUnmounted(() => {
   min-width: 170px;
   display: grid;
   gap: 3px;
+  margin-right: 16px;
   padding: 8px 12px;
   border-radius: 8px;
   background: #f7fafc;
@@ -730,10 +679,14 @@ onUnmounted(() => {
   accent-color: #147bd1;
 }
 
-.toolbar-tools {
+.dashboard-toolbar-controls,
+.dashboard-toolbar-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.dashboard-toolbar-actions {
   margin-left: auto;
 }
 
@@ -749,14 +702,8 @@ onUnmounted(() => {
 }
 
 .export-button {
+  margin-left: 16px;
   background: #f7fafc;
-}
-
-.workbench-grid {
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 86px 330px minmax(520px, 1fr) 310px;
-  background: #ffffff;
 }
 
 .module-rail {
@@ -1397,8 +1344,8 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1280px) {
-  .workbench-grid {
-    grid-template-columns: 76px 300px minmax(520px, 1fr);
+  .dashboard-workbench {
+    grid-template-columns: 300px minmax(520px, 1fr);
   }
 
   .inspector-panel {
@@ -1407,16 +1354,8 @@ onUnmounted(() => {
 }
 
 @media (max-width: 960px) {
-  .bio-workbench {
+  .dashboard-workbench {
     overflow: auto;
-  }
-
-  .toolbar {
-    flex-wrap: wrap;
-    height: auto;
-  }
-
-  .workbench-grid {
     grid-template-columns: 1fr;
   }
 

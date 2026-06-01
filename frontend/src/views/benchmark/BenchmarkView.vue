@@ -358,4 +358,58 @@ onMounted(async () => {
     align-items: flex-start;
   }
 }
+
+.benchmark-page {
+  min-height: 100%;
+  align-content: start;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--bio-line);
+}
+
+.benchmark-page__header {
+  min-height: 68px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--bio-line);
+}
+
+.benchmark-page__eyebrow {
+  color: var(--bio-muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.benchmark-page__header h2 {
+  color: var(--bio-navy);
+  font-size: 21px;
+  font-weight: 850;
+}
+
+.benchmark-page__header p {
+  color: #52667c;
+  font-size: 13px;
+}
+
+.panel-card,
+.algo-card {
+  border-radius: 9px;
+  border: 1px solid var(--bio-line);
+  background: var(--bio-panel);
+  box-shadow: none;
+}
+
+.algo-card {
+  background: var(--bio-panel-muted);
+}
+
+.algo-section__title {
+  color: var(--bio-navy);
+}
+
+.table-toolbar,
+.detail-meta {
+  color: #52667c;
+}
 </style>

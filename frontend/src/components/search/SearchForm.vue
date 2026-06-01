@@ -336,6 +336,111 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 	transform: translateY(1px) scale(0.99);
 }
 
+.search-card {
+	border-radius: 9px;
+	background: var(--bio-panel);
+	border: 1px solid var(--bio-line);
+	box-shadow: none;
+	backdrop-filter: none;
+}
+
+.search-card__head {
+	padding: 15px 16px 13px;
+	background: #ffffff;
+	border-bottom-color: var(--bio-line);
+}
+
+.search-card__kicker {
+	color: var(--bio-blue);
+	letter-spacing: 0.04em;
+}
+
+.search-card__head h3 {
+	color: var(--bio-text);
+	font-size: 1rem;
+}
+
+.search-card__head p {
+	color: var(--bio-muted);
+}
+
+.search-form {
+	padding: 16px;
+}
+
+.form-section {
+	padding: 12px 0 4px;
+}
+
+.form-section + .form-section {
+	border-top-color: var(--bio-line);
+}
+
+.form-section__title {
+	color: var(--bio-muted);
+	letter-spacing: 0.04em;
+}
+
+.radio-group {
+	border-radius: 8px;
+	background: var(--bio-panel-muted);
+	border-color: var(--bio-line);
+}
+
+.search-form :deep(.ant-input),
+.search-form :deep(.ant-input-number),
+.search-form :deep(.ant-select-selector),
+.search-form :deep(.ant-input-textarea) {
+	border-radius: 7px !important;
+	border-color: var(--bio-line) !important;
+}
+
+.search-form :deep(.ant-input),
+.search-form :deep(.ant-input-number-input),
+.search-form :deep(.ant-select-selection-item),
+.search-form :deep(.ant-select-selection-placeholder) {
+	color: var(--bio-text);
+}
+
+.search-form :deep(.ant-input:hover),
+.search-form :deep(.ant-input-number:hover),
+.search-form :deep(.ant-select:not(.ant-select-disabled):hover .ant-select-selector) {
+	border-color: rgba(20, 123, 209, 0.38) !important;
+}
+
+.search-form :deep(.ant-input:focus),
+.search-form :deep(.ant-input-focused),
+.search-form :deep(.ant-input-number-focused),
+.search-form :deep(.ant-select-focused .ant-select-selector),
+.search-form :deep(.ant-input-affix-wrapper-focused),
+.search-form :deep(.ant-input-number-focused .ant-input-number-input) {
+	border-color: var(--bio-blue) !important;
+	box-shadow: 0 0 0 2px rgba(20, 123, 209, 0.12) !important;
+}
+
+.search-form :deep(.ant-radio-wrapper) {
+	color: var(--bio-text);
+}
+
+.submit-button {
+	height: 38px;
+	border-radius: 7px;
+	background: var(--bio-blue);
+	border-color: var(--bio-blue);
+	box-shadow: none;
+}
+
+.submit-button:hover {
+	transform: none;
+	background: #0f6fbd;
+	border-color: #0f6fbd;
+	box-shadow: none;
+}
+
+.submit-button:active {
+	transform: none;
+}
+
 @media (max-width: 1100px) {
 	.search-card {
 		margin-bottom: 0;

@@ -317,4 +317,82 @@ async function submitRegister() {
 	border-radius: 10px;
 	background: #f8fafc;
 }
+
+.upload-card {
+	border-radius: 9px;
+	background: var(--bio-panel);
+	border-color: var(--bio-line);
+	box-shadow: none;
+}
+
+.upload-card :deep(.ant-card-head) {
+	min-height: 54px;
+	background: #ffffff;
+	border-bottom-color: var(--bio-line);
+}
+
+.upload-card :deep(.ant-card-head-title) {
+	color: var(--bio-text);
+	font-weight: 760;
+}
+
+.upload-card__body {
+	padding: 16px;
+}
+
+.upload-dragger {
+	border: 1px dashed rgba(20, 123, 209, 0.42) !important;
+	border-radius: 8px !important;
+	background: #f7fbfd !important;
+	box-shadow: none !important;
+}
+
+.upload-dragger:hover,
+.upload-dragger:focus-within {
+	background: #eaf6fd !important;
+	border-color: var(--bio-blue) !important;
+	box-shadow: none !important;
+	transform: none;
+}
+
+.upload-dragger__content {
+	min-height: 190px;
+	padding: 18px 16px;
+}
+
+.upload-dragger__icon {
+	width: 52px;
+	height: 52px;
+	border-radius: 8px;
+	color: var(--bio-blue);
+	background: #ffffff;
+	box-shadow: inset 0 0 0 1px var(--bio-line);
+}
+
+.upload-dragger__title {
+	color: var(--bio-text);
+	font-size: 1rem;
+}
+
+.upload-dragger__subtitle,
+.upload-dragger__hint {
+	color: var(--bio-muted);
+}
+
+.upload-button {
+	height: 38px;
+	border-radius: 7px;
+	box-shadow: none;
+}
+
+.upload-button:hover:not(:disabled) {
+	transform: none;
+	box-shadow: none;
+	filter: none;
+}
+
+:deep(.ant-upload-list-item) {
+	border-radius: 7px;
+	background: var(--bio-panel-muted);
+}
 </style>

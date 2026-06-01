@@ -254,4 +254,19 @@ onBeforeUnmount(() => {
 	min-height: 520px;
 	background: transparent;
 }
+
+.plot-shell {
+	border-radius: 8px;
+	background: #ffffff;
+	border: 1px solid var(--bio-line);
+}
+
+.plot-shell__grid {
+	opacity: 1;
+	background-image:
+		linear-gradient(#eff4f8 1px, transparent 1px),
+		linear-gradient(90deg, #eff4f8 1px, transparent 1px);
+	background-size: 48px 48px;
+	mask-image: none;
+}
 </style>

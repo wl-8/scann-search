@@ -657,9 +657,82 @@ pre {
   border-radius: 9px;
 }
 
+.dataset-page {
+  min-height: 100%;
+  align-content: start;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--bio-line);
+  color: var(--bio-text);
+}
+
+.dataset-page__header {
+  min-height: 54px;
+  margin-bottom: 14px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--bio-line);
+}
+
+.dataset-page__eyebrow {
+  color: var(--bio-blue);
+  letter-spacing: 0.04em;
+}
+
+.dataset-page__header h2 {
+  color: var(--bio-text);
+  font-size: 1.32rem;
+  font-weight: 760;
+}
+
+.dataset-table-card {
+  border-radius: 9px;
+  border-color: var(--bio-line);
+  background: var(--bio-panel);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.dataset-table-card :deep(.ant-card-head) {
+  min-height: 54px;
+  background: #ffffff;
+  border-bottom-color: var(--bio-line);
+}
+
+.dataset-table-card :deep(.ant-card-head-title) {
+  color: var(--bio-text);
+  font-weight: 760;
+}
+
+.dataset-table :deep(.ant-table-thead > tr > th) {
+  color: var(--bio-text);
+  background: var(--bio-panel-muted) !important;
+  border-bottom-color: var(--bio-line);
+}
+
+.dataset-table :deep(.ant-table-tbody > tr > td) {
+  border-bottom-color: var(--bio-line);
+}
+
+.status-badge {
+  border-radius: 6px;
+  font-weight: 760;
+}
+
+.icon-button {
+  border-radius: 7px;
+  border-color: var(--bio-line);
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.icon-button:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 @media (max-width: 720px) {
   .dataset-page {
-    padding-top: 12px;
+    padding: 12px;
   }
 }
 </style>

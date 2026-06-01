@@ -296,4 +296,54 @@ onMounted(() => {
   font-weight: 800;
   color: #0f172a;
 }
+
+.admin-page {
+  min-height: 100%;
+  align-content: start;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--bio-line);
+}
+
+.admin-page__header {
+  min-height: 68px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--bio-line);
+}
+
+.admin-page__eyebrow {
+  color: var(--bio-muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.admin-page__header h2 {
+  color: var(--bio-navy);
+  font-size: 21px;
+  font-weight: 850;
+}
+
+.admin-page__header p {
+  color: #52667c;
+  font-size: 13px;
+}
+
+.admin-card {
+  border-radius: 9px;
+  border: 1px solid var(--bio-line);
+  background: var(--bio-panel);
+  box-shadow: none;
+}
+
+.table-toolbar {
+  padding-bottom: 10px;
+  border-bottom: 1px solid #edf2f6;
+}
+
+.toolbar-title {
+  color: var(--bio-navy);
+  font-weight: 850;
+}
 </style>

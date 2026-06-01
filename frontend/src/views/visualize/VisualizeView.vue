@@ -801,4 +801,74 @@ pre {
     transform: translate3d(1%, 0.8%, 0) scale(1.02);
   }
 }
+
+.visualize-page {
+  min-height: 100%;
+  align-content: start;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--bio-line);
+}
+
+.visualize-page::before {
+  display: none;
+}
+
+.control-panel,
+.chart-card,
+.info-card {
+  border-radius: 9px;
+  border: 1px solid var(--bio-line);
+  background: var(--bio-panel);
+  box-shadow: none;
+}
+
+.control-panel :deep(.ant-card-body) {
+  padding: 0;
+}
+
+.control-panel__inner {
+  padding: 14px 18px;
+}
+
+.control-panel__header {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.control-panel__eyebrow {
+  color: var(--bio-muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.control-panel__header h2,
+.card-title {
+  color: var(--bio-navy);
+  font-weight: 850;
+}
+
+.control-panel__header p,
+.stats-empty__text {
+  color: #52667c;
+}
+
+.control-row {
+  padding: 10px 12px;
+  border-radius: 9px;
+}
+
+.chart-card :deep(.ant-card-head),
+.info-card :deep(.ant-card-head) {
+  border-bottom-color: var(--bio-line);
+  background: #ffffff;
+}
+
+.chart-card__body {
+  background:
+    linear-gradient(#eff4f8 1px, transparent 1px),
+    linear-gradient(90deg, #eff4f8 1px, transparent 1px),
+    #ffffff;
+  background-size: 44px 44px;
+}
 </style>

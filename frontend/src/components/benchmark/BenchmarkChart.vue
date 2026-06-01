@@ -87,4 +87,11 @@ onBeforeUnmount(() => {
 .chart-canvas {
 	width: 100%;
 }
+
+.chart-shell {
+	border-radius: 8px;
+	background: #ffffff;
+	border-color: var(--bio-line);
+	padding: 10px;
+}
 </style>
