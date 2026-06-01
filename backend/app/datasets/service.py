@@ -313,3 +313,21 @@ def value_counts(ds: Dataset, max_unique_per_col: int = 50) -> dict[str, dict[st
             continue
         out[col] = {str(k): int(v) for k, v in vc.items()}
     return out
+
+
+def numeric_summary(ds: Dataset) -> dict[str, dict[str, float | int | None]]:
+    """Return compact numeric summaries for dashboard metrics."""
+    obs = load_obs(ds)
+    out: dict[str, dict[str, float | int | None]] = {}
+    for col in obs.columns:
+        series = pd.to_numeric(obs[col], errors="coerce").dropna()
+        if series.empty:
+            continue
+        out[col] = {
+            "count": int(series.count()),
+            "mean": float(series.mean()),
+            "median": float(series.median()),
+            "min": float(series.min()),
+            "max": float(series.max()),
+        }
+    return out

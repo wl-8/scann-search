@@ -122,6 +122,7 @@ def dataset_stats(dataset_id: int, db: Session = Depends(get_db), _: User = Depe
         dataset_id=ds.id,
         obs_columns=list(counts.keys()),
         value_counts=counts,
+        numeric_summary=service.numeric_summary(ds),
     )
 
 

@@ -34,6 +34,7 @@ class DatasetStatsResponse(BaseModel):
     dataset_id: int
     obs_columns: list[str]
     value_counts: dict[str, dict[str, int]]  # column -> {value: count}
+    numeric_summary: dict[str, dict[str, float | int | None]] = Field(default_factory=dict)
 
 
 class CellResponse(BaseModel):

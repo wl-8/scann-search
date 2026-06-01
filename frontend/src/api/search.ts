@@ -55,6 +55,7 @@ export type DatasetStatsResponse = {
   dataset_id: number
   obs_columns: string[]
   value_counts: Record<string, Record<string, number>>
+  numeric_summary?: Record<string, { count: number; mean: number; median: number; min: number; max: number }>
 }
 
 export type VisualizeModesResponse = {
