@@ -54,39 +54,113 @@
         </a-col>
       </a-row>
 
-      <a-modal v-model:open="detailOpen" :title="`数据集详情：${activeDataset?.name ?? ''}`" :footer="null" width="560">
-        <div v-if="statsLoading" style="text-align:center;padding:24px"><a-spin /></div>
-        <div v-else-if="statsData">
-          <a-descriptions :column="2" size="small" bordered style="margin-bottom:16px">
-            <a-descriptions-item label="细胞数">{{ activeDataset?.cells?.toLocaleString() }}</a-descriptions-item>
-            <a-descriptions-item label="基因数">{{ activeDataset?.genes?.toLocaleString() }}</a-descriptions-item>
-            <a-descriptions-item label="状态">{{ activeDataset?.status }}</a-descriptions-item>
-            <a-descriptions-item label="来源">{{ activeDataset?.source }}</a-descriptions-item>
-            <a-descriptions-item label="更新时间" :span="2">{{ activeDataset?.updatedAt }}</a-descriptions-item>
-          </a-descriptions>
-          <div v-for="col in statsData.obs_columns" :key="col" style="margin-bottom:14px">
-            <div style="font-weight:700;margin-bottom:6px;color:#334155">{{ col }}</div>
-            <div v-for="(cnt, val) in statsData.value_counts[col]" :key="val" style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-              <span style="min-width:120px;font-size:0.88rem;color:#475569">{{ val }}</span>
-              <div style="flex:1;height:8px;background:#f1f5f9;border-radius:999px;overflow:hidden">
-                <div :style="{ width: barWidth(statsData.value_counts[col], cnt) + '%', height: '100%', background: '#3b82f6', borderRadius: '999px' }"></div>
+      <a-modal v-model:open="detailOpen" :title="`数据集详情：${activeDataset?.name ?? ''}`" :footer="null" width="720">
+        <a-tabs v-model:activeKey="detailTab" @change="onDetailTabChange">
+          <a-tab-pane key="stats" tab="统计">
+            <div v-if="statsLoading" style="text-align:center;padding:24px"><a-spin /></div>
+            <div v-else-if="statsData">
+              <a-descriptions :column="2" size="small" bordered style="margin-bottom:16px">
+                <a-descriptions-item label="细胞数">{{ detailDataset?.n_cells?.toLocaleString() ?? activeDataset?.cells?.toLocaleString() }}</a-descriptions-item>
+                <a-descriptions-item label="基因数">{{ detailDataset?.n_genes?.toLocaleString() ?? activeDataset?.genes?.toLocaleString() }}</a-descriptions-item>
+                <a-descriptions-item label="状态">{{ detailDataset?.status ?? activeDataset?.status }}</a-descriptions-item>
+                <a-descriptions-item label="Embedding">{{ detailDataset?.embedding_key ?? '-' }}</a-descriptions-item>
+                <a-descriptions-item label="来源" :span="2">{{ detailDataset?.source_path ?? activeDataset?.source }}</a-descriptions-item>
+              </a-descriptions>
+              <div v-for="col in statsData.obs_columns" :key="col" style="margin-bottom:14px">
+                <div style="font-weight:700;margin-bottom:6px;color:#334155">{{ col }}</div>
+                <div v-for="(cnt, val) in statsData.value_counts[col]" :key="val" style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <span style="min-width:120px;font-size:0.88rem;color:#475569">{{ val }}</span>
+                  <div style="flex:1;height:8px;background:#f1f5f9;border-radius:999px;overflow:hidden">
+                    <div :style="{ width: barWidth(statsData.value_counts[col], cnt) + '%', height: '100%', background: '#3b82f6', borderRadius: '999px' }"></div>
+                  </div>
+                  <span style="min-width:40px;text-align:right;font-size:0.82rem;color:#64748b">{{ cnt }}</span>
+                </div>
               </div>
-              <span style="min-width:40px;text-align:right;font-size:0.82rem;color:#64748b">{{ cnt }}</span>
             </div>
-          </div>
-        </div>
-        <div v-else style="color:#94a3b8;text-align:center;padding:24px">暂无统计数据</div>
+            <div v-else style="color:#94a3b8;text-align:center;padding:24px">暂无统计数据</div>
+          </a-tab-pane>
+
+          <a-tab-pane key="cells" tab="细胞列表">
+            <a-table
+              :columns="cellColumns"
+              :data-source="cellsRows"
+              row-key="cell_id"
+              :loading="cellsLoading"
+              :pagination="false"
+              size="small"
+            />
+            <div class="pager">
+              <a-pagination
+                :current="cellsPage"
+                :pageSize="cellsPageSize"
+                :total="cellsTotal"
+                :show-size-changer="false"
+                @change="onCellsPageChange"
+              />
+            </div>
+          </a-tab-pane>
+
+          <a-tab-pane key="filter" tab="条件过滤">
+            <a-form layout="vertical">
+              <a-row :gutter="12">
+                <a-col :span="12">
+                  <a-form-item label="过滤字段">
+                    <a-select v-model:value="filterColumn" :options="filterColumnOptions" allow-clear placeholder="选择 obs 字段" />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                  <a-form-item label="过滤值（可多个）">
+                    <a-input v-model:value="filterValues" placeholder="例如: Type0, Type1" />
+                  </a-form-item>
+                </a-col>
+              </a-row>
+              <a-button type="primary" :loading="filterLoading" @click="runFilter">开始过滤</a-button>
+            </a-form>
+
+            <div v-if="filterResult" class="filter-summary">
+              <span>匹配：{{ filterResult.total_matched }}</span>
+              <span>返回：{{ filterResult.items.length }}</span>
+            </div>
+            <a-table
+              :columns="cellColumns"
+              :data-source="filterRows"
+              row-key="cell_id"
+              :loading="filterLoading"
+              :pagination="false"
+              size="small"
+            />
+          </a-tab-pane>
+
+          <a-tab-pane key="embedding" tab="Embedding">
+            <div class="embedding-panel">
+              <p>当前 embedding：<strong>{{ detailDataset?.embedding_key ?? "-" }}</strong></p>
+              <a-input v-model:value="embeddingKeyInput" placeholder="如 X_umap" style="max-width: 320px" />
+              <a-button type="primary" :loading="embeddingLoading" @click="submitEmbedding">切换 Embedding</a-button>
+              <p class="embedding-hint">切换后会删除旧索引，需要重新构建。</p>
+            </div>
+          </a-tab-pane>
+        </a-tabs>
       </a-modal>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue"
+import { computed, ref } from "vue"
+import { message } from "ant-design-vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import UploadForm from "@/components/dataset/UploadForm.vue"
 import { listDatasets } from "@/api/search"
-import { deleteDataset } from "@/api/datasets"
+import {
+  deleteDataset,
+  filterDatasetCells,
+  getDataset,
+  listDatasetCells,
+  switchEmbedding,
+  type CellFilterResponse,
+  type CellPageResponse,
+  type DatasetResponse,
+} from "@/api/datasets"
 import request from "@/api/request"
 
 type DatasetItem = {
@@ -125,8 +199,23 @@ loadDatasets()
 
 const detailOpen = ref(false)
 const activeDataset = ref<DatasetItem | null>(null)
+const detailDataset = ref<DatasetResponse | null>(null)
 const statsData = ref<{ obs_columns: string[]; value_counts: Record<string, Record<string, number>> } | null>(null)
 const statsLoading = ref(false)
+const detailTab = ref("stats")
+
+const cellsData = ref<CellPageResponse | null>(null)
+const cellsLoading = ref(false)
+const cellsPage = ref(1)
+const cellsPageSize = ref(50)
+
+const filterColumn = ref<string | undefined>()
+const filterValues = ref("")
+const filterResult = ref<CellFilterResponse | null>(null)
+const filterLoading = ref(false)
+
+const embeddingKeyInput = ref("")
+const embeddingLoading = ref(false)
 
 function barWidth(counts: Record<string, number>, val: number): number {
   const max = Math.max(...Object.values(counts))
@@ -142,6 +231,29 @@ const columns = [
   { title: "Updated", dataIndex: "updatedAt", key: "updatedAt", width: 110 },
   { title: "操作", key: "action", width: 80 },
 ]
+
+const cellColumns = [
+  { title: "Cell ID", dataIndex: "cell_id", key: "cell_id" },
+  { title: "Row", dataIndex: "row_index", key: "row_index", width: 80 },
+  { title: "Cell Type", dataIndex: "cell_type", key: "cell_type", width: 120 },
+]
+
+const cellsRows = computed(() =>
+  (cellsData.value?.items ?? []).map((item) => ({
+    ...item,
+    cell_type: item.obs?.cell_type ?? "-",
+  }))
+)
+
+const filterRows = computed(() =>
+  (filterResult.value?.items ?? []).map((item) => ({
+    ...item,
+    cell_type: item.obs?.cell_type ?? "-",
+  }))
+)
+
+const cellsTotal = computed(() => cellsData.value?.total ?? 0)
+const filterColumnOptions = computed(() => (statsData.value?.obs_columns ?? []).map((c) => ({ label: c, value: c })))
 
 function statusClass(status: string) {
   const normalized = status.toLowerCase()
@@ -159,10 +271,18 @@ function onUploaded(file: { name: string; size: number }) {
 async function viewDetail(record: DatasetItem) {
   activeDataset.value = record
   statsData.value = null
+  cellsData.value = null
+  filterResult.value = null
+  filterColumn.value = undefined
+  filterValues.value = ""
+  cellsPage.value = 1
   detailOpen.value = true
+  detailTab.value = "stats"
   if (!record.id) return
   statsLoading.value = true
   try {
+    detailDataset.value = await getDataset(record.id)
+    embeddingKeyInput.value = detailDataset.value.embedding_key
     const res = await request.get(`/datasets/${record.id}/stats`) as any
     statsData.value = res
   } catch {
@@ -170,6 +290,71 @@ async function viewDetail(record: DatasetItem) {
   } finally {
     statsLoading.value = false
   }
+}
+
+async function loadCells(page = 1) {
+  if (!activeDataset.value?.id) return
+  cellsLoading.value = true
+  try {
+    const offset = (page - 1) * cellsPageSize.value
+    cellsData.value = await listDatasetCells(activeDataset.value.id, { offset, limit: cellsPageSize.value })
+    cellsPage.value = page
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "加载细胞列表失败")
+  } finally {
+    cellsLoading.value = false
+  }
+}
+
+function onCellsPageChange(page: number) {
+  loadCells(page)
+}
+
+function parseFilterValues(text: string) {
+  return text
+    .split(/[\s,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+async function runFilter() {
+  if (!activeDataset.value?.id) return
+  if (!filterColumn.value) return message.warning("请选择过滤字段")
+  const values = parseFilterValues(filterValues.value)
+  if (!values.length) return message.warning("请输入过滤值")
+
+  filterLoading.value = true
+  try {
+    filterResult.value = await filterDatasetCells(activeDataset.value.id, {
+      filters: { equals: { [filterColumn.value]: values } },
+      offset: 0,
+      limit: 50,
+    })
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "过滤失败")
+  } finally {
+    filterLoading.value = false
+  }
+}
+
+async function submitEmbedding() {
+  if (!activeDataset.value?.id) return
+  if (!embeddingKeyInput.value.trim()) return message.warning("请输入 embedding key")
+
+  embeddingLoading.value = true
+  try {
+    detailDataset.value = await switchEmbedding(activeDataset.value.id, embeddingKeyInput.value.trim())
+    message.success("Embedding 已切换")
+    await loadDatasets()
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "切换失败")
+  } finally {
+    embeddingLoading.value = false
+  }
+}
+
+function onDetailTabChange(key: string) {
+  if (key === "cells" && !cellsData.value) loadCells(1)
 }
 
 async function removeDataset(datasetId: number) {
@@ -380,6 +565,31 @@ async function removeDataset(datasetId: number) {
   color: #dc2626;
   border-color: rgba(220, 38, 38, 0.24);
   background: rgba(220, 38, 38, 0.08);
+}
+
+.pager {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.filter-summary {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0;
+  font-weight: 600;
+  color: #475569;
+}
+
+.embedding-panel {
+  display: grid;
+  gap: 12px;
+  color: #334155;
+}
+
+.embedding-hint {
+  color: #94a3b8;
+  font-size: 0.86rem;
 }
 
 pre {

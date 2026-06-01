@@ -65,6 +65,7 @@
                 :dimension="dimension"
                 :colorBy="colorBy"
                 :selectedId="selectedPoint?.id ?? null"
+                :highlightPoints="highlightPoints"
                 @point-click="onPointClick"
               />
             </div>
@@ -73,6 +74,16 @@
 
         <a-col :xs="24" :lg="8">
           <div class="sidebar-stack">
+            <a-card class="info-card" :bordered="false">
+              <template #title>
+                <div class="card-title"><span>高亮定位</span></div>
+              </template>
+              <div class="locate-panel">
+                <a-textarea v-model:value="locateInput" :auto-size="{ minRows: 3, maxRows: 5 }" placeholder="输入 cell_id（逗号或换行分隔）" />
+                <a-button type="primary" block :loading="locateLoading" @click="locateCells">定位并高亮</a-button>
+              </div>
+            </a-card>
+
             <a-card class="info-card" :bordered="false">
               <template #title>
                 <div class="card-title"><span>选中细胞</span></div>
@@ -147,7 +158,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
+import { computed, onMounted, ref, watch } from "vue"
+import { message } from "ant-design-vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import UmapPlot from "@/components/visualize/UmapPlot.vue"
 import { browseSearch, listDatasets, listIndexes } from "@/api/search"
@@ -174,6 +186,9 @@ const facets = ref<any>(null)
 const loading = ref(false)
 const neighborLoading = ref(false)
 const activeIndexId = ref<number | undefined>()
+const highlightPoints = ref<Array<{ id: string; umap_x: number; umap_y: number; umap_z?: number }>>([])
+const locateInput = ref("")
+const locateLoading = ref(false)
 
 // 数据集选择
 const allDatasets = ref<any[]>([])
@@ -226,6 +241,7 @@ async function fetchColorOptions(datasetId: number) {
 async function onDatasetChange(datasetId: number) {
   selectedDatasetId.value = datasetId
   await fetchColorOptions(datasetId)
+  highlightPoints.value = []
 }
 
 async function loadPoints() {
@@ -248,6 +264,7 @@ async function loadPoints() {
       metadata: item.obs ?? {},
     }))
     facets.value = res.color_options ? { [res.color_by ?? "color_by"]: res.color_options } : null
+    highlightPoints.value = []
   } catch (error) {
     console.error("Failed to load visualize points:", error)
     points.value = []
@@ -274,9 +291,41 @@ async function onPointClick(point: Point) {
   }
 }
 
+async function locateCells() {
+  const dsId = selectedDatasetId.value
+  if (!dsId) return message.warning("请先选择数据集")
+  const ids = locateInput.value
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  if (!ids.length) return message.warning("请输入 cell_id")
+
+  locateLoading.value = true
+  try {
+    const res = await request.post(`/visualize/${dsId}/locate`, {
+      cell_ids: ids,
+      mode: dimension.value === 3 ? "3d" : "2d",
+    }) as any
+    highlightPoints.value = (res.points ?? []).map((p: any) => ({
+      id: p.cell_id,
+      umap_x: p.x,
+      umap_y: p.y,
+      umap_z: p.z,
+    }))
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "定位失败")
+  } finally {
+    locateLoading.value = false
+  }
+}
+
 onMounted(async () => {
   await loadAllDatasets()
   await loadPoints()
+})
+
+watch(dimension, () => {
+  highlightPoints.value = []
 })
 </script>
 
@@ -325,6 +374,11 @@ onMounted(async () => {
   box-shadow:
     0 24px 54px rgba(15, 23, 42, 0.06),
     0 8px 16px rgba(15, 23, 42, 0.04);
+}
+
+.locate-panel {
+  display: grid;
+  gap: 10px;
 }
 
 .control-panel__inner {

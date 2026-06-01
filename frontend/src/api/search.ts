@@ -17,6 +17,12 @@ export interface SearchPayload {
   datasets?: string[]
 }
 
+export type SearchFilter = {
+  equals?: Record<string, string[]>
+  gte?: Record<string, number>
+  lte?: Record<string, number>
+}
+
 export interface DatasetItem {
   id: number
   name: string
@@ -32,6 +38,70 @@ export interface IndexItem {
   status: string
   n_vectors: number
   vector_dim: number
+}
+
+export type BatchSearchRequest = {
+  indexId: number
+  cellIds: string[]
+  k?: number
+  filters?: SearchFilter
+  metric?: "l2" | "cosine"
+  aggregate?: "ranked" | "union" | "intersection"
+}
+
+export type BatchSearchHit = {
+  rank: number
+  cell_id: string
+  row_index: number
+  hit_count: number
+  avg_distance: number
+  obs: Record<string, any>
+}
+
+export type BatchSearchResponse = {
+  index_id: number
+  dataset_id: number
+  algorithm: string
+  metric: string
+  aggregate: string
+  n_queries: number
+  k: number
+  n_returned: number
+  total_latency_ms: number
+  hits: BatchSearchHit[]
+}
+
+export type CompareStrategiesRequest = {
+  indexId: number
+  cellId?: string
+  vector?: number[]
+  k?: number
+  filters: SearchFilter
+  metric?: "l2" | "cosine"
+  strategies?: Array<"post" | "pre" | "hybrid">
+  oversample?: number
+}
+
+export type StrategyResult = {
+  strategy: string
+  n_returned: number
+  requested_k: number
+  latency_ms: number
+  recall_at_k: number
+  extra: Record<string, any>
+  hits: Array<{ rank: number; cell_id: string; row_index: number; distance: number; obs: Record<string, any> }>
+}
+
+export type CompareStrategiesResponse = {
+  index_id: number
+  dataset_id: number
+  algorithm: string
+  metric: string
+  k: number
+  n_total_cells: number
+  n_matching_filter: number
+  filter_selectivity: number
+  results: StrategyResult[]
 }
 
 function buildSearchFilter(payload: SearchPayload) {
@@ -149,4 +219,28 @@ export async function browseSearch(payload: SearchPayload) {
   throw new Error("browseSearch: 必须提供 datasetId")
 }
 
-export default { search, conditionalSearch, multiDatasetSearch, browseSearch }
+export async function batchSearch(payload: BatchSearchRequest) {
+  return request.post("/search/batch", {
+    index_id: payload.indexId,
+    cell_ids: payload.cellIds,
+    k: payload.k ?? 10,
+    filters: payload.filters,
+    metric: payload.metric ?? "l2",
+    aggregate: payload.aggregate ?? "ranked",
+  }) as Promise<BatchSearchResponse>
+}
+
+export async function compareStrategies(payload: CompareStrategiesRequest) {
+  return request.post("/search/compare-strategies", {
+    index_id: payload.indexId,
+    cell_id: payload.cellId,
+    vector: payload.vector,
+    k: payload.k ?? 10,
+    filters: payload.filters,
+    metric: payload.metric ?? "l2",
+    strategies: payload.strategies,
+    oversample: payload.oversample ?? 10,
+  }) as Promise<CompareStrategiesResponse>
+}
+
+export default { search, conditionalSearch, multiDatasetSearch, browseSearch, batchSearch, compareStrategies }

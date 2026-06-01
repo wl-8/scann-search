@@ -24,6 +24,7 @@ const props = defineProps<{
 	dimension?: 2 | 3
 	colorBy?: string
 	selectedId?: string | null
+	highlightPoints?: Array<{ id: string; umap_x: number; umap_y: number; umap_z?: number }>
 }>()
 
 const emit = defineEmits<{ (e: "point-click", point: Point): void }>()
@@ -68,20 +69,37 @@ function render() {
 		}
 		if (dim === 3) mainTrace.z = points.map((p) => p.umap_z ?? 0)
 
+		// highlight trace for located points
+		const extra = (props.highlightPoints ?? []).filter((p) => p && p.id)
+		const highlightPointsTrace: any = extra.length
+			? {
+				type: dim === 3 ? "scatter3d" : "scattergl",
+				mode: "markers",
+				x: extra.map((p) => p.umap_x),
+				y: extra.map((p) => p.umap_y),
+				marker: { size: 12, color: "#111827", opacity: 1, line: { width: 2, color: "#fff" } },
+				text: extra.map((p) => p.id),
+			}
+			: null
+		if (dim === 3 && highlightPointsTrace) highlightPointsTrace.z = extra.map((p) => p.umap_z ?? 0)
+
 		// highlight trace for selected point (single point)
 		const highlight = props.selectedId ? points.find((p) => p.id === props.selectedId) ?? null : null
-		const highlightTrace: any = highlight
+		const selectedTrace: any = highlight
 			? {
 				type: dim === 3 ? "scatter3d" : "scattergl",
 				mode: "markers",
 				x: [highlight.umap_x],
 				y: [highlight.umap_y],
-				marker: { size: 14, color: "#111827", opacity: 1, line: { width: 2, color: "#fff" } },
+				marker: { size: 14, color: "#0f172a", opacity: 1, line: { width: 2, color: "#fff" } },
 				text: [highlight.id],
 			}
 			: null
+		if (dim === 3 && selectedTrace) selectedTrace.z = [highlight?.umap_z ?? 0]
 
-		const traces = highlightTrace ? [mainTrace, highlightTrace] : [mainTrace]
+		const traces = [mainTrace]
+		if (highlightPointsTrace) traces.push(highlightPointsTrace)
+		if (selectedTrace) traces.push(selectedTrace)
 
 		const layout: any = {
 			margin: { l: 0, r: 0, t: 8, b: 0 },
@@ -99,8 +117,29 @@ function render() {
 		// 清除旧 click handler，避免 re-render 时重复绑定
 		;(plotEl.value as any).removeAllListeners?.("plotly_click")
 		const handler = (ev: any) => {
-			const idx = ev?.points?.[0]?.pointIndex
-			if (typeof idx === "number") emit("point-click", points[idx])
+			const hit = ev?.points?.[0]
+			if (!hit) return
+			const idx = hit.pointIndex
+			const curve = hit.curveNumber
+			if (curve === 0 && typeof idx === "number") {
+				emit("point-click", points[idx])
+				return
+			}
+			if (highlightPointsTrace && curve === 1 && typeof idx === "number") {
+				const hp = extra[idx]
+				if (hp) {
+					emit("point-click", {
+						id: hp.id,
+						umap_x: hp.umap_x,
+						umap_y: hp.umap_y,
+						umap_z: hp.umap_z,
+					})
+				}
+				return
+			}
+			if (!highlightPointsTrace && curve === 1 && highlight) {
+				emit("point-click", highlight)
+			}
 		}
 		;(plotEl.value as any).on?.("plotly_click", handler)
 	} catch (error) {
@@ -109,7 +148,7 @@ function render() {
 }
 
 onMounted(render)
-watch(() => [props.points, props.dimension, props.colorBy, props.selectedId], render, { deep: true })
+watch(() => [props.points, props.dimension, props.colorBy, props.selectedId, props.highlightPoints], render, { deep: true })
 onBeforeUnmount(() => {
 	if (plotEl.value) Plotly.purge(plotEl.value)
 })
