@@ -10,8 +10,13 @@
 				<a-menu theme="dark" mode="inline" :selectedKeys="[activeKey]" @click="onMenuClick">
 					<a-menu-item key="/dashboard">仪表盘</a-menu-item>
 					<a-menu-item key="/search">检索</a-menu-item>
+					<a-menu-item key="/search/multi">批量检索</a-menu-item>
 					<a-menu-item key="/visualize">可视化</a-menu-item>
-					<a-menu-item key="/datasets">数据集</a-menu-item>
+					<a-menu-item key="/datasets">数据集管理</a-menu-item>
+					<a-menu-item key="/indexes">索引管理</a-menu-item>
+					<a-menu-item v-if="auth.isResearcher || auth.isAdmin" key="/benchmark">性能评测</a-menu-item>
+					<a-menu-item v-if="auth.isResearcher || auth.isAdmin" key="/export">结果导出</a-menu-item>
+					<a-menu-item v-if="auth.isAdmin" key="/admin/users">用户管理</a-menu-item>
 				</a-menu>
 			</div>
 		</a-layout-sider>
@@ -23,7 +28,7 @@
 				</div>
 				<div class="header-actions">
 					<div class="user-chip" aria-label="当前用户">
-						<span class="user-chip__avatar">{{ auth.user?.username || '22' }}</span>
+						<span class="user-chip__avatar">{{ auth.user?.username?.charAt(0)?.toUpperCase() || '?' }}</span>
 						<span class="user-chip__name">{{ auth.user?.username || 'guest' }}</span>
 					</div>
 					<a-button class="logout-button" type="text" @click="auth.logout()">
@@ -54,9 +59,14 @@ const collapsed = ref(false)
 
 const activeKey = computed(() => {
 	const path = route.path
-	if (path.startsWith("/search")) return "/search"
+		if (path.startsWith("/search/multi")) return "/search/multi"
+		if (path.startsWith("/search")) return "/search"
 	if (path.startsWith("/visualize")) return "/visualize"
 	if (path.startsWith("/datasets")) return "/datasets"
+	if (path.startsWith("/indexes")) return "/indexes"
+		if (path.startsWith("/benchmark")) return "/benchmark"
+		if (path.startsWith("/export")) return "/export"
+		if (path.startsWith("/admin")) return "/admin/users"
 	return "/dashboard"
 })
 

@@ -1,6 +1,7 @@
 <template>
-  <div class="search-page">
-    <div class="page-header">
+  <AppLayout>
+    <div class="search-page">
+      <div class="page-header">
       <div class="page-title">
         <span class="page-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
@@ -14,7 +15,7 @@
       </div>
       <div class="page-meta">
         <span v-if="loading">检索中...</span>
-        <span v-else-if="lastElapsed !== null">后端耗时：{{ lastElapsed }} ms，返回 {{ results.length }} 条</span>
+        <span v-else-if="lastElapsed !== null">后端耗时：{{ Number(lastElapsed).toFixed(2) }} ms，返回 {{ results.length }} 条</span>
         <span v-else>选择数据集和索引后开始检索</span>
       </div>
     </div>
@@ -44,7 +45,7 @@
             <a-button block @click="loadResources" :loading="resourceLoading">刷新数据集/索引</a-button>
           </a-form>
         </a-card>
-        <SearchForm v-model:modelValue="formData" @submit="onSearch" />
+        <SearchForm v-model:modelValue="formData" :obsStats="obsStats" @submit="onSearch" />
       </div>
 
       <div class="search-column search-column--results">
@@ -97,13 +98,16 @@
       </div>
     </div>
   </div>
+  </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue"
 import { message } from "ant-design-vue"
+import AppLayout from "@/components/layout/AppLayout.vue"
 import SearchForm from "@/components/search/SearchForm.vue"
 import { listDatasets, listIndexes } from "@/api/search"
+import request from "@/api/request"
 import { useSearch } from "@/composables/useSearch"
 import type { DatasetItem, IndexItem, SearchPayload } from "@/api/search"
 
@@ -115,14 +119,15 @@ const datasets = ref<DatasetItem[]>([])
 const indexes = ref<IndexItem[]>([])
 const selectedDatasetId = ref<number | undefined>()
 const selectedIndexId = ref<number | undefined>()
+const obsStats = ref<{ obs_columns: string[]; value_counts: Record<string, Record<string, number>> } | null>(null)
 
 const formData = ref<SearchPayload & { filters: { cell_type: string } }>({
   queryType: "id",
   query: "",
   k: 10,
   oversample: 10,
-  filterColumn: "",
-  filterValue: "",
+  filterColumn: undefined,
+  filterValue: undefined,
   filters: { cell_type: "" },
 })
 
@@ -154,13 +159,18 @@ async function onSearch(payload: any) {
     message.warning("请先选择索引")
     return
   }
-  const res = await search({
-    ...payload,
-    datasetId: selectedDatasetId.value,
-    indexId: selectedIndexId.value,
-  })
-  results.value = res.results
-  lastElapsed.value = res.elapsed
+  try {
+    const res = await search({
+      ...payload,
+      datasetId: selectedDatasetId.value,
+      indexId: selectedIndexId.value,
+    })
+    results.value = res.results
+    lastElapsed.value = res.elapsed
+  } catch (err: any) {
+    const detail = err?.response?.data?.detail ?? err?.message ?? "检索失败"
+    message.error(detail)
+  }
 }
 
 async function loadResources() {
@@ -171,6 +181,7 @@ async function loadResources() {
     selectedDatasetId.value = initialDatasetId
     indexes.value = await listIndexes(initialDatasetId)
     selectedIndexId.value = readyIndexes.value[0]?.id
+    if (initialDatasetId) await fetchObsStats(initialDatasetId)
   } catch (err) {
     message.warning("后端资源加载失败，请确认 FastAPI 服务已启动")
   } finally {
@@ -178,9 +189,18 @@ async function loadResources() {
   }
 }
 
+async function fetchObsStats(datasetId: number) {
+  try {
+    obsStats.value = await request.get(`/datasets/${datasetId}/stats`) as any
+  } catch {
+    obsStats.value = null
+  }
+}
+
 async function onDatasetChange(datasetId: number) {
   indexes.value = await listIndexes(datasetId)
   selectedIndexId.value = readyIndexes.value[0]?.id
+  await fetchObsStats(datasetId)
 }
 
 onMounted(loadResources)

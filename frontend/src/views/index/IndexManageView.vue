@@ -3,7 +3,7 @@
     <div class="index-page">
       <div class="page-header">
         <h2>索引管理</h2>
-        <p>为数据集构建与删除向量索引（支持 flat / hnsw / ivf）。</p>
+        <p>为数据集构建与管理向量索引（支持 flat / hnsw / ivf）。</p>
       </div>
 
       <a-row :gutter="16">
@@ -31,6 +31,9 @@
           <a-card :bordered="false" title="索引列表">
             <a-table :columns="columns" :data-source="indexes" :row-key="'id'" :loading="loading" :pagination="false">
               <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'dataset_id'">
+                  {{ datasets.find(d => d.id === record.dataset_id)?.name ?? record.dataset_id }}
+                </template>
                 <template v-if="column.key === 'action'">
                   <a-space>
                     <a-popconfirm title="确定删除该索引？" @confirm="onDeleteIndex(record.id)">
@@ -73,7 +76,7 @@ const columns = [
   { title: "Algorithm", dataIndex: "algorithm", key: "algorithm" },
   { title: "Status", dataIndex: "status", key: "status" },
   { title: "Vectors", dataIndex: "n_vectors", key: "n_vectors" },
-  { title: "Action", key: "action", slots: { customRender: "action" } },
+  { title: "Action", key: "action", width: 80 },
 ]
 
 async function loadResources() {
