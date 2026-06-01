@@ -1,3 +1,4 @@
+/// <reference types="../../../node_modules/.vue-global-types/vue_3.5_0_0_0.d.ts" />
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "vue-router";
@@ -8,7 +9,7 @@ const datasetCount = ref("—");
 const indexCount = ref("—");
 const totalCells = ref(0);
 const isOnline = ref(false);
-const hoveredMetric = ref(null);
+const showUserMenu = ref(false);
 const latency = ref(0);
 const memory = ref(0);
 const qps = ref(0);
@@ -123,9 +124,12 @@ async function loadMetrics() {
 function go(path) {
     router.push(path);
 }
-function onMenuClick({ key }) {
-    if (key === "logout")
-        auth.logout();
+function toggleUserMenu() {
+    showUserMenu.value = !showUserMenu.value;
+}
+function handleLogout() {
+    auth.logout();
+    showUserMenu.value = false;
 }
 onMounted(loadMetrics);
 onUnmounted(() => {
@@ -138,46 +142,40 @@ const __VLS_ctx = {};
 let __VLS_components;
 let __VLS_directives;
 /** @type {__VLS_StyleScopedClasses['topbar']} */ ;
+/** @type {__VLS_StyleScopedClasses['brand-mark']} */ ;
 /** @type {__VLS_StyleScopedClasses['brand-copy']} */ ;
 /** @type {__VLS_StyleScopedClasses['brand-copy']} */ ;
 /** @type {__VLS_StyleScopedClasses['avatar-button']} */ ;
 /** @type {__VLS_StyleScopedClasses['avatar-button']} */ ;
-/** @type {__VLS_StyleScopedClasses['banner-card']} */ ;
-/** @type {__VLS_StyleScopedClasses['section-card']} */ ;
-/** @type {__VLS_StyleScopedClasses['metric-card']} */ ;
-/** @type {__VLS_StyleScopedClasses['info-card']} */ ;
-/** @type {__VLS_StyleScopedClasses['performance-monitor']} */ ;
+/** @type {__VLS_StyleScopedClasses['user-menu']} */ ;
+/** @type {__VLS_StyleScopedClasses['user-menu-item']} */ ;
 /** @type {__VLS_StyleScopedClasses['banner-card']} */ ;
 /** @type {__VLS_StyleScopedClasses['banner-copy']} */ ;
 /** @type {__VLS_StyleScopedClasses['section-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['action-button']} */ ;
 /** @type {__VLS_StyleScopedClasses['action-button--primary']} */ ;
 /** @type {__VLS_StyleScopedClasses['action-button--secondary']} */ ;
-/** @type {__VLS_StyleScopedClasses['action-button--accent']} */ ;
+/** @type {__VLS_StyleScopedClasses['action-button--primary']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple']} */ ;
+/** @type {__VLS_StyleScopedClasses['action-button--secondary']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple']} */ ;
+/** @type {__VLS_StyleScopedClasses['action-button']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-card']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-card']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-icon']} */ ;
-/** @type {__VLS_StyleScopedClasses['metric-icon']} */ ;
 /** @type {__VLS_StyleScopedClasses['performance-monitor']} */ ;
-/** @type {__VLS_StyleScopedClasses['performance-monitor']} */ ;
-/** @type {__VLS_StyleScopedClasses['perf-icon']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric']} */ ;
-/** @type {__VLS_StyleScopedClasses['perf-number']} */ ;
-/** @type {__VLS_StyleScopedClasses['perf-number']} */ ;
-/** @type {__VLS_StyleScopedClasses['info-card']} */ ;
-/** @type {__VLS_StyleScopedClasses['info-card']} */ ;
-/** @type {__VLS_StyleScopedClasses['info-card']} */ ;
-/** @type {__VLS_StyleScopedClasses['info-card']} */ ;
 /** @type {__VLS_StyleScopedClasses['info-card']} */ ;
 /** @type {__VLS_StyleScopedClasses['info-list']} */ ;
 /** @type {__VLS_StyleScopedClasses['info-list']} */ ;
 /** @type {__VLS_StyleScopedClasses['list-icon']} */ ;
-/** @type {__VLS_StyleScopedClasses['list-icon']} */ ;
-/** @type {__VLS_StyleScopedClasses['ant-dropdown-menu-item']} */ ;
 /** @type {__VLS_StyleScopedClasses['metrics-grid']} */ ;
 /** @type {__VLS_StyleScopedClasses['info-grid']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metrics']} */ ;
 /** @type {__VLS_StyleScopedClasses['topbar']} */ ;
-/** @type {__VLS_StyleScopedClasses['dashboard-page']} */ ;
+/** @type {__VLS_StyleScopedClasses['user-menu']} */ ;
+/** @type {__VLS_StyleScopedClasses['dashboard-container']} */ ;
 /** @type {__VLS_StyleScopedClasses['brand-copy']} */ ;
 /** @type {__VLS_StyleScopedClasses['brand-copy']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-value']} */ ;
@@ -191,11 +189,7 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
     ...{ class: "dashboard-page" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "dashboard-pattern" },
-    'aria-hidden': "true",
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "dashboard-shell" },
+    ...{ class: "dashboard-container" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.header, __VLS_intrinsicElements.header)({
     ...{ class: "topbar reveal reveal-1" },
@@ -206,7 +200,20 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "brand-mark" },
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
+    viewBox: "0 0 24 24",
+    'aria-hidden': "true",
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+    d: "M3 3h18v18H3z",
+    fill: "#1A73E8",
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+    d: "M12 5l7 7-7 7M5 12l7-7",
+    stroke: "#fff",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
+});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "brand-copy" },
 });
@@ -222,54 +229,9 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
     'aria-hidden': "true",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
-(__VLS_ctx.isOnline ? '系统在线（连接正常）' : '后端离线');
-const __VLS_0 = {}.ADropdown;
-/** @type {[typeof __VLS_components.ADropdown, typeof __VLS_components.aDropdown, typeof __VLS_components.ADropdown, typeof __VLS_components.aDropdown, ]} */ ;
-// @ts-ignore
-const __VLS_1 = __VLS_asFunctionalComponent(__VLS_0, new __VLS_0({
-    trigger: "click",
-    placement: "bottomRight",
-}));
-const __VLS_2 = __VLS_1({
-    trigger: "click",
-    placement: "bottomRight",
-}, ...__VLS_functionalComponentArgsRest(__VLS_1));
-__VLS_3.slots.default;
-{
-    const { overlay: __VLS_thisSlot } = __VLS_3.slots;
-    const __VLS_4 = {}.AMenu;
-    /** @type {[typeof __VLS_components.AMenu, typeof __VLS_components.aMenu, typeof __VLS_components.AMenu, typeof __VLS_components.aMenu, ]} */ ;
-    // @ts-ignore
-    const __VLS_5 = __VLS_asFunctionalComponent(__VLS_4, new __VLS_4({
-        ...{ 'onClick': {} },
-        ...{ class: "user-menu" },
-    }));
-    const __VLS_6 = __VLS_5({
-        ...{ 'onClick': {} },
-        ...{ class: "user-menu" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_5));
-    let __VLS_8;
-    let __VLS_9;
-    let __VLS_10;
-    const __VLS_11 = {
-        onClick: (__VLS_ctx.onMenuClick)
-    };
-    __VLS_7.slots.default;
-    const __VLS_12 = {}.AMenuItem;
-    /** @type {[typeof __VLS_components.AMenuItem, typeof __VLS_components.aMenuItem, typeof __VLS_components.AMenuItem, typeof __VLS_components.aMenuItem, ]} */ ;
-    // @ts-ignore
-    const __VLS_13 = __VLS_asFunctionalComponent(__VLS_12, new __VLS_12({
-        key: "logout",
-    }));
-    const __VLS_14 = __VLS_13({
-        key: "logout",
-    }, ...__VLS_functionalComponentArgsRest(__VLS_13));
-    __VLS_15.slots.default;
-    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
-    var __VLS_15;
-    var __VLS_7;
-}
+(__VLS_ctx.isOnline ? '系统在线' : '后端离线');
 __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+    ...{ onClick: (__VLS_ctx.toggleUserMenu) },
     ...{ class: "avatar-button" },
     type: "button",
     'aria-label': "用户菜单",
@@ -278,19 +240,30 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.s
     viewBox: "0 0 24 24",
     'aria-hidden': "true",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.circle, __VLS_intrinsicElements.circle)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.circle)({
     cx: "12",
     cy: "8",
     r: "4",
+    fill: "#1A73E8",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M4 20c1.8-3.9 5-6 8-6s6.2 2.1 8 6",
+    fill: "#1A73E8",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
     ...{ class: "avatar-button__hint" },
     'aria-hidden': "true",
 });
-var __VLS_3;
+if (__VLS_ctx.showUserMenu) {
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+        ...{ class: "user-menu" },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+        ...{ onClick: (__VLS_ctx.handleLogout) },
+        ...{ class: "user-menu-item" },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+}
 __VLS_asFunctionalElement(__VLS_intrinsicElements.section, __VLS_intrinsicElements.section)({
     ...{ class: "banner-card reveal reveal-2" },
 });
@@ -314,125 +287,80 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.h2, __VLS_intrinsicElements.h2
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "actions" },
 });
-const __VLS_16 = {}.AButton;
-/** @type {[typeof __VLS_components.AButton, typeof __VLS_components.aButton, typeof __VLS_components.AButton, typeof __VLS_components.aButton, ]} */ ;
-// @ts-ignore
-const __VLS_17 = __VLS_asFunctionalComponent(__VLS_16, new __VLS_16({
-    ...{ 'onClick': {} },
-    type: "primary",
+__VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+    ...{ onClick: (...[$event]) => {
+            __VLS_ctx.go('/search');
+        } },
     ...{ class: "action-button action-button--primary" },
-}));
-const __VLS_18 = __VLS_17({
-    ...{ 'onClick': {} },
-    type: "primary",
-    ...{ class: "action-button action-button--primary" },
-}, ...__VLS_functionalComponentArgsRest(__VLS_17));
-let __VLS_20;
-let __VLS_21;
-let __VLS_22;
-const __VLS_23 = {
-    onClick: (...[$event]) => {
-        __VLS_ctx.go('/search');
-    }
-};
-__VLS_19.slots.default;
-var __VLS_19;
-const __VLS_24 = {}.AButton;
-/** @type {[typeof __VLS_components.AButton, typeof __VLS_components.aButton, typeof __VLS_components.AButton, typeof __VLS_components.aButton, ]} */ ;
-// @ts-ignore
-const __VLS_25 = __VLS_asFunctionalComponent(__VLS_24, new __VLS_24({
-    ...{ 'onClick': {} },
-    ...{ class: "action-button action-button--secondary action-button--accent" },
-}));
-const __VLS_26 = __VLS_25({
-    ...{ 'onClick': {} },
-    ...{ class: "action-button action-button--secondary action-button--accent" },
-}, ...__VLS_functionalComponentArgsRest(__VLS_25));
-let __VLS_28;
-let __VLS_29;
-let __VLS_30;
-const __VLS_31 = {
-    onClick: (...[$event]) => {
-        __VLS_ctx.go('/datasets');
-    }
-};
-__VLS_27.slots.default;
-var __VLS_27;
-const __VLS_32 = {}.AButton;
-/** @type {[typeof __VLS_components.AButton, typeof __VLS_components.aButton, typeof __VLS_components.AButton, typeof __VLS_components.aButton, ]} */ ;
-// @ts-ignore
-const __VLS_33 = __VLS_asFunctionalComponent(__VLS_32, new __VLS_32({
-    ...{ 'onClick': {} },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "ripple-container" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "ripple" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+    ...{ onClick: (...[$event]) => {
+            __VLS_ctx.go('/datasets');
+        } },
     ...{ class: "action-button action-button--secondary" },
-}));
-const __VLS_34 = __VLS_33({
-    ...{ 'onClick': {} },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "ripple-container" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "ripple" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+    ...{ onClick: (...[$event]) => {
+            __VLS_ctx.go('/indexes');
+        } },
     ...{ class: "action-button action-button--secondary" },
-}, ...__VLS_functionalComponentArgsRest(__VLS_33));
-let __VLS_36;
-let __VLS_37;
-let __VLS_38;
-const __VLS_39 = {
-    onClick: (...[$event]) => {
-        __VLS_ctx.go('/indexes');
-    }
-};
-__VLS_35.slots.default;
-var __VLS_35;
-const __VLS_40 = {}.AButton;
-/** @type {[typeof __VLS_components.AButton, typeof __VLS_components.aButton, typeof __VLS_components.AButton, typeof __VLS_components.aButton, ]} */ ;
-// @ts-ignore
-const __VLS_41 = __VLS_asFunctionalComponent(__VLS_40, new __VLS_40({
-    ...{ 'onClick': {} },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "ripple-container" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "ripple" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+    ...{ onClick: (...[$event]) => {
+            __VLS_ctx.go('/visualize');
+        } },
     ...{ class: "action-button action-button--secondary" },
-}));
-const __VLS_42 = __VLS_41({
-    ...{ 'onClick': {} },
-    ...{ class: "action-button action-button--secondary" },
-}, ...__VLS_functionalComponentArgsRest(__VLS_41));
-let __VLS_44;
-let __VLS_45;
-let __VLS_46;
-const __VLS_47 = {
-    onClick: (...[$event]) => {
-        __VLS_ctx.go('/visualize');
-    }
-};
-__VLS_43.slots.default;
-var __VLS_43;
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "ripple-container" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "ripple" },
+});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.section, __VLS_intrinsicElements.section)({
     ...{ class: "metrics-grid" },
 });
-const __VLS_48 = {}.ACard;
-/** @type {[typeof __VLS_components.ACard, typeof __VLS_components.aCard, typeof __VLS_components.ACard, typeof __VLS_components.aCard, ]} */ ;
-// @ts-ignore
-const __VLS_49 = __VLS_asFunctionalComponent(__VLS_48, new __VLS_48({
-    ...{ class: "metric-card metric-card--1 reveal reveal-4" },
-    bordered: (false),
-}));
-const __VLS_50 = __VLS_49({
-    ...{ class: "metric-card metric-card--1 reveal reveal-4" },
-    bordered: (false),
-}, ...__VLS_functionalComponentArgsRest(__VLS_49));
-__VLS_51.slots.default;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "metric-card metric-card--dataset reveal reveal-4" },
+});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "metric-header" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "metric-icon metric-icon--dataset" },
+    ...{ class: "metric-icon" },
     'aria-hidden': "true",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
     viewBox: "0 0 24 24",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M4 7.5h16v10H4z",
+    fill: "#E8F0FE",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
-    d: "M4 7.5l8-4 8 4",
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
-    d: "M4 12h16",
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
+    d: "M4 7.5l8-4 8 4M4 12h16",
+    stroke: "#1A73E8",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
+    'stroke-linejoin': "round",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
     ...{ class: "metric-label" },
@@ -444,36 +372,30 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "metric-sub" },
 });
-var __VLS_51;
-const __VLS_52 = {}.ACard;
-/** @type {[typeof __VLS_components.ACard, typeof __VLS_components.aCard, typeof __VLS_components.ACard, typeof __VLS_components.aCard, ]} */ ;
-// @ts-ignore
-const __VLS_53 = __VLS_asFunctionalComponent(__VLS_52, new __VLS_52({
-    ...{ class: "metric-card metric-card--2 reveal reveal-5" },
-    bordered: (false),
-}));
-const __VLS_54 = __VLS_53({
-    ...{ class: "metric-card metric-card--2 reveal reveal-5" },
-    bordered: (false),
-}, ...__VLS_functionalComponentArgsRest(__VLS_53));
-__VLS_55.slots.default;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "metric-card metric-card--index reveal reveal-5" },
+});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "metric-header" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "metric-icon metric-icon--index" },
+    ...{ class: "metric-icon" },
     'aria-hidden': "true",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
     viewBox: "0 0 24 24",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.circle, __VLS_intrinsicElements.circle)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.circle)({
     cx: "11",
     cy: "11",
     r: "5.5",
+    fill: "#E8F0FE",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M15.5 15.5L20 20",
+    stroke: "#1A73E8",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
     ...{ class: "metric-label" },
@@ -485,36 +407,31 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "metric-sub" },
 });
-var __VLS_55;
-const __VLS_56 = {}.ACard;
-/** @type {[typeof __VLS_components.ACard, typeof __VLS_components.aCard, typeof __VLS_components.ACard, typeof __VLS_components.aCard, ]} */ ;
-// @ts-ignore
-const __VLS_57 = __VLS_asFunctionalComponent(__VLS_56, new __VLS_56({
-    ...{ class: "metric-card metric-card--3 reveal reveal-6" },
-    bordered: (false),
-}));
-const __VLS_58 = __VLS_57({
-    ...{ class: "metric-card metric-card--3 reveal reveal-6" },
-    bordered: (false),
-}, ...__VLS_functionalComponentArgsRest(__VLS_57));
-__VLS_59.slots.default;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "metric-card metric-card--cells reveal reveal-6" },
+});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "metric-header" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "metric-icon metric-icon--recent" },
+    ...{ class: "metric-icon" },
     'aria-hidden': "true",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
     viewBox: "0 0 24 24",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.circle, __VLS_intrinsicElements.circle)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.circle)({
     cx: "12",
     cy: "12",
     r: "8",
+    fill: "#E8F0FE",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M12 8v4l3 2",
+    stroke: "#1A73E8",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
+    'stroke-linejoin': "round",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
     ...{ class: "metric-label" },
@@ -526,7 +443,6 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "metric-sub" },
 });
-var __VLS_59;
 __VLS_asFunctionalElement(__VLS_intrinsicElements.section, __VLS_intrinsicElements.section)({
     ...{ class: "performance-monitor reveal reveal-7" },
 });
@@ -543,9 +459,16 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.s
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M3 3v18h18",
+    stroke: "#1A73E8",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M18.7 8l-5.1 5.2-2.8-2.7L7 14.3",
+    stroke: "#1A73E8",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
+    'stroke-linejoin': "round",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
@@ -561,7 +484,7 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
     ...{ class: "perf-metrics" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "perf-metric perf-metric--latency" },
+    ...{ class: "perf-metric" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "perf-metric-label" },
@@ -570,46 +493,23 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
     ...{ class: "perf-metric-value-container" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ onMouseenter: (...[$event]) => {
-            __VLS_ctx.hoveredMetric = 'latency';
-        } },
-    ...{ onMouseleave: (...[$event]) => {
-            __VLS_ctx.hoveredMetric = null;
-        } },
     ...{ class: "perf-metric-value" },
-    ...{ class: ({ 'perf-metric-value--glow': __VLS_ctx.hoveredMetric === 'latency' }) },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
-    ...{ class: "perf-number" },
+    ...{ class: "perf-number perf-number--blue" },
 });
 (__VLS_ctx.animatedLatency);
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
     ...{ class: "perf-unit" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
-    ...{ class: "perf-sparkline perf-sparkline--latency" },
+    ...{ class: "perf-sparkline" },
     viewBox: "0 0 100 24",
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.defs, __VLS_intrinsicElements.defs)({});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.linearGradient, __VLS_intrinsicElements.linearGradient)({
-    id: "latencyGradient",
-    x1: "0%",
-    y1: "0%",
-    x2: "100%",
-    y2: "0%",
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.stop)({
-    offset: "0%",
-    ...{ style: {} },
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.stop)({
-    offset: "100%",
-    ...{ style: {} },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: (__VLS_ctx.latencySparklinePath),
     fill: "none",
-    stroke: "url(#latencyGradient)",
+    stroke: "#1A73E8",
     'stroke-width': "2",
     'stroke-linecap': "round",
     'stroke-linejoin': "round",
@@ -618,7 +518,7 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
     ...{ class: "perf-metric-sub" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "perf-metric perf-metric--memory" },
+    ...{ class: "perf-metric" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "perf-metric-label" },
@@ -627,46 +527,23 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
     ...{ class: "perf-metric-value-container" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ onMouseenter: (...[$event]) => {
-            __VLS_ctx.hoveredMetric = 'memory';
-        } },
-    ...{ onMouseleave: (...[$event]) => {
-            __VLS_ctx.hoveredMetric = null;
-        } },
     ...{ class: "perf-metric-value" },
-    ...{ class: ({ 'perf-metric-value--glow': __VLS_ctx.hoveredMetric === 'memory' }) },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
-    ...{ class: "perf-number" },
+    ...{ class: "perf-number perf-number--green" },
 });
 (__VLS_ctx.animatedMemory);
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
     ...{ class: "perf-unit" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
-    ...{ class: "perf-sparkline perf-sparkline--memory" },
+    ...{ class: "perf-sparkline" },
     viewBox: "0 0 100 24",
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.defs, __VLS_intrinsicElements.defs)({});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.linearGradient, __VLS_intrinsicElements.linearGradient)({
-    id: "memoryGradient",
-    x1: "0%",
-    y1: "0%",
-    x2: "100%",
-    y2: "0%",
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.stop)({
-    offset: "0%",
-    ...{ style: {} },
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.stop)({
-    offset: "100%",
-    ...{ style: {} },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: (__VLS_ctx.memorySparklinePath),
     fill: "none",
-    stroke: "url(#memoryGradient)",
+    stroke: "#34A853",
     'stroke-width': "2",
     'stroke-linecap': "round",
     'stroke-linejoin': "round",
@@ -675,7 +552,7 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
     ...{ class: "perf-metric-sub" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "perf-metric perf-metric--qps" },
+    ...{ class: "perf-metric" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "perf-metric-label" },
@@ -684,46 +561,23 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
     ...{ class: "perf-metric-value-container" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ onMouseenter: (...[$event]) => {
-            __VLS_ctx.hoveredMetric = 'qps';
-        } },
-    ...{ onMouseleave: (...[$event]) => {
-            __VLS_ctx.hoveredMetric = null;
-        } },
     ...{ class: "perf-metric-value" },
-    ...{ class: ({ 'perf-metric-value--glow': __VLS_ctx.hoveredMetric === 'qps' }) },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
-    ...{ class: "perf-number" },
+    ...{ class: "perf-number perf-number--yellow" },
 });
 (__VLS_ctx.animatedQps);
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
     ...{ class: "perf-unit" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
-    ...{ class: "perf-sparkline perf-sparkline--qps" },
+    ...{ class: "perf-sparkline" },
     viewBox: "0 0 100 24",
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.defs, __VLS_intrinsicElements.defs)({});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.linearGradient, __VLS_intrinsicElements.linearGradient)({
-    id: "qpsGradient",
-    x1: "0%",
-    y1: "0%",
-    x2: "100%",
-    y2: "0%",
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.stop)({
-    offset: "0%",
-    ...{ style: {} },
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.stop)({
-    offset: "100%",
-    ...{ style: {} },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: (__VLS_ctx.qpsSparklinePath),
     fill: "none",
-    stroke: "url(#qpsGradient)",
+    stroke: "#FBBC05",
     'stroke-width': "2",
     'stroke-linecap': "round",
     'stroke-linejoin': "round",
@@ -732,7 +586,7 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
     ...{ class: "perf-metric-sub" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "perf-metric perf-metric--params" },
+    ...{ class: "perf-metric" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "perf-metric-label" },
@@ -741,17 +595,10 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
     ...{ class: "perf-metric-value-container" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ onMouseenter: (...[$event]) => {
-            __VLS_ctx.hoveredMetric = 'params';
-        } },
-    ...{ onMouseleave: (...[$event]) => {
-            __VLS_ctx.hoveredMetric = null;
-        } },
     ...{ class: "perf-metric-value" },
-    ...{ class: ({ 'perf-metric-value--glow': __VLS_ctx.hoveredMetric === 'params' }) },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
-    ...{ class: "perf-number" },
+    ...{ class: "perf-number perf-number--red" },
 });
 (__VLS_ctx.animatedLoad);
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
@@ -770,20 +617,12 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
 __VLS_asFunctionalElement(__VLS_intrinsicElements.section, __VLS_intrinsicElements.section)({
     ...{ class: "info-grid" },
 });
-const __VLS_60 = {}.ACard;
-/** @type {[typeof __VLS_components.ACard, typeof __VLS_components.aCard, typeof __VLS_components.ACard, typeof __VLS_components.aCard, ]} */ ;
-// @ts-ignore
-const __VLS_61 = __VLS_asFunctionalComponent(__VLS_60, new __VLS_60({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "info-card reveal reveal-8" },
-    bordered: (false),
-    title: "快速说明",
-}));
-const __VLS_62 = __VLS_61({
-    ...{ class: "info-card reveal reveal-8" },
-    bordered: (false),
-    title: "快速说明",
-}, ...__VLS_functionalComponentArgsRest(__VLS_61));
-__VLS_63.slots.default;
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "info-card-header" },
+});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.ul, __VLS_intrinsicElements.ul)({
     ...{ class: "info-list" },
 });
@@ -795,8 +634,12 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
     viewBox: "0 0 24 24",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M20 6L9 17l-5-5",
+    stroke: "#1A73E8",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
+    'stroke-linejoin': "round",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.li, __VLS_intrinsicElements.li)({});
@@ -807,8 +650,12 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
     viewBox: "0 0 24 24",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M20 6L9 17l-5-5",
+    stroke: "#1A73E8",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
+    'stroke-linejoin': "round",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.li, __VLS_intrinsicElements.li)({});
@@ -819,25 +666,20 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
     viewBox: "0 0 24 24",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M20 6L9 17l-5-5",
+    stroke: "#1A73E8",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
+    'stroke-linejoin': "round",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
-var __VLS_63;
-const __VLS_64 = {}.ACard;
-/** @type {[typeof __VLS_components.ACard, typeof __VLS_components.aCard, typeof __VLS_components.ACard, typeof __VLS_components.aCard, ]} */ ;
-// @ts-ignore
-const __VLS_65 = __VLS_asFunctionalComponent(__VLS_64, new __VLS_64({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "info-card reveal reveal-9" },
-    bordered: (false),
-    title: "当前状态",
-}));
-const __VLS_66 = __VLS_65({
-    ...{ class: "info-card reveal reveal-9" },
-    bordered: (false),
-    title: "当前状态",
-}, ...__VLS_functionalComponentArgsRest(__VLS_65));
-__VLS_67.slots.default;
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "info-card-header" },
+});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.ul, __VLS_intrinsicElements.ul)({
     ...{ class: "info-list" },
 });
@@ -849,8 +691,12 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
     viewBox: "0 0 24 24",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M20 6L9 17l-5-5",
+    stroke: "#1A73E8",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
+    'stroke-linejoin': "round",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.li, __VLS_intrinsicElements.li)({});
@@ -861,14 +707,16 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
 __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
     viewBox: "0 0 24 24",
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.path, __VLS_intrinsicElements.path)({
+__VLS_asFunctionalElement(__VLS_intrinsicElements.path)({
     d: "M20 6L9 17l-5-5",
+    stroke: "#1A73E8",
+    'stroke-width': "2",
+    'stroke-linecap': "round",
+    'stroke-linejoin': "round",
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
-var __VLS_67;
 /** @type {__VLS_StyleScopedClasses['dashboard-page']} */ ;
-/** @type {__VLS_StyleScopedClasses['dashboard-pattern']} */ ;
-/** @type {__VLS_StyleScopedClasses['dashboard-shell']} */ ;
+/** @type {__VLS_StyleScopedClasses['dashboard-container']} */ ;
 /** @type {__VLS_StyleScopedClasses['topbar']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal-1']} */ ;
@@ -877,9 +725,10 @@ var __VLS_67;
 /** @type {__VLS_StyleScopedClasses['brand-copy']} */ ;
 /** @type {__VLS_StyleScopedClasses['system-status']} */ ;
 /** @type {__VLS_StyleScopedClasses['status-dot']} */ ;
-/** @type {__VLS_StyleScopedClasses['user-menu']} */ ;
 /** @type {__VLS_StyleScopedClasses['avatar-button']} */ ;
 /** @type {__VLS_StyleScopedClasses['avatar-button__hint']} */ ;
+/** @type {__VLS_StyleScopedClasses['user-menu']} */ ;
+/** @type {__VLS_StyleScopedClasses['user-menu-item']} */ ;
 /** @type {__VLS_StyleScopedClasses['banner-card']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal-2']} */ ;
@@ -894,41 +743,45 @@ var __VLS_67;
 /** @type {__VLS_StyleScopedClasses['actions']} */ ;
 /** @type {__VLS_StyleScopedClasses['action-button']} */ ;
 /** @type {__VLS_StyleScopedClasses['action-button--primary']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple-container']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple']} */ ;
 /** @type {__VLS_StyleScopedClasses['action-button']} */ ;
 /** @type {__VLS_StyleScopedClasses['action-button--secondary']} */ ;
-/** @type {__VLS_StyleScopedClasses['action-button--accent']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple-container']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple']} */ ;
 /** @type {__VLS_StyleScopedClasses['action-button']} */ ;
 /** @type {__VLS_StyleScopedClasses['action-button--secondary']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple-container']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple']} */ ;
 /** @type {__VLS_StyleScopedClasses['action-button']} */ ;
 /** @type {__VLS_StyleScopedClasses['action-button--secondary']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple-container']} */ ;
+/** @type {__VLS_StyleScopedClasses['ripple']} */ ;
 /** @type {__VLS_StyleScopedClasses['metrics-grid']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-card']} */ ;
-/** @type {__VLS_StyleScopedClasses['metric-card--1']} */ ;
+/** @type {__VLS_StyleScopedClasses['metric-card--dataset']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal-4']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-header']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-icon']} */ ;
-/** @type {__VLS_StyleScopedClasses['metric-icon--dataset']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-label']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-value']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-sub']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-card']} */ ;
-/** @type {__VLS_StyleScopedClasses['metric-card--2']} */ ;
+/** @type {__VLS_StyleScopedClasses['metric-card--index']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal-5']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-header']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-icon']} */ ;
-/** @type {__VLS_StyleScopedClasses['metric-icon--index']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-label']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-value']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-sub']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-card']} */ ;
-/** @type {__VLS_StyleScopedClasses['metric-card--3']} */ ;
+/** @type {__VLS_StyleScopedClasses['metric-card--cells']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal-6']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-header']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-icon']} */ ;
-/** @type {__VLS_StyleScopedClasses['metric-icon--recent']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-label']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-value']} */ ;
 /** @type {__VLS_StyleScopedClasses['metric-sub']} */ ;
@@ -943,41 +796,38 @@ var __VLS_67;
 /** @type {__VLS_StyleScopedClasses['perf-status-text']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metrics']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric']} */ ;
-/** @type {__VLS_StyleScopedClasses['perf-metric--latency']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-label']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-value-container']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-value']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-number']} */ ;
+/** @type {__VLS_StyleScopedClasses['perf-number--blue']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-unit']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-sparkline']} */ ;
-/** @type {__VLS_StyleScopedClasses['perf-sparkline--latency']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-sub']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric']} */ ;
-/** @type {__VLS_StyleScopedClasses['perf-metric--memory']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-label']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-value-container']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-value']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-number']} */ ;
+/** @type {__VLS_StyleScopedClasses['perf-number--green']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-unit']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-sparkline']} */ ;
-/** @type {__VLS_StyleScopedClasses['perf-sparkline--memory']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-sub']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric']} */ ;
-/** @type {__VLS_StyleScopedClasses['perf-metric--qps']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-label']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-value-container']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-value']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-number']} */ ;
+/** @type {__VLS_StyleScopedClasses['perf-number--yellow']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-unit']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-sparkline']} */ ;
-/** @type {__VLS_StyleScopedClasses['perf-sparkline--qps']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-sub']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric']} */ ;
-/** @type {__VLS_StyleScopedClasses['perf-metric--params']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-label']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-value-container']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-metric-value']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-number']} */ ;
+/** @type {__VLS_StyleScopedClasses['perf-number--red']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-unit']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-load-bar']} */ ;
 /** @type {__VLS_StyleScopedClasses['perf-load-fill']} */ ;
@@ -986,6 +836,7 @@ var __VLS_67;
 /** @type {__VLS_StyleScopedClasses['info-card']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal-8']} */ ;
+/** @type {__VLS_StyleScopedClasses['info-card-header']} */ ;
 /** @type {__VLS_StyleScopedClasses['info-list']} */ ;
 /** @type {__VLS_StyleScopedClasses['list-icon']} */ ;
 /** @type {__VLS_StyleScopedClasses['list-icon']} */ ;
@@ -993,6 +844,7 @@ var __VLS_67;
 /** @type {__VLS_StyleScopedClasses['info-card']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal']} */ ;
 /** @type {__VLS_StyleScopedClasses['reveal-9']} */ ;
+/** @type {__VLS_StyleScopedClasses['info-card-header']} */ ;
 /** @type {__VLS_StyleScopedClasses['info-list']} */ ;
 /** @type {__VLS_StyleScopedClasses['list-icon']} */ ;
 /** @type {__VLS_StyleScopedClasses['list-icon']} */ ;
@@ -1003,7 +855,7 @@ const __VLS_self = (await import('vue')).defineComponent({
             datasetCount: datasetCount,
             indexCount: indexCount,
             isOnline: isOnline,
-            hoveredMetric: hoveredMetric,
+            showUserMenu: showUserMenu,
             animatedLatency: animatedLatency,
             animatedMemory: animatedMemory,
             animatedQps: animatedQps,
@@ -1013,7 +865,8 @@ const __VLS_self = (await import('vue')).defineComponent({
             memorySparklinePath: memorySparklinePath,
             qpsSparklinePath: qpsSparklinePath,
             go: go,
-            onMenuClick: onMenuClick,
+            toggleUserMenu: toggleUserMenu,
+            handleLogout: handleLogout,
         };
     },
 });
