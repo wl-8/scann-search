@@ -1,6 +1,7 @@
 <template>
-  <div class="search-page">
-    <div class="page-header">
+  <AppLayout>
+    <div class="search-page">
+      <div class="page-header">
       <div class="page-title">
         <span class="page-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
@@ -97,11 +98,13 @@
       </div>
     </div>
   </div>
+  </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue"
 import { message } from "ant-design-vue"
+import AppLayout from "@/components/layout/AppLayout.vue"
 import SearchForm from "@/components/search/SearchForm.vue"
 import { listDatasets, listIndexes } from "@/api/search"
 import request from "@/api/request"

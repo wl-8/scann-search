@@ -33,6 +33,8 @@ backend/data/
 *.sqlite
 *.sqlite3
 
+数据说明.md
+
 # Data and generated artifacts
 data/uploads/
 data/indexes/

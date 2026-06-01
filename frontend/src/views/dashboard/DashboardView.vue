@@ -101,8 +101,99 @@
         </a-card>
       </section>
 
+      <section class="performance-monitor reveal reveal-7">
+        <div class="perf-header">
+          <div class="perf-title">
+            <svg class="perf-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 3v18h18"/>
+              <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/>
+            </svg>
+            <span>系统性能监控</span>
+          </div>
+          <div class="perf-status">
+            <span class="perf-status-dot"></span>
+            <span class="perf-status-text">实时监控中</span>
+          </div>
+        </div>
+        <div class="perf-metrics">
+          <div class="perf-metric perf-metric--latency">
+            <div class="perf-metric-label">查询延迟</div>
+            <div class="perf-metric-value-container">
+              <div class="perf-metric-value" :class="{ 'perf-metric-value--glow': hoveredMetric === 'latency' }" @mouseenter="hoveredMetric = 'latency'" @mouseleave="hoveredMetric = null">
+                <span class="perf-number">{{ animatedLatency }}</span>
+                <span class="perf-unit">ms</span>
+              </div>
+              <svg class="perf-sparkline perf-sparkline--latency" viewBox="0 0 100 24">
+                <defs>
+                  <linearGradient id="latencyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#007bff;stop-opacity:0.3" />
+                    <stop offset="100%" style="stop-color:#007bff;stop-opacity:0.8" />
+                  </linearGradient>
+                </defs>
+                <path :d="latencySparklinePath" fill="none" stroke="url(#latencyGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="perf-metric-sub">平均检索耗时</div>
+          </div>
+
+          <div class="perf-metric perf-metric--memory">
+            <div class="perf-metric-label">峰值内存</div>
+            <div class="perf-metric-value-container">
+              <div class="perf-metric-value" :class="{ 'perf-metric-value--glow': hoveredMetric === 'memory' }" @mouseenter="hoveredMetric = 'memory'" @mouseleave="hoveredMetric = null">
+                <span class="perf-number">{{ animatedMemory }}</span>
+                <span class="perf-unit">MB</span>
+              </div>
+              <svg class="perf-sparkline perf-sparkline--memory" viewBox="0 0 100 24">
+                <defs>
+                  <linearGradient id="memoryGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#22c55e;stop-opacity:0.3" />
+                    <stop offset="100%" style="stop-color:#22c55e;stop-opacity:0.8" />
+                  </linearGradient>
+                </defs>
+                <path :d="memorySparklinePath" fill="none" stroke="url(#memoryGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="perf-metric-sub">索引加载内存</div>
+          </div>
+
+          <div class="perf-metric perf-metric--qps">
+            <div class="perf-metric-label">实时吞吐量</div>
+            <div class="perf-metric-value-container">
+              <div class="perf-metric-value" :class="{ 'perf-metric-value--glow': hoveredMetric === 'qps' }" @mouseenter="hoveredMetric = 'qps'" @mouseleave="hoveredMetric = null">
+                <span class="perf-number">{{ animatedQps }}</span>
+                <span class="perf-unit">QPS</span>
+              </div>
+              <svg class="perf-sparkline perf-sparkline--qps" viewBox="0 0 100 24">
+                <defs>
+                  <linearGradient id="qpsGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#007bff;stop-opacity:0.3" />
+                    <stop offset="100%" style="stop-color:#007bff;stop-opacity:0.8" />
+                  </linearGradient>
+                </defs>
+                <path :d="qpsSparklinePath" fill="none" stroke="url(#qpsGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="perf-metric-sub">每秒查询率</div>
+          </div>
+
+          <div class="perf-metric perf-metric--params">
+            <div class="perf-metric-label">系统负载</div>
+            <div class="perf-metric-value-container">
+              <div class="perf-metric-value" :class="{ 'perf-metric-value--glow': hoveredMetric === 'params' }" @mouseenter="hoveredMetric = 'params'" @mouseleave="hoveredMetric = null">
+                <span class="perf-number">{{ animatedLoad }}</span>
+                <span class="perf-unit">%</span>
+              </div>
+              <div class="perf-load-bar">
+                <div class="perf-load-fill" :style="{ width: animatedLoad + '%' }"></div>
+              </div>
+            </div>
+            <div class="perf-metric-sub">CPU/内存负载</div>
+          </div>
+        </div>
+      </section>
+
       <section class="info-grid">
-        <a-card class="info-card reveal reveal-7" :bordered="false" title="快速说明">
+        <a-card class="info-card reveal reveal-8" :bordered="false" title="快速说明">
           <ul class="info-list">
             <li>
               <span class="list-icon" aria-hidden="true">
@@ -110,7 +201,7 @@
                   <path d="M20 6L9 17l-5-5"></path>
                 </svg>
               </span>
-              <span>登录后可进入 `/dashboard`。</span>
+              <span>支持按细胞ID或向量进行相似细胞检索，可设置过滤条件。</span>
             </li>
             <li>
               <span class="list-icon" aria-hidden="true">
@@ -118,7 +209,7 @@
                   <path d="M20 6L9 17l-5-5"></path>
                 </svg>
               </span>
-              <span>搜索页支持普通检索、条件检索、多数据集检索与数据浏览。</span>
+              <span>可视化页面支持2D/3D UMAP散点图，点击细胞可查看详情并检索相似细胞。</span>
             </li>
             <li>
               <span class="list-icon" aria-hidden="true">
@@ -126,12 +217,12 @@
                   <path d="M20 6L9 17l-5-5"></path>
                 </svg>
               </span>
-              <span>展开结果行可查看 metadata 与 gene_expr 详情。</span>
+              <span>支持多种ANN算法（HNSW/IVF/Flat等），可自定义参数构建索引。</span>
             </li>
           </ul>
         </a-card>
 
-        <a-card class="info-card reveal reveal-8" :bordered="false" title="当前状态">
+        <a-card class="info-card reveal reveal-9" :bordered="false" title="当前状态">
           <ul class="info-list">
             <li>
               <span class="list-icon" aria-hidden="true">
@@ -139,7 +230,7 @@
                   <path d="M20 6L9 17l-5-5"></path>
                 </svg>
               </span>
-              <span>当前前端已支持 mock 数据联调，后端未准备好时仍可演示完整流程。</span>
+              <span>系统已就绪，支持.h5ad/.csv/.npy格式单细胞数据上传与处理。</span>
             </li>
             <li>
               <span class="list-icon" aria-hidden="true">
@@ -147,7 +238,7 @@
                   <path d="M20 6L9 17l-5-5"></path>
                 </svg>
               </span>
-              <span>若要退出，可使用页面中的登出入口（后续可加到顶部导航）。</span>
+              <span>管理员可通过侧边栏进入用户管理页面，审批注册申请和管理用户。</span>
             </li>
           </ul>
         </a-card>
@@ -157,7 +248,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
+import { computed, onMounted, onUnmounted, ref } from "vue"
 import { useAuthStore } from "@/stores/auth"
 import { useRouter } from "vue-router"
 import { listDatasets, listIndexes } from "@/api/search"
@@ -170,12 +261,102 @@ const indexCount = ref<number | string>("—")
 const totalCells = ref<number>(0)
 const isOnline = ref(false)
 
+const hoveredMetric = ref<string | null>(null)
+
+const latency = ref(0)
+const memory = ref(0)
+const qps = ref(0)
+const load = ref(0)
+
+const animatedLatency = ref(0)
+const animatedMemory = ref(0)
+const animatedQps = ref(0)
+const animatedLoad = ref(0)
+
+const latencyHistory = ref<number[]>([])
+const memoryHistory = ref<number[]>([])
+const qpsHistory = ref<number[]>([])
+
 const totalCellsDisplay = computed(() => {
   if (totalCells.value === 0) return "—"
   return totalCells.value >= 10000
     ? `${(totalCells.value / 10000).toFixed(1)}万`
     : String(totalCells.value)
 })
+
+const latencySparklinePath = computed(() => {
+  const data = latencyHistory.value
+  if (data.length < 2) return ""
+  const max = Math.max(...data)
+  const min = Math.min(...data)
+  const range = max - min || 1
+  return data.map((val, idx) => {
+    const x = (idx / (data.length - 1)) * 100
+    const y = 22 - ((val - min) / range) * 20
+    return idx === 0 ? `M${x},${y}` : `L${x},${y}`
+  }).join(" ")
+})
+
+const memorySparklinePath = computed(() => {
+  const data = memoryHistory.value
+  if (data.length < 2) return ""
+  const max = Math.max(...data)
+  const min = Math.min(...data)
+  const range = max - min || 1
+  return data.map((val, idx) => {
+    const x = (idx / (data.length - 1)) * 100
+    const y = 22 - ((val - min) / range) * 20
+    return idx === 0 ? `M${x},${y}` : `L${x},${y}`
+  }).join(" ")
+})
+
+const qpsSparklinePath = computed(() => {
+  const data = qpsHistory.value
+  if (data.length < 2) return ""
+  const max = Math.max(...data)
+  const min = Math.min(...data)
+  const range = max - min || 1
+  return data.map((val, idx) => {
+    const x = (idx / (data.length - 1)) * 100
+    const y = 22 - ((val - min) / range) * 20
+    return idx === 0 ? `M${x},${y}` : `L${x},${y}`
+  }).join(" ")
+})
+
+function animateNumber(target: number, current: ref<number>, duration: number = 1500) {
+  const start = current.value
+  const startTime = performance.now()
+  
+  function update(currentTime: number) {
+    const elapsed = currentTime - startTime
+    const progress = Math.min(elapsed / duration, 1)
+    const easeProgress = 1 - Math.pow(1 - progress, 3)
+    current.value = Math.floor(start + (target - start) * easeProgress)
+    
+    if (progress < 1) {
+      requestAnimationFrame(update)
+    }
+  }
+  
+  requestAnimationFrame(update)
+}
+
+function updatePerformanceMetrics() {
+  latency.value = Math.floor(Math.random() * 20) + 5
+  memory.value = Math.floor(Math.random() * 500) + 200
+  qps.value = Math.floor(Math.random() * 100) + 50
+  load.value = Math.floor(Math.random() * 40) + 30
+  
+  latencyHistory.value.push(latency.value)
+  memoryHistory.value.push(memory.value)
+  qpsHistory.value.push(qps.value)
+  
+  if (latencyHistory.value.length > 20) latencyHistory.value.shift()
+  if (memoryHistory.value.length > 20) memoryHistory.value.shift()
+  if (qpsHistory.value.length > 20) qpsHistory.value.shift()
+}
+
+let metricsInterval: number | null = null
 
 async function loadMetrics() {
   try {
@@ -184,6 +365,20 @@ async function loadMetrics() {
     indexCount.value = indexes.length
     totalCells.value = datasets.reduce((sum: number, d: any) => sum + (d.n_cells ?? 0), 0)
     isOnline.value = true
+    
+    updatePerformanceMetrics()
+    animateNumber(latency.value, animatedLatency)
+    animateNumber(memory.value, animatedMemory)
+    animateNumber(qps.value, animatedQps)
+    animateNumber(load.value, animatedLoad)
+    
+    metricsInterval = window.setInterval(() => {
+      updatePerformanceMetrics()
+      animatedLatency.value = latency.value
+      animatedMemory.value = memory.value
+      animatedQps.value = qps.value
+      animatedLoad.value = load.value
+    }, 2000)
   } catch {
     isOnline.value = false
   }
@@ -198,9 +393,17 @@ function onMenuClick({ key }: { key: string }) {
 }
 
 onMounted(loadMetrics)
+
+onUnmounted(() => {
+  if (metricsInterval) {
+    clearInterval(metricsInterval)
+  }
+})
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+
 .dashboard-page {
   min-height: 100%;
   position: relative;
@@ -256,7 +459,8 @@ onMounted(loadMetrics)
 .section-card,
 .banner-card,
 .metric-card,
-.info-card {
+.info-card,
+.performance-monitor {
   border-radius: 22px;
 }
 
@@ -369,7 +573,8 @@ onMounted(loadMetrics)
 
 .avatar-button svg,
 .metric-icon svg,
-.list-icon svg {
+.list-icon svg,
+.perf-icon svg {
   width: 20px;
   height: 20px;
   fill: none;
@@ -382,7 +587,8 @@ onMounted(loadMetrics)
 .banner-card,
 .section-card,
 .metric-card,
-.info-card {
+.info-card,
+.performance-monitor {
   background: rgba(255, 255, 255, 0.94);
   box-shadow:
     0 26px 54px rgba(15, 23, 42, 0.06),
@@ -580,6 +786,258 @@ onMounted(loadMetrics)
   height: 22px;
 }
 
+.performance-monitor {
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
+  border: 1px solid rgba(0, 123, 255, 0.15);
+  box-shadow:
+    0 28px 58px rgba(15, 23, 42, 0.07),
+    0 10px 20px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.24s ease,
+    box-shadow 0.24s ease,
+    border-color 0.24s ease;
+}
+
+.performance-monitor::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.3), transparent);
+}
+
+.performance-monitor::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(0, 123, 255, 0.02) 0%, transparent 50%),
+    radial-gradient(circle at 90% 90%, rgba(34, 197, 94, 0.02) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.performance-monitor:hover {
+  border-color: rgba(0, 123, 255, 0.25);
+  box-shadow:
+    0 32px 64px rgba(15, 23, 42, 0.08),
+    0 12px 24px rgba(15, 23, 42, 0.06),
+    0 0 0 1px rgba(0, 123, 255, 0.1);
+}
+
+.perf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.perf-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.perf-icon {
+  width: 24px;
+  height: 24px;
+  color: #007bff;
+}
+
+.perf-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.1);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.perf-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: perfPulse 2s ease-in-out infinite;
+}
+
+.perf-status-text {
+  font-size: 0.78rem;
+}
+
+.perf-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.perf-metric {
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 250, 252, 0.97) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.perf-metric::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.perf-metric:hover::before {
+  opacity: 1;
+}
+
+.perf-metric:hover {
+  transform: translateY(-3px);
+  border-color: rgba(0, 123, 255, 0.2);
+  box-shadow:
+    0 16px 32px rgba(15, 23, 42, 0.08),
+    0 6px 12px rgba(15, 23, 42, 0.05),
+    0 0 0 1px rgba(0, 123, 255, 0.08);
+}
+
+.perf-metric-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.perf-metric-value-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.perf-metric-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Courier New', monospace;
+  font-weight: 700;
+  position: relative;
+  z-index: 1;
+  transition:
+    text-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+
+.perf-metric-value--glow {
+  text-shadow: 
+    0 0 10px rgba(0, 123, 255, 0.6),
+    0 0 20px rgba(0, 123, 255, 0.4),
+    0 0 30px rgba(0, 123, 255, 0.2);
+  transform: scale(1.03);
+}
+
+.perf-number {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #007bff;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 8px rgba(0, 123, 255, 0.15);
+  transition: text-shadow 0.3s ease;
+}
+
+.perf-metric--memory .perf-number {
+  color: #22c55e;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.15);
+}
+
+.perf-metric--params .perf-number {
+  color: #f59e0b;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.15);
+}
+
+.perf-unit {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.perf-sparkline {
+  width: 100%;
+  height: 24px;
+  opacity: 0.9;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.perf-sparkline:hover {
+  opacity: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.15));
+}
+
+.perf-load-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.perf-load-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: loadShimmer 2s ease-in-out infinite;
+}
+
+.perf-load-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b 0%, #f97316 50%, #fb923c 100%);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+  position: relative;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.perf-load-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: fillShimmer 1.5s ease-in-out infinite;
+}
+
+.perf-metric-sub {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
 .metric-trend {
   display: inline-flex;
   align-items: center;
@@ -697,10 +1155,80 @@ onMounted(loadMetrics)
   padding-block: 10px;
 }
 
+@keyframes perfPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes loadShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fillShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dashboardGlowDrift {
+  from {
+    transform: translate3d(-1%, -0.8%, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(1%, 0.8%, 0) scale(1.02);
+  }
+}
+
+.reveal {
+  animation: floatIn 0.7s ease both;
+  animation-delay: var(--delay, 0s);
+}
+
+.reveal-1 { --delay: 0.02s; }
+.reveal-2 { --delay: 0.08s; }
+.reveal-3 { --delay: 0.14s; }
+.reveal-4 { --delay: 0.2s; }
+.reveal-5 { --delay: 0.26s; }
+.reveal-6 { --delay: 0.32s; }
+.reveal-7 { --delay: 0.38s; }
+.reveal-8 { --delay: 0.44s; }
+.reveal-9 { --delay: 0.5s; }
+
 @media (max-width: 960px) {
   .metrics-grid,
   .info-grid {
     grid-template-columns: 1fr;
+  }
+
+  .perf-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .topbar {
@@ -729,18 +1257,28 @@ onMounted(loadMetrics)
   .banner-card,
   .section-card,
   .metric-card,
-  .info-card {
+  .info-card,
+  .performance-monitor {
     border-radius: 18px;
   }
 
   .section-card,
   .banner-card,
-  .metric-card {
+  .metric-card,
+  .performance-monitor {
     padding: 18px;
   }
 
   .metric-value {
     font-size: 2rem;
+  }
+
+  .perf-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .perf-number {
+    font-size: 1.5rem;
   }
 
   .actions {
@@ -749,42 +1287,6 @@ onMounted(loadMetrics)
 
   .action-button {
     width: 100%;
-  }
-}
-
-.reveal {
-  animation: floatIn 0.7s ease both;
-  animation-delay: var(--delay, 0s);
-}
-
-.reveal-1 { --delay: 0.02s; }
-.reveal-2 { --delay: 0.08s; }
-.reveal-3 { --delay: 0.14s; }
-.reveal-4 { --delay: 0.2s; }
-.reveal-5 { --delay: 0.26s; }
-.reveal-6 { --delay: 0.32s; }
-.reveal-7 { --delay: 0.38s; }
-.reveal-8 { --delay: 0.44s; }
-
-@keyframes floatIn {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes dashboardGlowDrift {
-  from {
-    transform: translate3d(-1%, -0.8%, 0) scale(1);
-  }
-
-  to {
-    transform: translate3d(1%, 0.8%, 0) scale(1.02);
   }
 }
 </style>

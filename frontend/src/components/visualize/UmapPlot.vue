@@ -119,26 +119,95 @@ function render() {
 		const handler = (ev: any) => {
 			const hit = ev?.points?.[0]
 			if (!hit) return
+			
+			// 获取点击的数据点信息
 			const idx = hit.pointIndex
 			const curve = hit.curveNumber
-			if (curve === 0 && typeof idx === "number") {
-				emit("point-click", points[idx])
-				return
-			}
-			if (highlightPointsTrace && curve === 1 && typeof idx === "number") {
-				const hp = extra[idx]
-				if (hp) {
-					emit("point-click", {
-						id: hp.id,
-						umap_x: hp.umap_x,
-						umap_y: hp.umap_y,
-						umap_z: hp.umap_z,
-					})
+			const pointText = hit.text || (hit.data?.text?.[idx] as string) || ''
+			
+			// 调试：输出点击信息
+			console.log("Plot click event:", { idx, curve, pointText, traces: traces.length, hit })
+			
+			// 优先通过curve和index定位点
+			if (typeof idx === "number" && idx >= 0) {
+				// 情况1：点击主轨迹（所有点）
+				if (curve === 0 && idx < points.length) {
+					emit("point-click", points[idx])
+					return
 				}
-				return
+				
+				// 情况2：点击高亮轨迹（highlightPoints）
+				if (highlightPointsTrace && curve === 1 && idx < extra.length) {
+					const hp = extra[idx]
+					if (hp) {
+						emit("point-click", {
+							id: hp.id,
+							umap_x: hp.umap_x,
+							umap_y: hp.umap_y,
+							umap_z: hp.umap_z,
+						})
+					}
+					return
+				}
+				
+				// 情况3：点击选中点轨迹（没有highlightPoints时在curve=1）
+				if (!highlightPointsTrace && curve === 1 && highlight) {
+					emit("point-click", highlight)
+					return
+				}
+				
+				// 情况4：点击选中点轨迹（有highlightPoints时在curve=2）
+				if (highlightPointsTrace && curve === 2 && highlight) {
+					emit("point-click", highlight)
+					return
+				}
 			}
-			if (!highlightPointsTrace && curve === 1 && highlight) {
-				emit("point-click", highlight)
+			
+			// 回退：尝试通过text字段查找点（3D模式下常用）
+			if (pointText && typeof pointText === "string") {
+				// 在主点列表中查找
+				const found = points.find(p => p.id === pointText)
+				if (found) {
+					emit("point-click", found)
+					return
+				}
+				// 在高亮列表中查找
+				const foundExtra = extra.find(p => p.id === pointText)
+				if (foundExtra) {
+					emit("point-click", {
+						id: foundExtra.id,
+						umap_x: foundExtra.umap_x,
+						umap_y: foundExtra.umap_y,
+						umap_z: foundExtra.umap_z,
+					})
+					return
+				}
+			}
+			
+			// 最后尝试：通过坐标匹配（3D模式下可能需要）
+			if (typeof hit.x === "number" && typeof hit.y === "number") {
+				const targetX = hit.x
+				const targetY = hit.y
+				const targetZ = hit.z
+				
+				// 查找最近的点
+				let closestPoint: Point | null = null
+				let minDist = Infinity
+				
+				for (const p of points) {
+					const dx = p.umap_x - targetX
+					const dy = p.umap_y - targetY
+					const dz = dim === 3 ? (p.umap_z ?? 0) - (targetZ ?? 0) : 0
+					const dist = dx * dx + dy * dy + dz * dz
+					if (dist < minDist && dist < 0.01) { // 阈值匹配
+						minDist = dist
+						closestPoint = p
+					}
+				}
+				
+				if (closestPoint) {
+					emit("point-click", closestPoint)
+				}
 			}
 		}
 		;(plotEl.value as any).on?.("plotly_click", handler)
