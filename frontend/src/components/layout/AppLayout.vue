@@ -80,7 +80,7 @@ function onMenuClick({ key }: { key: string }) {
 	display: flex;
 	height: 100vh;
 	overflow: hidden;
-	background: #eef2f7;
+	background: #F3F2F1;
 }
 .sider {
 	position: relative;
@@ -88,8 +88,11 @@ function onMenuClick({ key }: { key: string }) {
 	flex: 0 0 auto;
 	height: 100vh;
 	overflow-y: auto;
-	background: linear-gradient(180deg, #0b1220 0%, #0f172a 48%, #111c33 100%);
-	box-shadow: 10px 0 30px rgba(15, 23, 42, 0.14);
+	background: rgba(255, 255, 255, 0.8);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
+	border-right: 1px solid #E1DFDD;
+	box-shadow: 2px 0 8px rgba(0,0,0,0.05);
 }
 .sider :deep(.ant-layout-sider-children) {
 	display: flex;
@@ -98,71 +101,72 @@ function onMenuClick({ key }: { key: string }) {
 }
 .sider-top {
 	flex: 0 0 auto;
-	padding: 18px 16px 14px;
-	background: rgba(255, 255, 255, 0.02);
-	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	padding: 16px;
+	background: #FFFFFF;
+	border-bottom: 1px solid #E1DFDD;
 }
 .sider-body {
 	flex: 1;
 	min-height: 0;
+	padding-top: 8px;
 }
 .brand {
 	display: flex;
 	align-items: center;
 	gap: 2px;
-	color: #fff;
-	font-weight: 800;
-	font-size: 18px;
+	color: #1F1F1F;
+	font-weight: 600;
+	font-size: 16px;
 	letter-spacing: 0.02em;
+	font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, sans-serif;
 }
 .brand__accent {
-	color: #60a5fa;
+	color: #0078D4;
 }
 .brand__muted {
-	color: rgba(255, 255, 255, 0.92);
+	color: #6B6B6B;
 }
 .sider :deep(.ant-menu) {
 	background: transparent;
 	border-inline-end: 0;
+	font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, sans-serif;
 }
-.sider :deep(.ant-menu-dark .ant-menu-item) {
-	height: 46px;
-	line-height: 46px;
-	margin: 6px 12px;
-	width: calc(100% - 24px);
-	border-radius: 12px;
-	color: rgba(226, 232, 240, 0.8);
-	transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+.sider :deep(.ant-menu-item) {
+	height: 36px;
+	line-height: 36px;
+	margin: 2px 8px;
+	width: calc(100% - 16px);
+	border-radius: 4px;
+	color: #4A4A4A;
+	font-size: 0.85rem;
+	font-weight: 500;
+	transition: background-color 0.15s ease, color 0.15s ease;
 }
-.sider :deep(.ant-menu-dark .ant-menu-item:hover) {
-	background: rgba(255, 255, 255, 0.09);
-	color: #fff;
-	transform: translateX(2px);
+.sider :deep(.ant-menu-item:hover) {
+	background: #F0F7FF;
+	color: #0078D4;
 }
-.sider :deep(.ant-menu-dark .ant-menu-item-selected) {
-	margin: 6px 12px;
-	width: calc(100% - 24px);
-	background: linear-gradient(135deg, rgba(37, 99, 235, 0.98), rgba(59, 130, 246, 0.92));
-	box-shadow: 0 10px 20px rgba(37, 99, 235, 0.24);
-	color: #fff;
+.sider :deep(.ant-menu-item-selected) {
+	margin: 2px 8px;
+	width: calc(100% - 16px);
+	background: rgba(0, 120, 212, 0.1);
+	color: #0078D4;
+	font-weight: 600;
 }
-.sider :deep(.ant-menu-dark .ant-menu-item-selected::after) {
+.sider :deep(.ant-menu-item-selected::after) {
 	display: none;
 }
 .sider :deep(.ant-layout-sider-trigger) {
-	height: 52px;
-	line-height: 52px;
-	background: rgba(255, 255, 255, 0.03);
-	border-top: 1px solid rgba(255, 255, 255, 0.06);
-	color: rgba(226, 232, 240, 0.9);
-	transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+	height: 44px;
+	line-height: 44px;
+	background: #FFFFFF;
+	border-top: 1px solid #E1DFDD;
+	color: #6B6B6B;
+	transition: background-color 0.15s ease, color 0.15s ease;
 }
 .sider :deep(.ant-layout-sider-trigger:hover) {
-	background: rgba(255, 255, 255, 0.08);
-	color: #fff;
-}
-.sider :deep(.ant-layout-sider-trigger:hover .anticon) {
-	transform: translateX(2px);
+	background: #F3F2F1;
+	color: #0078D4;
 }
 .main-layout {
 	position: relative;
@@ -175,86 +179,84 @@ function onMenuClick({ key }: { key: string }) {
 	overflow: hidden;
 }
 .header {
-	flex: 0 0 64px;
+	flex: 0 0 56px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	background: #fff;
-	padding: 0 20px 0 18px;
-	border-bottom: 1px solid #f3f4f6;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+	background: rgba(255, 255, 255, 0.85);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	padding: 0 16px;
+	border-bottom: 1px solid #E1DFDD;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 .title {
 	display: flex;
 	align-items: baseline;
-	gap: 6px;
-	font-size: 1.02rem;
-	font-weight: 800;
-	letter-spacing: 0.01em;
+	gap: 4px;
+	font-size: 0.95rem;
+	font-weight: 600;
+	font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, sans-serif;
 }
 .title__accent {
-	color: #2563eb;
+	color: #0078D4;
 }
 .title__muted {
-	color: #0f172a;
+	color: #1F1F1F;
 }
 .header-actions {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 8px;
 }
 .user-chip {
 	display: inline-flex;
 	align-items: center;
-	gap: 10px;
-	height: 36px;
-	padding: 0 12px 0 4px;
-	border-radius: 999px;
-	background: #f8fbff;
-	border: 1px solid #dbeafe;
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+	gap: 8px;
+	height: 32px;
+	padding: 0 10px 0 4px;
+	border-radius: 4px;
+	background: #FFFFFF;
+	border: 1px solid #E1DFDD;
 }
 .user-chip__avatar {
-	min-width: 28px;
-	height: 28px;
-	padding: 0 8px;
+	min-width: 24px;
+	height: 24px;
+	padding: 0 6px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: 999px;
-	background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-	color: #1d4ed8;
-	font-size: 0.82rem;
-	font-weight: 800;
-	letter-spacing: 0.02em;
+	border-radius: 4px;
+	background: rgba(0, 120, 212, 0.1);
+	color: #0078D4;
+	font-size: 0.78rem;
+	font-weight: 600;
 }
 .user-chip__name {
-	color: #334155;
-	font-size: 0.92rem;
-	font-weight: 600;
+	color: #4A4A4A;
+	font-size: 0.85rem;
+	font-weight: 500;
 }
 .logout-button {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
-	height: 36px;
-	padding: 0 12px;
-	border-radius: 999px;
-	color: #475569;
-	transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+	gap: 4px;
+	height: 32px;
+	padding: 0 10px;
+	border-radius: 4px;
+	color: #6B6B6B;
+	font-size: 0.85rem;
+	font-weight: 500;
+	transition: background-color 0.15s ease, color 0.15s ease;
 }
 .logout-button:hover {
 	background: rgba(239, 68, 68, 0.08);
-	color: #dc2626;
-	transform: translateY(-1px);
+	color: #DC2626;
 }
 .logout-button :deep(svg) {
-	width: 15px;
-	height: 15px;
+	width: 14px;
+	height: 14px;
 	fill: currentColor;
-}
-.logout-button :deep(span) {
-	font-weight: 600;
 }
 .content {
 	position: relative;
@@ -262,8 +264,8 @@ function onMenuClick({ key }: { key: string }) {
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
-	padding: 16px;
-	background: #eef2f7;
+	padding: 0;
+	background: #F3F2F1;
 }
 
 @media (max-width: 992px) {
