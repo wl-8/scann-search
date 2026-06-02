@@ -1,16 +1,26 @@
 <template>
   <AppLayout>
     <div class="dataset-page workbench-page workbench-page--grid">
-      <div class="dataset-page__header workbench-page__header">
-        <div>
-          <div class="dataset-page__eyebrow workbench-page__eyebrow">Dataset Management</div>
-          <h2 class="workbench-page__title">数据集管理</h2>
+      <div class="page-header workbench-page__header">
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M3 5v5c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
+              <path d="M3 10v5c0 1.66 4.03 3 9 3s9-1.34 9-3v-5" />
+              <path d="M3 15v4c0 1.66 4.03 3 9 3s9-1.34 9-3v-4" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">Dataset Management</div>
+            <h2 class="workbench-page__title">数据集管理</h2>
+          </div>
         </div>
-        <p class="workbench-page__meta">上传数据、查看状态的管理控制台。</p>
+        <div class="workbench-page__pill">上传注册数据集，追踪处理状态</div>
       </div>
 
-      <a-row :gutter="16" class="dataset-grid">
-        <a-col :xs="24" :lg="10">
+      <a-row :gutter="16" class="dataset-grid" :class="{ 'dataset-grid--full': !auth.canResearch }">
+        <a-col v-if="auth.canResearch" :xs="24" :lg="10">
           <UploadForm @uploaded="onUploaded" />
         </a-col>
         <a-col :xs="24" :lg="14">
@@ -36,8 +46,8 @@
                         <circle cx="12" cy="12" r="2.75" />
                       </svg>
                     </a-button>
-                    <a-popconfirm title="确定删除该数据集？" @confirm="removeDataset(record.id)">
-                      <a-button class="icon-button icon-button--delete" size="small">
+                    <a-popconfirm v-if="auth.canResearch" title="确定删除该数据集？" @confirm="removeDataset(record.id)">
+                      <a-button class="icon-button icon-button--delete" size="small" type="primary" danger>
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M3 6h18" />
                           <path d="M8 6V4.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5V6" />
@@ -105,12 +115,20 @@
               <a-row :gutter="12">
                 <a-col :span="12">
                   <a-form-item label="过滤字段">
-                    <a-select v-model:value="filterColumn" :options="filterColumnOptions" allow-clear placeholder="选择 obs 字段" />
+                    <a-select v-model:value="filterColumn" :options="filterColumnOptions" allow-clear placeholder="选择 obs 字段" @change="filterValues = []" />
                   </a-form-item>
                 </a-col>
                 <a-col :span="12">
                   <a-form-item label="过滤值（可多个）">
-                    <a-input v-model:value="filterValues" placeholder="例如: Type0, Type1" />
+                    <a-select
+                      v-if="filterValueOptions.length"
+                      v-model:value="filterValues"
+                      mode="multiple"
+                      :options="filterValueOptions"
+                      placeholder="选择过滤值"
+                      style="width: 100%"
+                    />
+                    <a-input v-else :value="filterValuesText" placeholder="例如: Type0, Type1" @change="(e: any) => filterValuesText = e.target.value" />
                   </a-form-item>
                 </a-col>
               </a-row>
@@ -134,7 +152,14 @@
           <a-tab-pane key="embedding" tab="Embedding">
             <div class="embedding-panel">
               <p>当前 embedding：<strong>{{ detailDataset?.embedding_key ?? "-" }}</strong></p>
-              <a-input v-model:value="embeddingKeyInput" placeholder="如 X_umap" style="max-width: 320px" />
+              <a-select
+                v-if="embeddingKeyOptions.length"
+                v-model:value="embeddingKeyInput"
+                :options="embeddingKeyOptions"
+                placeholder="选择向量 key"
+                style="max-width: 320px; width: 100%"
+              />
+              <a-input v-else v-model:value="embeddingKeyInput" placeholder="如 X_umap" style="max-width: 320px" />
               <a-button type="primary" :loading="embeddingLoading" @click="submitEmbedding">切换 Embedding</a-button>
               <p class="embedding-hint">切换后会删除旧索引，需要重新构建。</p>
             </div>
@@ -151,6 +176,9 @@ import { message } from "ant-design-vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import UploadForm from "@/components/dataset/UploadForm.vue"
 import { listDatasets } from "@/api/search"
+import { showErrMsg } from "@/utils/error"
+import { useAuthStore } from "@/stores/auth"
+const auth = useAuthStore()
 import {
   deleteDataset,
   filterDatasetCells,
@@ -185,13 +213,11 @@ async function loadDatasets() {
       genes: d.n_genes,
       status: d.status,
       source: d.source_path ?? "server",
-      updatedAt: new Date(d.created_at).toISOString().slice(0, 10),
+      updatedAt: d.created_at ? new Date(d.created_at).toISOString().slice(0, 10) : "-",
     }))
-  } catch (e) {
-    // fallback to demo
-    datasets.value = [
-      { name: "PBMC-3k", cells: 3200, genes: 18987, status: "Ready", source: "demo", updatedAt: "2026-05-25" },
-    ]
+  } catch (e: any) {
+    datasets.value = []
+    showErrMsg(e, "加载数据集失败")
   }
 }
 
@@ -210,11 +236,13 @@ const cellsPage = ref(1)
 const cellsPageSize = ref(50)
 
 const filterColumn = ref<string | undefined>()
-const filterValues = ref("")
+const filterValues = ref<string[]>([])
+const filterValuesText = ref("")
 const filterResult = ref<CellFilterResponse | null>(null)
 const filterLoading = ref(false)
 
 const embeddingKeyInput = ref("")
+const embeddingKeyOptions = ref<{ label: string; value: string }[]>([])
 const embeddingLoading = ref(false)
 
 function barWidth(counts: Record<string, number>, val: number): number {
@@ -254,6 +282,10 @@ const filterRows = computed(() =>
 
 const cellsTotal = computed(() => cellsData.value?.total ?? 0)
 const filterColumnOptions = computed(() => (statsData.value?.obs_columns ?? []).map((c) => ({ label: c, value: c })))
+const filterValueOptions = computed(() => {
+  if (!filterColumn.value || !statsData.value?.value_counts[filterColumn.value]) return []
+  return Object.keys(statsData.value.value_counts[filterColumn.value]).map((v) => ({ label: v, value: v }))
+})
 
 function statusClass(status: string) {
   const normalized = status.toLowerCase()
@@ -274,19 +306,31 @@ async function viewDetail(record: DatasetItem) {
   cellsData.value = null
   filterResult.value = null
   filterColumn.value = undefined
-  filterValues.value = ""
+  filterValues.value = []
+  filterValuesText.value = ""
+  embeddingKeyOptions.value = []
   cellsPage.value = 1
   detailOpen.value = true
   detailTab.value = "stats"
   if (!record.id) return
   statsLoading.value = true
   try {
-    detailDataset.value = await getDataset(record.id)
-    embeddingKeyInput.value = detailDataset.value.embedding_key
-    const res = await request.get(`/datasets/${record.id}/stats`) as any
-    statsData.value = res
-  } catch {
-    // stats unavailable, modal still shows basic info
+    const [dataset, stats, modes] = await Promise.allSettled([
+      getDataset(record.id),
+      request.get(`/datasets/${record.id}/stats`),
+      request.get(`/visualize/${record.id}/modes`),
+    ])
+    if (dataset.status === "fulfilled") {
+      detailDataset.value = dataset.value as any
+      embeddingKeyInput.value = (dataset.value as any).embedding_key ?? ""
+    }
+    if (stats.status === "fulfilled") statsData.value = stats.value as any
+    if (modes.status === "fulfilled") {
+      const m = modes.value as any
+      if (m.embedding_options?.length) {
+        embeddingKeyOptions.value = m.embedding_options.map((k: string) => ({ label: k, value: k }))
+      }
+    }
   } finally {
     statsLoading.value = false
   }
@@ -300,7 +344,7 @@ async function loadCells(page = 1) {
     cellsData.value = await listDatasetCells(activeDataset.value.id, { offset, limit: cellsPageSize.value })
     cellsPage.value = page
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "加载细胞列表失败")
+    showErrMsg(err, "加载细胞列表失败")
   } finally {
     cellsLoading.value = false
   }
@@ -310,17 +354,12 @@ function onCellsPageChange(page: number) {
   loadCells(page)
 }
 
-function parseFilterValues(text: string) {
-  return text
-    .split(/[\s,]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
 async function runFilter() {
   if (!activeDataset.value?.id) return
   if (!filterColumn.value) return message.warning("请选择过滤字段")
-  const values = parseFilterValues(filterValues.value)
+  const values = filterValueOptions.value.length
+    ? filterValues.value
+    : filterValuesText.value.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean)
   if (!values.length) return message.warning("请输入过滤值")
 
   filterLoading.value = true
@@ -331,7 +370,7 @@ async function runFilter() {
       limit: 50,
     })
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "过滤失败")
+    showErrMsg(err, "过滤失败")
   } finally {
     filterLoading.value = false
   }
@@ -347,7 +386,7 @@ async function submitEmbedding() {
     message.success("Embedding 已切换")
     await loadDatasets()
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "切换失败")
+    showErrMsg(err, "切换失败")
   } finally {
     embeddingLoading.value = false
   }
@@ -437,13 +476,19 @@ async function removeDataset(datasetId: number) {
   display: grid !important;
   grid-template-columns: minmax(420px, 520px) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.dataset-grid--full {
+  grid-template-columns: 1fr !important;
 }
 
 .dataset-grid :deep(.ant-col) {
   width: auto;
   max-width: none;
   flex: none;
+  display: flex;
+  flex-direction: column;
 }
 
 .dataset-table-card {
@@ -704,6 +749,16 @@ pre {
   background: var(--bio-panel);
   box-shadow: none;
   backdrop-filter: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dataset-table-card :deep(.ant-card-body) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .dataset-table-card :deep(.ant-card-head) {
@@ -749,4 +804,12 @@ pre {
     padding: 12px;
   }
 }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-title { display: flex; align-items: center; gap: 14px; }
+.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
+.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
+.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
+.page-meta { color: #64748b; font-size: 0.92rem; font-weight: 600; max-width: 480px; }
 </style>

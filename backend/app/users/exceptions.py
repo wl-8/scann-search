@@ -8,9 +8,9 @@ class UserNotFoundError(HTTPException):
 
 class CannotModifyAdminError(HTTPException):
     def __init__(self):
-        super().__init__(status_code=status.HTTP_403_FORBIDDEN, detail="无法修改管理员账号")
+        super().__init__(status_code=status.HTTP_403_FORBIDDEN, detail="管理员角色不可修改")
 
 
 class InvalidRoleError(HTTPException):
-    def __init__(self):
-        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail="无效的角色")
+    def __init__(self, detail: str = "无效的角色"):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)

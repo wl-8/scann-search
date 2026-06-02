@@ -32,7 +32,7 @@ const emit = defineEmits<{ (e: "point-click", point: Point): void }>()
 const plotEl = ref<HTMLDivElement | null>(null)
 
 function categoryColorMap(values: string[]) {
-	const palette = ["#2563eb", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6", "#14b8a6"]
+	const palette = ["#3b1b48", "#b7f230", "#5571d9", "#f5c542", "#4aa3ff", "#ff7a1a", "#2bc7bb", "#d93b00", "#48e87e", "#9b1b10", "#8b5cf6", "#14b8a6"]
 	const unique = Array.from(new Set(values.filter(Boolean)))
 	return new Map(unique.map((v, i) => [v, palette[i % palette.length]]))
 }
@@ -46,8 +46,8 @@ function render() {
 			return
 		}
 		const dim = props.dimension ?? 2
-		const colorField = (props.colorBy ?? "cell_type") as keyof Point
-		const categories = points.map((p) => String((p as any)[colorField] ?? "unknown"))
+		const colorField = props.colorBy ?? "cell_type"
+		const categories = points.map((p) => String((p as any)[colorField] ?? (p as any).metadata?.[colorField] ?? "unknown"))
 		const colorMap = categoryColorMap(categories)
 		const colors = categories.map((c) => colorMap.get(c) ?? "#64748b")
 
@@ -60,10 +60,10 @@ function render() {
 			x: points.map((p) => p.umap_x),
 			y: points.map((p) => p.umap_y),
 			marker: {
-				size: 8,
+				size: dim === 3 ? 4 : 6,
 				color: colors,
-				opacity: 0.8,
-				line: { width: 0 },
+				opacity: 0.82,
+				line: { width: 1, color: "rgba(255,255,255,0.35)" },
 			},
 			text: points.map((p) => p.id),
 			hovertemplate: points.map((p, idx) => {
@@ -106,17 +106,24 @@ function render() {
 		if (selectedTrace) traces.push(selectedTrace)
 
 		const layout: any = {
-			margin: { l: 0, r: 0, t: 8, b: 0 },
-			height: 520,
-			paper_bgcolor: "#fff",
-			plot_bgcolor: "#fff",
+			margin: { l: 36, r: 4, t: 4, b: 36 },
+			autosize: true,
+			paper_bgcolor: "transparent",
+			plot_bgcolor: "transparent",
 			showlegend: false,
+			dragmode: "pan",
+			xaxis: { gridcolor: "#eff4f8", zerolinecolor: "#dce5ee", tickfont: { color: "#8b98a8", size: 11 }, linecolor: "#dce5ee" },
+			yaxis: { gridcolor: "#eff4f8", zerolinecolor: "#dce5ee", tickfont: { color: "#8b98a8", size: 11 }, linecolor: "#dce5ee" },
 		}
 		if (dim === 3) {
-			layout.scene = { xaxis: { title: "UMAP1" }, yaxis: { title: "UMAP2" }, zaxis: { title: "UMAP3" } }
+			layout.scene = {
+				xaxis: { title: "UMAP1", gridcolor: "#eff4f8", zerolinecolor: "#dce5ee" },
+				yaxis: { title: "UMAP2", gridcolor: "#eff4f8", zerolinecolor: "#dce5ee" },
+				zaxis: { title: "UMAP3", gridcolor: "#eff4f8", zerolinecolor: "#dce5ee" },
+			}
 		}
 
-		Plotly.react(plotEl.value, traces, layout as any, { responsive: true, displaylogo: false })
+		Plotly.react(plotEl.value, traces, layout as any, { responsive: true, displaylogo: false, scrollZoom: true })
 
 		// 清除旧 click handler，避免 re-render 时重复绑定
 		;(plotEl.value as any).removeAllListeners?.("plotly_click")
@@ -128,9 +135,6 @@ function render() {
 			const idx = hit.pointIndex
 			const curve = hit.curveNumber
 			const pointText = hit.text || (hit.data?.text?.[idx] as string) || ''
-			
-			// 调试：输出点击信息
-			console.log("Plot click event:", { idx, curve, pointText, traces: traces.length, hit })
 			
 			// 优先通过curve和index定位点
 			if (typeof idx === "number" && idx >= 0) {
@@ -230,7 +234,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .plot-shell {
 	position: relative;
-	min-height: 520px;
+	height: 100%;
 	border-radius: 14px;
 	overflow: hidden;
 	background:
@@ -255,22 +259,23 @@ onBeforeUnmount(() => {
 	position: relative;
 	z-index: 1;
 	width: 100%;
-	min-height: 520px;
+	height: 100%;
 	background: transparent;
 }
 
 .plot-shell {
-	border-radius: 8px;
+	border-radius: 0 0 9px 9px;
 	background: #ffffff;
-	border: 1px solid var(--bio-line);
+	border: none;
+	overflow: hidden;
 }
 
 .plot-shell__grid {
-	opacity: 1;
+	opacity: 0.38;
 	background-image:
 		linear-gradient(#eff4f8 1px, transparent 1px),
 		linear-gradient(90deg, #eff4f8 1px, transparent 1px);
-	background-size: 48px 48px;
+	background-size: 44px 44px;
 	mask-image: none;
 }
 </style>

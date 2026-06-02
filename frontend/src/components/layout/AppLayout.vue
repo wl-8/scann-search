@@ -5,7 +5,7 @@
 				<div class="app-mark">S</div>
 				<div>
 					<h1>scann-search Workbench</h1>
-					<p>Single-cell ANN analysis console</p>
+					<p>Single-Cell ANN Analysis Console</p>
 				</div>
 			</div>
 
@@ -18,10 +18,11 @@
 					<span class="user-chip__avatar">{{ auth.user?.username?.charAt(0)?.toUpperCase() || "?" }}</span>
 					<span class="user-chip__name">{{ auth.user?.username || "guest" }}</span>
 				</span>
-				<button class="icon-button" type="button" aria-label="退出登录" @click="auth.logout()">
+				<button class="icon-button" type="button" title="Logout" aria-label="退出登录" @click="auth.logout()">
 					<svg viewBox="0 0 24 24" aria-hidden="true">
-						<path d="M10 17l1.4-1.4L8.8 13H20v-2H8.8l2.6-2.6L10 7l-5 5 5 5Z" />
-						<path d="M4 5h6V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h6v-2H4V5Z" />
+						<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+						<polyline points="16 17 21 12 16 7" />
+						<line x1="21" y1="12" x2="9" y2="12" />
 					</svg>
 				</button>
 			</div>
@@ -46,7 +47,7 @@
 					</div>
 
 					<div class="toolbar-chip">
-						<span>Analysis mode</span>
+						<span>Section</span>
 						<strong>{{ activeMode }}</strong>
 					</div>
 				</slot>
@@ -56,22 +57,22 @@
 
 			<div class="toolbar-tools" aria-label="快捷工具">
 				<slot name="toolbarActions">
-					<button class="tool-button" type="button" title="ANN Search" @click="go('/search')">
+					<button class="tool-button" type="button" title="Search" @click="go('/search')">
 						<svg viewBox="0 0 24 24" aria-hidden="true">
 							<circle cx="10.5" cy="10.5" r="5.5" />
 							<path d="M15 15l5 5" />
 						</svg>
 					</button>
-					<button class="tool-button" type="button" title="Visualization" @click="go('/visualize')">
+					<button class="tool-button" type="button" title="Visualize" @click="go('/visualize')">
 						<svg viewBox="0 0 24 24" aria-hidden="true">
 							<path d="M4 19V5M4 19h16" />
 							<path d="M8 16v-5M12 16V8M16 16v-7" />
 						</svg>
 					</button>
-					<button class="export-button" type="button" @click="go('/export')">
+					<button v-if="auth.canResearch" class="export-button" type="button" @click="go('/export')">
 						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M12 3v12" />
-							<path d="m7 10 5 5 5-5" />
+							<path d="M12 13V3" />
+							<path d="m7 8 5-5 5 5" />
 							<path d="M4 20h16" />
 						</svg>
 						Export
@@ -90,7 +91,7 @@
 					type="button"
 					@click="go(item.path)"
 				>
-					<span class="rail-icon" :class="`rail-icon--${item.icon}`" aria-hidden="true"></span>
+					<svg class="rail-svg" viewBox="0 0 24 24" aria-hidden="true" v-html="item.svg"></svg>
 					<span>{{ item.label }}</span>
 				</button>
 			</nav>
@@ -103,16 +104,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue"
+import { computed, onMounted, ref } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
+import request from "@/api/request"
 
 type ModuleItem = {
 	path: string
 	label: string
 	title: string
 	mode: string
-	icon: string
+	svg: string
 	researcher?: boolean
 	admin?: boolean
 }
@@ -121,26 +123,60 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 
-withDefaults(defineProps<{
-	statusLabel?: string
-	statusOffline?: boolean
+const props = withDefaults(defineProps<{
 	flushContent?: boolean
 }>(), {
-	statusLabel: "Workspace ready",
-	statusOffline: false,
 	flushContent: false,
 })
 
+const workspaceOnline = ref(false)
+const statusLabel = computed(() => workspaceOnline.value ? "Workspace online" : "Workspace offline")
+const statusOffline = computed(() => !workspaceOnline.value)
+
+async function checkHealth() {
+	try {
+		await request.get("/health")
+		workspaceOnline.value = true
+	} catch {
+		workspaceOnline.value = false
+	}
+}
+
+onMounted(checkHealth)
+
 const modules: ModuleItem[] = [
-	{ path: "/dashboard", label: "Clusters", title: "Spatial Projection", mode: "Workbench", icon: "clusters" },
-	{ path: "/search", label: "Search", title: "ANN Search", mode: "Query", icon: "search" },
-	{ path: "/search/multi", label: "Batch", title: "Batch Search", mode: "Strategy", icon: "multi" },
-	{ path: "/visualize", label: "Features", title: "UMAP Viewer", mode: "Projection", icon: "features" },
-	{ path: "/datasets", label: "Datasets", title: "Dataset Manager", mode: "Data", icon: "datasets" },
-	{ path: "/indexes", label: "Indexes", title: "Index Builder", mode: "ANN", icon: "index" },
-	{ path: "/benchmark", label: "Benchmark", title: "Performance Lab", mode: "Evaluation", icon: "benchmark", researcher: true },
-	{ path: "/export", label: "Export", title: "Export Center", mode: "CSV", icon: "export", researcher: true },
-	{ path: "/admin/users", label: "Users", title: "User Console", mode: "Admin", icon: "users", admin: true },
+	{
+		path: "/datasets", label: "Datasets", title: "Dataset Manager", mode: "Management",
+		svg: `<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>`,
+	},
+	{
+		path: "/indexes", label: "Indexes", title: "Index Builder", mode: "Management",
+		svg: `<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>`,
+	},
+	{
+		path: "/search", label: "Search", title: "ANN Search", mode: "Analysis",
+		svg: `<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>`,
+	},
+	{
+		path: "/search/multi", label: "Batch", title: "Batch Search", mode: "Analysis", researcher: true,
+		svg: `<circle cx="5" cy="7" r="2"/><circle cx="5" cy="17" r="2"/><line x1="9" y1="7" x2="20" y2="7"/><line x1="9" y1="17" x2="20" y2="17"/><line x1="9" y1="12" x2="20" y2="12"/>`,
+	},
+	{
+		path: "/visualize", label: "Visualize", title: "Embedding Viewer", mode: "Analysis",
+		svg: `<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="14.5" r="1.5"/><circle cx="13" cy="9" r="1.5"/><circle cx="17" cy="12.5" r="1.5"/>`,
+	},
+	{
+		path: "/benchmark", label: "Benchmark", title: "Performance Lab", mode: "Analysis", researcher: true,
+		svg: `<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/>`,
+	},
+	{
+		path: "/export", label: "Export", title: "Export Center", mode: "Output", researcher: true,
+		svg: `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>`,
+	},
+	{
+		path: "/admin/users", label: "Users", title: "User Console", mode: "System", admin: true,
+		svg: `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`,
+	},
 ]
 
 const visibleModules = computed(() =>
@@ -164,7 +200,7 @@ const activeKey = computed(() => {
 	return "/dashboard"
 })
 
-const activeModule = computed(() => visibleModules.value.find((item) => item.path === activeKey.value) ?? modules[0])
+const activeModule = computed(() => visibleModules.value.find((item) => item.path === activeKey.value) ?? { title: "Home", mode: "Analysis", label: "Home" })
 const activeTitle = computed(() => activeModule.value.title)
 const activeMode = computed(() => activeModule.value.mode)
 
@@ -191,7 +227,6 @@ function go(path: string) {
 	padding: 0 18px;
 	background: #f5f7fa;
 	border-bottom: 1px solid #dce3ea;
-	box-shadow: inset 0 4px 0 #1b6f86;
 }
 
 .titlebar__identity {
@@ -249,8 +284,8 @@ function go(path: string) {
 }
 
 .status-pill--offline {
-	background: #fff4e5;
-	color: #9a5a00;
+	background: #fff0ee;
+	color: #c0392b;
 }
 
 .status-dot {
@@ -297,6 +332,16 @@ function go(path: string) {
 	background: transparent;
 	color: var(--bio-navy);
 	cursor: pointer;
+}
+
+.icon-button {
+	color: #c0392b;
+	transition: color 0.18s ease, background 0.18s ease;
+}
+
+.icon-button:hover {
+	color: #e74c3c;
+	background: #fff0ee !important;
 }
 
 .toolbar-home,
@@ -425,110 +470,21 @@ function go(path: string) {
 	color: var(--bio-navy);
 }
 
-.rail-icon {
-	position: relative;
-	width: 28px;
-	height: 28px;
-}
-
-.rail-icon::before,
-.rail-icon::after {
-	content: "";
-	position: absolute;
-	inset: 6px;
-	border: 2px solid var(--bio-navy);
-	border-radius: 50%;
-}
-
-.rail-icon--clusters::after {
-	inset: 2px 16px 16px 2px;
-}
-
-.rail-icon--search::before {
-	inset: 4px 8px 8px 4px;
-}
-
-.rail-icon--search::after {
-	inset: auto 2px 4px auto;
-	width: 10px;
-	height: 2px;
-	border: 0;
-	border-radius: 0;
-	background: var(--bio-navy);
-	transform: rotate(45deg);
-}
-
-.rail-icon--multi::before {
-	inset: 4px 14px 12px 4px;
-}
-
-.rail-icon--multi::after {
-	inset: 12px 4px 4px 14px;
-}
-
-.rail-icon--features::before {
-	border-radius: 2px;
-	transform: rotate(45deg);
-}
-
-.rail-icon--datasets::before {
-	border-radius: 4px;
-}
-
-.rail-icon--datasets::after {
-	inset: 10px 5px;
-	border: 0;
-	border-top: 2px solid var(--bio-navy);
-	border-bottom: 2px solid var(--bio-navy);
-}
-
-.rail-icon--index::before {
-	inset: 5px;
-	border-radius: 5px;
-}
-
-.rail-icon--index::after {
-	inset: 12px 6px;
-	border: 0;
-	border-top: 2px solid var(--bio-navy);
-}
-
-.rail-icon--benchmark::before {
-	inset: 5px 18px 5px 5px;
-	border-radius: 2px;
-}
-
-.rail-icon--benchmark::after {
-	inset: 9px 5px 5px 15px;
-	border-radius: 2px;
-}
-
-.rail-icon--export::before {
-	inset: 15px 4px 5px;
-	border-radius: 0;
-	border-width: 0 0 2px;
-}
-
-.rail-icon--export::after {
-	inset: 4px 9px 8px;
-	border: 0;
-	border-left: 2px solid var(--bio-navy);
-	border-bottom: 2px solid var(--bio-navy);
-	transform: rotate(-45deg);
-}
-
-.rail-icon--users::before {
-	inset: 4px 13px 12px 5px;
-}
-
-.rail-icon--users::after {
-	inset: 11px 5px 4px 13px;
+.rail-svg {
+	width: 22px;
+	height: 22px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.8;
+	stroke-linecap: round;
+	stroke-linejoin: round;
 }
 
 .workbench-content {
 	min-width: 0;
 	min-height: 0;
-	overflow: auto;
+	overflow-x: auto;
+	overflow-y: scroll;
 	padding: 18px;
 	background: #f3f6f9;
 }

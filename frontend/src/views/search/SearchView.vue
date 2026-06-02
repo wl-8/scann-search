@@ -2,28 +2,28 @@
   <AppLayout>
     <div class="search-page workbench-page workbench-page--grid">
       <div class="page-header workbench-page__header">
-      <div class="page-title">
-        <span class="page-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M11 4a7 7 0 105.196 11.688L20 20.5" />
-          </svg>
-        </span>
-        <div>
-          <div class="page-crumb workbench-page__eyebrow">检索 / Search</div>
-          <h2 class="workbench-page__title">单细胞 ANN 检索页面</h2>
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M11 4a7 7 0 105.196 11.688L20 20.5" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">ANN Search</div>
+            <h2 class="workbench-page__title">单细胞 ANN 检索</h2>
+          </div>
+        </div>
+        <div class="workbench-page__pill">
+          <span v-if="loading">检索中...</span>
+          <span v-else-if="lastElapsed !== null">后端耗时：{{ Number(lastElapsed).toFixed(2) }} ms，返回 {{ results.length }} 条</span>
+          <span v-else>选择数据集和索引后开始检索</span>
         </div>
       </div>
-      <div class="page-meta workbench-page__pill">
-        <span v-if="loading">检索中...</span>
-        <span v-else-if="lastElapsed !== null">后端耗时：{{ Number(lastElapsed).toFixed(2) }} ms，返回 {{ results.length }} 条</span>
-        <span v-else>选择数据集和索引后开始检索</span>
-      </div>
-    </div>
 
       <a-card class="resource-card resource-card--strip workbench-panel" :bordered="false">
           <div class="resource-card__title workbench-section-title">后端资源</div>
           <a-form layout="vertical">
-            <a-row :gutter="14" align="bottom">
+            <a-row :gutter="14">
               <a-col :xs="24" :lg="10">
                 <a-form-item label="数据集">
                   <a-select
@@ -45,8 +45,8 @@
                   />
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :lg="4">
-                <a-button block @click="loadResources" :loading="resourceLoading">刷新资源</a-button>
+              <a-col :xs="24" :lg="4" style="padding-top: 30px">
+                <a-button block type="primary" @click="loadResources" :loading="resourceLoading">刷新资源</a-button>
               </a-col>
             </a-row>
           </a-form>
@@ -62,7 +62,7 @@
           <div class="results-card__toolbar">
             <div class="toolbar-band workbench-control-band">
               <div class="toolbar-band__group toolbar-band__group--meta">
-                <span class="toolbar-label">真实后端检索</span>
+                <span class="toolbar-label">ANN Search</span>
                 <span v-if="selectedIndexId" class="toolbar-value">索引 #{{ selectedIndexId }}</span>
                 <span v-else class="toolbar-value">未选择索引</span>
               </div>
@@ -74,7 +74,7 @@
               v-if="!selectedIndexId"
               type="info"
               show-icon
-              message="请先选择已构建完成的索引；如列表为空，请先通过后端脚本或索引接口构建索引。"
+              message="请先选择一个索引后再执行检索。"
               style="margin: 8px 0 12px"
             />
             <a-table
@@ -119,6 +119,7 @@ import { listDatasets, listIndexes } from "@/api/search"
 import request from "@/api/request"
 import { useSearch } from "@/composables/useSearch"
 import type { DatasetItem, IndexItem, SearchPayload } from "@/api/search"
+import { showErrMsg } from "@/utils/error"
 
 const { loading, search } = useSearch()
 const results = ref<Array<any>>([])
@@ -177,8 +178,7 @@ async function onSearch(payload: any) {
     results.value = res.results
     lastElapsed.value = res.elapsed
   } catch (err: any) {
-    const detail = err?.response?.data?.detail ?? err?.message ?? "检索失败"
-    message.error(detail)
+    showErrMsg(err, "检索失败")
   }
 }
 
@@ -186,13 +186,12 @@ async function loadResources() {
   resourceLoading.value = true
   try {
     datasets.value = await listDatasets()
-    const initialDatasetId = selectedDatasetId.value ?? readyDatasets.value[0]?.id
-    selectedDatasetId.value = initialDatasetId
-    indexes.value = await listIndexes(initialDatasetId)
-    selectedIndexId.value = readyIndexes.value[0]?.id
-    if (initialDatasetId) await fetchObsStats(initialDatasetId)
-  } catch (err) {
-    message.warning("后端资源加载失败，请确认 FastAPI 服务已启动")
+    if (selectedDatasetId.value) {
+      indexes.value = await listIndexes(selectedDatasetId.value)
+      await fetchObsStats(selectedDatasetId.value)
+    }
+  } catch (err: any) {
+    showErrMsg(err, "加载资源失败")
   } finally {
     resourceLoading.value = false
   }
@@ -248,15 +247,6 @@ onMounted(loadResources)
   z-index: 1;
 }
 
-.page-header {
-  width: min(100%, 1280px);
-  margin: 0 auto 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
 .page-title {
   display: flex;
   align-items: center;
@@ -287,7 +277,7 @@ onMounted(loadResources)
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #64748b;
+  color: #007bff;
   text-transform: uppercase;
 }
 
@@ -310,11 +300,13 @@ onMounted(loadResources)
   display: grid;
   grid-template-columns: 420px minmax(0, 1fr);
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .search-column {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .search-column--form {
@@ -609,12 +601,12 @@ onMounted(loadResources)
 
 .page-icon {
   border-radius: 12px;
-  background: rgba(0, 113, 227, 0.1);
-  color: var(--blue);
+  background: rgba(0, 123, 255, 0.1);
+  color: #007bff;
 }
 
 .page-crumb {
-  color: var(--text-muted);
+  color: #007bff;
   letter-spacing: 0.04em;
 }
 
@@ -661,15 +653,6 @@ onMounted(loadResources)
   color: var(--bio-text);
 }
 
-.page-header {
-  min-height: 54px;
-  width: 100%;
-  margin: 0 0 14px;
-  margin-bottom: 14px;
-  padding: 0 0 12px;
-  border-bottom: 1px solid var(--bio-line);
-}
-
 .search-layout {
   width: 100%;
   margin: 0;
@@ -692,12 +675,12 @@ onMounted(loadResources)
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: var(--bio-navy);
-  color: #ffffff;
+  background: rgba(0, 123, 255, 0.1);
+  color: #007bff;
 }
 
 .page-crumb {
-  color: var(--bio-muted);
+  color: #007bff;
   letter-spacing: 0.04em;
 }
 
@@ -714,10 +697,17 @@ onMounted(loadResources)
   background: var(--bio-panel);
   box-shadow: none;
   backdrop-filter: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.results-card {
-  min-height: 540px;
+.resource-card :deep(.ant-card-body),
+.results-card :deep(.ant-card-body) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .resource-card.resource-card--strip {

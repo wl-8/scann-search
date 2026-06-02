@@ -1,26 +1,34 @@
 <template>
-  <AppLayout
-    :status-label="isOnline ? 'Backend online' : 'Backend offline'"
-    :status-offline="!isOnline"
-    flush-content
-  >
+  <AppLayout flush-content>
     <template #toolbarControls>
       <div class="dashboard-toolbar-controls">
-        <label class="select-control">
-          <span>Projection type</span>
-          <select v-model="projectionType">
-            <option value="spatial">Spatial</option>
-            <option value="umap">UMAP</option>
-            <option value="pca">PCA</option>
-          </select>
-        </label>
-
-        <label class="select-control">
+        <div class="select-control">
           <span>Dataset</span>
-          <select>
-            <option>{{ datasetName }}</option>
-          </select>
-        </label>
+          <a-select
+            v-model:value="selectedDatasetId"
+            :bordered="false"
+            size="small"
+            style="width: 100%; margin-left: -4px"
+            @change="onDatasetChange"
+          >
+            <a-select-option v-for="ds in allDatasets" :key="ds.id" :value="ds.id">{{ ds.name }}</a-select-option>
+            <a-select-option v-if="!allDatasets.length" :value="undefined">{{ datasetName }}</a-select-option>
+          </a-select>
+        </div>
+
+        <div class="select-control">
+          <span>Embedding</span>
+          <a-select
+            v-model:value="selectedEmbeddingKey"
+            :bordered="false"
+            size="small"
+            style="width: 100%; margin-left: -4px"
+            @change="onEmbeddingChange"
+          >
+            <a-select-option v-for="key in availableEmbeddingKeys" :key="key" :value="key">{{ embeddingLabel(key) }}</a-select-option>
+            <a-select-option v-if="!availableEmbeddingKeys.length" value="">—</a-select-option>
+          </a-select>
+        </div>
 
         <label class="opacity-control">
           <span>Spot opacity</span>
@@ -31,29 +39,22 @@
 
     <template #toolbarActions>
       <div class="dashboard-toolbar-actions">
-        <button class="tool-button tool-button--active" type="button" title="Pan">
+        <button class="tool-button" type="button" title="Search" @click="go('/search')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 2v20M2 12h20" />
-            <path d="m6 6-4 6 4 6M18 6l4 6-4 6" />
+            <circle cx="10.5" cy="10.5" r="5.5" />
+            <path d="M15 15l5 5" />
           </svg>
         </button>
-        <button class="tool-button" type="button" title="Lasso">
+        <button class="tool-button" type="button" title="Visualize" @click="go('/visualize')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M7.5 18.5c-2.8-.8-4.5-2.3-4.5-4.2 0-3 4.4-5.4 9.8-5.4s8.2 1.6 8.2 4.2c0 2.2-2.5 3.9-6.3 4.6" />
-            <path d="M12 17l-3 5" />
+            <path d="M4 19V5M4 19h16" />
+            <path d="M8 16v-5M12 16V8M16 16v-7" />
           </svg>
         </button>
-        <button class="tool-button" type="button" title="Brush">
+        <button v-if="auth.canResearch" class="export-button" type="button" @click="go('/export')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M16 3l5 5-9.5 9.5-5-5L16 3Z" />
-            <path d="M6.5 12.5 4 15c-1.4 1.4-1.4 3.6 0 5 1.2-1.7 2.9-2.6 5-2.5l2.5-2.5" />
-          </svg>
-        </button>
-
-        <button class="export-button" type="button" @click="go('/export')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 3v12" />
-            <path d="m7 10 5 5 5-5" />
+            <path d="M12 13V3" />
+            <path d="m7 8 5-5 5 5" />
             <path d="M4 20h16" />
           </svg>
           Export
@@ -62,10 +63,13 @@
     </template>
 
     <main class="dashboard-workbench">
+      <button v-if="isOnline" class="demo-toggle" type="button" @click="toggleDemoMode">
+        {{ isDemoMode ? 'Show Real Data' : 'Show Demo Data' }}
+      </button>
       <aside class="groups-panel">
         <div class="panel-heading">
           <span>Pipeline-generated groups</span>
-          <button class="ghost-icon" type="button" aria-label="下载分组">
+          <button class="ghost-icon" type="button" aria-label="下载分组" :disabled="!clusters.length" @click="downloadGroups">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 3v12" />
               <path d="m7 10 5 5 5-5" />
@@ -75,43 +79,95 @@
         </div>
 
         <label class="group-source">
-          <input type="radio" checked />
+          <input type="radio" name="cluster-mode" v-model="clusterMode" value="graph" @change="onClusterModeChange('graph')" />
           <span>Graph-Based</span>
-          <strong :title="selectedCluster?.name">{{ selectedCluster ? shortLabel(selectedCluster.name) : "" }}</strong>
         </label>
 
-        <div class="cluster-list">
-          <label class="cluster-row cluster-row--all">
-            <input type="checkbox" :checked="allClustersEnabled" @change="toggleAllClusters" />
-            <span class="cluster-swatch cluster-swatch--all"></span>
-            <span class="cluster-name">All cells</span>
-            <span class="cluster-count">{{ totalCellsDisplay }}</span>
-          </label>
-
-          <label
-            v-for="cluster in clusters"
-            :key="cluster.name"
-            class="cluster-row"
-            :class="{ 'cluster-row--selected': selectedCluster?.name === cluster.name }"
-            @mouseenter="selectedCluster = cluster"
+        <div v-if="clusterMode === 'graph' && colorOptions.length > 1" class="color-by-select">
+          <span>Color by</span>
+          <a-select
+            v-model:value="colorByField"
+            size="small"
+            style="flex: 1; max-width: 160px"
+            @change="onColorByChange"
           >
-            <input v-model="cluster.enabled" type="checkbox" />
-            <span class="cluster-swatch" :style="{ background: cluster.color }"></span>
-            <span class="cluster-name" :title="cluster.name">{{ cluster.name }}</span>
-            <span class="cluster-count">{{ cluster.count.toLocaleString() }}</span>
-            <button class="cluster-more" type="button" aria-label="更多操作">•••</button>
-          </label>
+            <a-select-option v-for="opt in colorOptions" :key="opt" :value="opt">{{ opt }}</a-select-option>
+          </a-select>
         </div>
 
-        <div class="group-source group-source--secondary">
-          <input type="radio" />
+        <!-- Graph 模式：勾选框紧跟在 Graph-Based 下 -->
+        <div v-if="clusterMode === 'graph'" class="cluster-list">
+          <template v-if="clusters.length">
+            <label class="cluster-row cluster-row--all">
+              <input type="checkbox" :checked="allClustersEnabled" @change="toggleAllClusters" />
+              <span class="cluster-swatch cluster-swatch--all"></span>
+              <span class="cluster-name">All cells</span>
+              <span class="cluster-count">{{ totalCellsDisplay }}</span>
+            </label>
+            <label
+              v-for="cluster in clusters"
+              :key="cluster.name"
+              class="cluster-row"
+              :class="{ 'cluster-row--selected': selectedCluster?.name === cluster.name }"
+              @mouseenter="selectedCluster = cluster"
+            >
+              <input v-model="cluster.enabled" type="checkbox" />
+              <span class="cluster-swatch" :style="{ background: cluster.color }"></span>
+              <span class="cluster-name" :title="cluster.name">{{ cluster.name }}</span>
+              <span class="cluster-count">{{ cluster.count.toLocaleString() }}</span>
+            </label>
+          </template>
+          <div v-else class="cluster-empty">
+            <span>{{ isOnline ? 'No cell groups — upload a dataset first' : 'Workspace offline' }}</span>
+          </div>
+        </div>
+
+        <label class="group-source group-source--secondary">
+          <input type="radio" name="cluster-mode" v-model="clusterMode" value="kmeans" @change="onClusterModeChange('kmeans')" />
           <span>K-Means</span>
-          <strong>disabled</strong>
-        </div>
+        </label>
 
-        <div class="groups-panel__footer">
-          <button class="link-button" type="button" @click="go('/datasets')">+ Create a new group</button>
-          <button class="primary-action" type="button" @click="go('/benchmark')">Run Differential Expression</button>
+        <!-- K-Means 模式：先显示参数控制，再显示勾选框 -->
+        <template v-if="clusterMode === 'kmeans'">
+          <div class="kmeans-controls">
+            <label>K clusters
+              <input type="number" v-model.number="kmeansK" min="2" max="20" />
+            </label>
+            <button class="kmeans-run-btn" :disabled="kmeansRunning || !spots.length" @click="applyKMeans">
+              {{ kmeansRunning ? 'Running…' : 'Re-run' }}
+            </button>
+          </div>
+
+          <div class="cluster-list">
+            <template v-if="clusters.length">
+              <label class="cluster-row cluster-row--all">
+                <input type="checkbox" :checked="allClustersEnabled" @change="toggleAllClusters" />
+                <span class="cluster-swatch cluster-swatch--all"></span>
+                <span class="cluster-name">All cells</span>
+                <span class="cluster-count">{{ totalCellsDisplay }}</span>
+              </label>
+              <label
+                v-for="cluster in clusters"
+                :key="cluster.name"
+                class="cluster-row"
+                :class="{ 'cluster-row--selected': selectedCluster?.name === cluster.name }"
+                @mouseenter="selectedCluster = cluster"
+              >
+                <input v-model="cluster.enabled" type="checkbox" />
+                <span class="cluster-swatch" :style="{ background: cluster.color }"></span>
+                <span class="cluster-name" :title="cluster.name">{{ cluster.name }}</span>
+                <span class="cluster-count">{{ cluster.count.toLocaleString() }}</span>
+                </label>
+            </template>
+            <div v-else class="cluster-empty">
+              <span>{{ kmeansRunning ? 'Computing clusters…' : 'Click Re-run to cluster' }}</span>
+            </div>
+          </div>
+        </template>
+
+        <div v-if="auth.canResearch" class="groups-panel__footer">
+          <button class="link-button" type="button" @click="go('/datasets')">+ Upload Dataset</button>
+          <button class="primary-action" type="button" @click="go('/benchmark')">Run Benchmark</button>
         </div>
       </aside>
 
@@ -128,21 +184,42 @@
           </div>
         </div>
 
-        <div class="spatial-canvas">
+        <div
+          class="spatial-canvas"
+          :style="{ cursor: canvasScale > 1 ? 'grab' : 'default' }"
+          @mousedown="onCanvasMouseDown"
+          @mousemove="onCanvasMouseMove"
+          @mouseup="onCanvasMouseUp"
+          @mouseleave="onCanvasMouseLeave"
+          @wheel.prevent="onCanvasWheel"
+        >
           <div class="canvas-grid" aria-hidden="true"></div>
           <div class="tissue-halo" aria-hidden="true"></div>
-          <button class="canvas-control canvas-control--fit" type="button" aria-label="适配窗口">
-            <svg viewBox="0 0 24 24">
-              <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
-            </svg>
-          </button>
-          <button class="canvas-control canvas-control--zoom" type="button" aria-label="放大">
-            <svg viewBox="0 0 24 24">
-              <circle cx="10.5" cy="10.5" r="5.5" />
-              <path d="M15 15l5 5M10.5 8v5M8 10.5h5" />
-            </svg>
-          </button>
+          <div v-if="projectionLoading" class="canvas-loading-overlay">
+            <svg class="canvas-spinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="40 20" /></svg>
+          </div>
+          <div class="canvas-controls">
+            <button class="canvas-control" type="button" aria-label="还原视图" @click.stop="fitCanvas">
+              <svg viewBox="0 0 24 24">
+                <path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            </button>
+            <button class="canvas-control" type="button" aria-label="缩小" @click.stop="zoomOut">
+              <svg viewBox="0 0 24 24">
+                <circle cx="10.5" cy="10.5" r="5.5" />
+                <path d="M15 15l5 5M8 10.5h5" />
+              </svg>
+            </button>
+            <button class="canvas-control" type="button" aria-label="放大" @click.stop="zoomIn">
+              <svg viewBox="0 0 24 24">
+                <circle cx="10.5" cy="10.5" r="5.5" />
+                <path d="M15 15l5 5M10.5 8v5M8 10.5h5" />
+              </svg>
+            </button>
+          </div>
 
+          <div class="canvas-content" :style="{ transform: `translate(${canvasPanX}px, ${canvasPanY}px) scale(${canvasScale})` }">
           <div
             v-for="spot in spots"
             :key="spot.id"
@@ -158,21 +235,34 @@
             }"
           ></div>
 
-          <div class="scale-bar">
+          <div v-if="isOnline && !spots.length && !isDemoMode" class="canvas-empty">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <circle cx="24" cy="20" r="8"/>
+              <path d="M8 40c0-8.84 7.16-16 16-16s16 7.16 16 16"/>
+              <path d="M32 12l8-8M36 12h4v-4"/>
+            </svg>
+            <span>No datasets available</span>
+            <button type="button" @click="go('/datasets')">Upload a dataset</button>
+          </div>
+
+          </div><!-- end canvas-content -->
+
+          <!-- TODO: 从后端获取物理分辨率动态计算比例尺，勿硬编码 -->
+          <div v-if="projectionType === 'spatial'" class="scale-bar">
             <span>5 mm</span>
           </div>
         </div>
 
         <section class="de-output">
           <div class="de-tabs">
-            <button class="de-tab de-tab--active" type="button">
+            <button :class="['de-tab', activeTab === 'summary' && 'de-tab--active']" type="button" @click="activeTab = 'summary'">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M5 4h14v16H5z" />
                 <path d="M8 8h8M8 12h8M8 16h5" />
               </svg>
               Cell Type Summary
             </button>
-            <button class="de-tab" type="button">
+            <button :class="['de-tab', activeTab === 'distribution' && 'de-tab--active']" type="button" @click="activeTab = 'distribution'">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4 19V5M4 19h16" />
                 <path d="M8 16v-5M12 16V8M16 16v-7" />
@@ -181,50 +271,94 @@
             </button>
           </div>
 
-          <div class="de-toolbar">
-            <div class="segmented">
-              <button class="segmented__item segmented__item--active" type="button">Count Table</button>
-              <button class="segmented__item" type="button">Distribution</button>
+          <!-- Tab 1: 基本信息表格，无切换 -->
+          <template v-if="activeTab === 'summary'">
+            <div class="de-toolbar">
+              <p>Grouped by <strong>{{ colorByField }}</strong> · {{ datasetName }}</p>
             </div>
-            <p>Observed cells grouped by <strong>cell_type</strong> from the active liver dataset.</p>
-            <button class="ghost-icon" type="button" aria-label="表格设置">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" />
-                <path d="M3 12h2M19 12h2M12 3v2M12 19v2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />
-              </svg>
-            </button>
-          </div>
+            <div class="de-table-wrap">
+              <table class="de-table">
+                <colgroup>
+                  <col style="width: 29%" />
+                  <col style="width: 14%" />
+                  <col style="width: 14%" />
+                  <col style="width: 14%" />
+                  <col style="width: 29%" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Cell type</th>
+                    <th>Cells</th>
+                    <th>Dataset %</th>
+                    <th>Status</th>
+                    <th>Distribution</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in cellTypeRows" :key="row.name">
+                    <td>
+                      <span class="celltype-chip" :style="{ background: row.color }"></span>
+                      <span class="gene-name">{{ row.name }}</span>
+                    </td>
+                    <td>{{ row.count.toLocaleString() }}</td>
+                    <td>{{ row.percent.toFixed(2) }}%</td>
+                    <td>{{ row.enabled ? "Visible" : "Hidden" }}</td>
+                    <td>
+                      <div class="specificity">
+                        <span :style="{ width: `${Math.max(row.percent, 2)}%`, background: row.color }"></span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
 
-          <div class="de-table-wrap">
-            <table class="de-table">
-              <thead>
-                <tr>
-                  <th>Cell type</th>
-                  <th>Cells</th>
-                  <th>Dataset %</th>
-                  <th>Status</th>
-                  <th>Distribution</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in cellTypeRows" :key="row.name">
-                  <td>
-                    <span class="celltype-chip" :style="{ background: row.color }"></span>
-                    <span class="gene-name">{{ row.name }}</span>
-                    <span class="gene-menu">•••</span>
-                  </td>
-                  <td>{{ row.count.toLocaleString() }}</td>
-                  <td>{{ row.percent.toFixed(2) }}%</td>
-                  <td>{{ row.enabled ? "Visible" : "Hidden" }}</td>
-                  <td>
-                    <div class="specificity">
-                      <span :style="{ width: `${Math.max(row.percent, 2)}%`, background: row.color }"></span>
+          <!-- Tab 2: 两种图表切换 -->
+          <template v-else>
+            <div class="de-toolbar">
+              <div class="segmented">
+                <button :class="['segmented__item', !showDistribution && 'segmented__item--active']" type="button" @click="showDistribution = false">Horizontal</button>
+                <button :class="['segmented__item', showDistribution && 'segmented__item--active']" type="button" @click="showDistribution = true">Column</button>
+              </div>
+              <p>Grouped by <strong>{{ colorByField }}</strong> · {{ datasetName }}</p>
+            </div>
+
+            <!-- 水平条形图 -->
+            <div v-if="!showDistribution" class="dist-chart-wrap">
+              <div v-if="!cellTypeRows.length" class="dist-empty">No data</div>
+              <div v-for="row in cellTypeRows" v-else :key="row.name" class="dist-bar-row">
+                <span class="dist-label" :title="row.name">{{ row.name }}</span>
+                <div class="dist-bar-track">
+                  <div class="dist-bar-fill" :style="{ width: `${Math.max(row.percent, 0.5)}%`, background: row.color, opacity: row.enabled ? 1 : 0.3 }"></div>
+                </div>
+                <span class="dist-pct">{{ row.percent.toFixed(1) }}%</span>
+                <span class="dist-count">{{ row.count.toLocaleString() }}</span>
+              </div>
+            </div>
+
+            <!-- 纵向柱状图 -->
+            <div v-else class="expr-col-wrap">
+              <div v-if="!cellTypeRows.length" class="dist-empty">No data</div>
+              <template v-else>
+                <div class="expr-col-chart">
+                  <div
+                    v-for="row in cellTypeRows"
+                    :key="row.name"
+                    class="expr-col"
+                    :title="`${row.name}: ${row.count.toLocaleString()} cells (${row.percent.toFixed(1)}%)`"
+                  >
+                    <span class="expr-col__pct">{{ row.percent.toFixed(0) }}%</span>
+                    <div class="expr-col__bar-wrap">
+                      <div class="expr-col__bar" :style="{ height: `${Math.max(row.percent, 1)}%`, background: row.color, opacity: row.enabled ? 1 : 0.25 }"></div>
                     </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                    <span class="expr-col__label" :title="row.name">{{ row.name.split(' ')[0] }}</span>
+                  </div>
+                </div>
+                <div class="expr-col-axis"><span>0%</span><span>50%</span><span>100%</span></div>
+              </template>
+            </div>
+          </template>
         </section>
       </section>
 
@@ -241,15 +375,15 @@
             </div>
             <div>
               <span>Ready indexes</span>
-              <strong>{{ indexCount }}</strong>
+              <strong>{{ indexCount === 0 ? '—' : indexCount }}</strong>
             </div>
             <div>
               <span>Vector dim</span>
               <strong>{{ vectorDim }}</strong>
             </div>
             <div>
-              <span>Mode</span>
-              <strong>ANN</strong>
+              <span>Annotations</span>
+              <strong>{{ obsAnnotationCount }}</strong>
             </div>
           </div>
         </section>
@@ -257,23 +391,13 @@
         <section class="inspector-card">
           <div class="inspector-card__head">
             <span>Quality Control</span>
-            <strong>{{ load }}%</strong>
+            <strong>{{ qcRows.every(r => r.value === '—') ? '—' : qcRows.filter(r => r.value !== '—').length + ' fields' }}</strong>
           </div>
-          <div class="qc-list">
-            <div class="qc-row">
-              <span>Median genes</span>
-              <div class="qc-bar"><i style="width: 72%"></i></div>
-              <strong>2,746</strong>
-            </div>
-            <div class="qc-row">
-              <span>MT fraction</span>
-              <div class="qc-bar qc-bar--amber"><i style="width: 28%"></i></div>
-              <strong>4.8%</strong>
-            </div>
-            <div class="qc-row">
-              <span>Doublet score</span>
-              <div class="qc-bar qc-bar--green"><i style="width: 18%"></i></div>
-              <strong>0.06</strong>
+          <div class="qc-list qc-list--scroll">
+            <div v-for="row in qcRows" :key="row.label" class="qc-row">
+              <span>{{ row.label }}</span>
+              <div class="qc-bar" :class="[row.cls, { 'qc-bar--neg': row.neg }]"><i :style="{ width: row.pct + '%' }"></i></div>
+              <strong>{{ row.value }}</strong>
             </div>
           </div>
         </section>
@@ -281,16 +405,16 @@
         <section class="inspector-card">
           <div class="inspector-card__head">
             <span>Index Runtime</span>
-            <strong>{{ animatedLatency }} ms</strong>
+            <strong>{{ benchFromReal ? benchLatency : (isDemoMode ? animatedLatency : '—') }} ms</strong>
           </div>
           <div class="runtime-grid">
             <div>
               <span>QPS</span>
-              <strong>{{ animatedQps }}</strong>
+              <strong>{{ benchFromReal ? benchQps : (isDemoMode ? animatedQps : '—') }}</strong>
             </div>
             <div>
               <span>Memory</span>
-              <strong>{{ animatedMemory }} MB</strong>
+              <strong>{{ benchFromReal ? benchMemory + ' MB' : (isDemoMode ? animatedMemory + ' MB' : '—') }}</strong>
             </div>
           </div>
           <svg class="runtime-line" viewBox="0 0 160 52" aria-hidden="true">
@@ -301,10 +425,11 @@
         <section class="inspector-card">
           <div class="inspector-card__head">
             <span>Active Algorithms</span>
-            <strong>Ready</strong>
+            <strong>{{ algorithms.length ? 'Ready' : '—' }}</strong>
           </div>
           <div class="algorithm-list">
             <span v-for="algo in algorithms" :key="algo" class="algorithm-pill">{{ algo }}</span>
+            <span v-if="!algorithms.length" style="color:#8a97a8;font-size:13px;">No indexes built</span>
           </div>
         </section>
       </aside>
@@ -313,7 +438,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from "vue"
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from "vue"
 import { useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
 import AppLayout from "@/components/layout/AppLayout.vue"
@@ -323,11 +448,13 @@ import {
   getVisualizeModes,
   listDatasets,
   listIndexes,
+  type DatasetItem,
   type DatasetStatsResponse,
   type EmbeddingPoint,
   type IndexItem,
   type VisualizeModesResponse,
 } from "@/api/search"
+import { listBenchmarkBatches, getBenchmarkBatch } from "@/api/benchmark"
 
 type Cluster = {
   name: string
@@ -354,20 +481,40 @@ const datasetCount = ref<number | string>("—")
 const indexCount = ref<number | string>("—")
 const totalCells = ref(0)
 const isOnline = ref(false)
-const datasetName = ref("liver")
+const datasetName = ref("—")
+const colorByField = ref("—")
 const vectorDim = ref<number | string>("—")
 const projectionType = ref<"spatial" | "umap" | "pca">("umap")
 const spotOpacity = ref(78)
 const realSpots = ref<Spot[]>([])
 
-const latency = ref(16)
-const memory = ref(302)
-const qps = ref(121)
-const load = ref(42)
-const animatedLatency = ref(16)
-const animatedMemory = ref(302)
-const animatedQps = ref(121)
-const latencyHistory = ref([18, 15, 17, 12, 19, 14, 16, 13, 15, 12, 16, 14])
+// Real dataset selector
+const allDatasets = ref<DatasetItem[]>([])
+const selectedDatasetId = ref<number | undefined>()
+// Real embedding selector
+const availableEmbeddingKeys = ref<string[]>([])
+const selectedEmbeddingKey = ref("")
+const qcRows = ref<{ label: string; value: string; cls: string; pct: number; neg?: boolean }[]>([
+  { label: "Median genes", value: "—", cls: "", pct: 0 },
+  { label: "MT fraction", value: "—", cls: "qc-bar--amber", pct: 0 },
+  { label: "Doublet score", value: "—", cls: "qc-bar--green", pct: 0 },
+])
+// Real obs annotations
+const obsAnnotationCount = ref<number | string>("—")
+// Real benchmark runtime
+const benchLatency = ref<number | string>("—")
+const benchQps = ref<number | string>("—")
+const benchMemory = ref<number | string>("—")
+const benchFromReal = ref(false)
+
+const latency = ref(0)
+const memory = ref(0)
+const qps = ref(0)
+const load = ref<number | string>("—")
+const animatedLatency = ref<number | string>("—")
+const animatedMemory = ref<number | string>("—")
+const animatedQps = ref<number | string>("—")
+const latencyHistory = ref<number[]>([])
 
 const palette = [
   "#3b1b48",
@@ -384,23 +531,46 @@ const palette = [
   "#14b8a6",
 ]
 
+const isDemoMode = ref(false)
+const userForcedReal = ref(false)
+
+// Cluster mode
+const clusterMode = ref<"graph" | "kmeans">("graph")
+const kmeansK = ref(5)
+const kmeansRunning = ref(false)
+const kmeansAssignments = ref<number[]>([])
+const colorOptions = ref<string[]>([])
+
+// Tab / view state
+const activeTab = ref<"summary" | "distribution">("summary")
+const showDistribution = ref(false)
+
+// Canvas zoom & pan
+const canvasScale = ref(1)
+const canvasPanX = ref(0)
+const canvasPanY = ref(0)
+let isPanning = false
+let panStartX = 0
+let panStartY = 0
+
 const demoClusters = (): Cluster[] => [
-  { name: "Cluster 1", count: 41242, color: "#3b1b48", enabled: true },
-  { name: "Cluster 2", count: 39426, color: "#b7f230", enabled: true },
-  { name: "Cluster 3", count: 19005, color: "#5571d9", enabled: true },
-  { name: "Cluster 4", count: 14870, color: "#f5c542", enabled: true },
-  { name: "Cluster 5", count: 11509, color: "#4aa3ff", enabled: true },
-  { name: "Cluster 6", count: 4528, color: "#ff7a1a", enabled: true },
-  { name: "Cluster 7", count: 881, color: "#2bc7bb", enabled: true },
-  { name: "Cluster 8", count: 796, color: "#d93b00", enabled: true },
-  { name: "Cluster 9", count: 491, color: "#48e87e", enabled: true },
-  { name: "Cluster 10", count: 469, color: "#9b1b10", enabled: true },
+  { name: "Hepatocyte",   count: 41242, color: "#3b1b48", enabled: true },
+  { name: "Kupffer cell", count: 22156, color: "#b7f230", enabled: true },
+  { name: "Endothelial",  count: 19005, color: "#5571d9", enabled: true },
+  { name: "Stellate cell",count: 14870, color: "#f5c542", enabled: true },
+  { name: "Cholangiocyte",count: 11509, color: "#4aa3ff", enabled: true },
+  { name: "NK cell",      count: 8234,  color: "#ff7a1a", enabled: true },
+  { name: "T cell",       count: 6891,  color: "#2bc7bb", enabled: true },
+  { name: "B cell",       count: 4528,  color: "#d93b00", enabled: true },
+  { name: "Monocyte",     count: 796,   color: "#48e87e", enabled: true },
+  { name: "Plasma cell",  count: 469,   color: "#9b1b10", enabled: true },
 ]
 
-const clusters = reactive<Cluster[]>(demoClusters())
+const clusters = reactive<Cluster[]>([])
+const projectionLoading = ref(false)
 
-const selectedCluster = ref<Cluster | null>(clusters[1])
-const algorithms = ref(["Flat", "HNSW", "IVF", "PQ"])
+const selectedCluster = ref<Cluster | null>(null)
+const algorithms = ref<string[]>([])
 
 const projectionTypeLabel = computed(() => {
   if (projectionType.value === "umap") return "UMAP projection"
@@ -410,7 +580,7 @@ const projectionTypeLabel = computed(() => {
 
 const totalCellsDisplay = computed(() => {
   if (!totalCells.value) return "—"
-  return totalCells.value >= 10000 ? `${(totalCells.value / 10000).toFixed(1)}万` : String(totalCells.value)
+  return totalCells.value.toLocaleString("en-US")
 })
 
 const allClustersEnabled = computed(() => clusters.every((cluster) => cluster.enabled))
@@ -425,6 +595,20 @@ const cellTypeRows = computed(() => {
 
 const spots = computed<Spot[]>(() => {
   if (realSpots.value.length) {
+    // K-Means mode: reassign colors by cluster assignment
+    if (clusterMode.value === "kmeans" && kmeansAssignments.value.length === realSpots.value.length) {
+      return realSpots.value.map((spot, i) => {
+        const ki = kmeansAssignments.value[i]
+        const cluster = clusters[ki]
+        return {
+          ...spot,
+          color: cluster?.color ?? spot.color,
+          opacity: spotOpacity.value / 100,
+          enabled: cluster?.enabled ?? true,
+          clusterName: cluster?.name ?? spot.clusterName,
+        }
+      })
+    }
     const enabledByCluster = new Map(clusters.map((cluster) => [cluster.name, cluster.enabled]))
     return realSpots.value.map((spot) => ({
       ...spot,
@@ -432,6 +616,9 @@ const spots = computed<Spot[]>(() => {
       enabled: enabledByCluster.get(spot.clusterName ?? "") ?? true,
     }))
   }
+
+  // 仅在 demo 模式下生成 demo 点位
+  if (!isDemoMode.value || !clusters.length) return []
 
   const count = 220
   return Array.from({ length: count }, (_, index) => {
@@ -495,74 +682,272 @@ function updatePerformanceMetrics() {
   qps.value = Math.floor(Math.random() * 90) + 70
   load.value = Math.floor(Math.random() * 36) + 32
 
-  animatedLatency.value = latency.value
-  animatedMemory.value = memory.value
-  animatedQps.value = qps.value
-  latencyHistory.value.push(latency.value)
-  if (latencyHistory.value.length > 18) latencyHistory.value.shift()
+  if (isDemoMode.value && !benchFromReal.value) {
+    animatedLatency.value = latency.value
+    animatedMemory.value = memory.value
+    animatedQps.value = qps.value
+  }
+  if (isDemoMode.value && !benchFromReal.value) {
+    latencyHistory.value.push(latency.value)
+    if (latencyHistory.value.length > 18) latencyHistory.value.shift()
+  }
 }
 
 let metricsInterval: number | null = null
 
-async function loadMetrics() {
-  try {
-    const datasets = await listDatasets({ mockFallback: false })
-    const activeDataset = datasets.find((item) => item.status === "ready") ?? datasets[0]
-    const indexes = activeDataset
-      ? await listIndexes(activeDataset.id, { mockFallback: false })
-      : await listIndexes(undefined, { mockFallback: false })
+function applyDemoData() {
+  isDemoMode.value = true
+  clusterMode.value = "graph"
+  kmeansAssignments.value = []
+  datasetCount.value = 3
+  indexCount.value = 5
+  totalCells.value = 130_257
+  datasetName.value = "Demo Atlas (liver)"
+  colorByField.value = "cell_type"
+  colorOptions.value = ["cell_type", "leiden", "louvain", "disease", "author_cell_type"]
+  vectorDim.value = 50
+  obsAnnotationCount.value = 12
+  algorithms.value = ["FLAT", "HNSW", "IVF"]
+  availableEmbeddingKeys.value = ["X_umap", "X_pca"]
+  selectedEmbeddingKey.value = "X_umap"
+  projectionType.value = "umap"
+  qcRows.value = [
+    { label: "Median genes", value: "2,746", cls: "", pct: 68 },
+    { label: "MT fraction", value: "4.8%", cls: "qc-bar--amber", pct: 48 },
+    { label: "Doublet score", value: "0.06", cls: "qc-bar--green", pct: 30 },
+  ]
+  benchLatency.value = "14.2"
+  benchQps.value = 142
+  benchMemory.value = 38
+  benchFromReal.value = true
+  realSpots.value = []
+  resetDemoClusters()
+}
 
-    datasetCount.value = datasets.length
-    indexCount.value = indexes.filter((item) => item.status === "ready").length
-    totalCells.value = activeDataset?.n_cells ?? datasets.reduce((sum, item) => sum + (item.n_cells ?? 0), 0)
-    datasetName.value = activeDataset?.name ?? "liver"
-    vectorDim.value = activeDataset?.vector_dim ?? indexes[0]?.vector_dim ?? "—"
-    algorithms.value = buildAlgorithmList(indexes)
-    if (activeDataset?.status === "ready") {
-      await loadProjection(activeDataset.id)
-    }
-    isOnline.value = true
-  } catch {
-    datasetCount.value = 1
-    indexCount.value = 4
-    totalCells.value = 145_217
-    vectorDim.value = 50
-    datasetName.value = "Demo atlas"
-    realSpots.value = []
-    resetDemoClusters()
-    algorithms.value = ["Flat", "HNSW", "IVF", "PQ"]
-    isOnline.value = false
-  } finally {
-    updatePerformanceMetrics()
-    metricsInterval = window.setInterval(updatePerformanceMetrics, 2400)
+function clearState() {
+  isDemoMode.value = false
+  clusterMode.value = "graph"
+  kmeansAssignments.value = []
+  colorOptions.value = []
+  datasetCount.value = "—"
+  indexCount.value = "—"
+  totalCells.value = 0
+  datasetName.value = "—"
+  colorByField.value = "—"
+  vectorDim.value = "—"
+  obsAnnotationCount.value = "—"
+  algorithms.value = []
+  availableEmbeddingKeys.value = []
+  selectedEmbeddingKey.value = ""
+  qcRows.value = [
+    { label: "Median genes", value: "—", cls: "", pct: 0 },
+    { label: "MT fraction", value: "—", cls: "qc-bar--amber", pct: 0 },
+    { label: "Doublet score", value: "—", cls: "qc-bar--green", pct: 0 },
+  ]
+  benchLatency.value = "—"
+  benchQps.value = "—"
+  benchMemory.value = "—"
+  benchFromReal.value = false
+  realSpots.value = []
+  latencyHistory.value = []
+  clusters.splice(0, clusters.length)
+  selectedCluster.value = null
+}
+
+async function toggleDemoMode() {
+  if (isDemoMode.value) {
+    userForcedReal.value = true
+    clearState()
+    projectionLoading.value = true
+    await loadMetrics()
+  } else {
+    userForcedReal.value = false
+    applyDemoData()
   }
 }
 
-async function loadProjection(datasetId: number) {
-  const [stats, modes] = await Promise.all([
-    getDatasetStats(datasetId),
-    getVisualizeModes(datasetId),
-  ])
-  const colorBy = chooseColorBy(stats, modes)
-  const clusterCounts = stats.value_counts[colorBy] ?? {}
-  applyClusters(clusterCounts)
+async function loadMetrics() {
+  try {
+    const [datasets, allIndexes] = await Promise.all([
+      listDatasets({ mockFallback: false }),
+      listIndexes(undefined, { mockFallback: false }),
+    ])
+    allDatasets.value = datasets
+    const activeDataset = datasets.find((item) => item.status === "ready") ?? datasets[0]
+    selectedDatasetId.value = activeDataset?.id
 
-  const embeddingKey = chooseEmbeddingKey(modes)
-  projectionType.value = embeddingKey.toLowerCase().includes("umap")
-    ? "umap"
-    : embeddingKey.toLowerCase().includes("pca")
-      ? "pca"
-      : "spatial"
+    datasetCount.value = datasets.length
+    indexCount.value = allIndexes.filter((item) => item.status === "ready").length
+    totalCells.value = datasets.reduce((sum, item) => sum + (item.n_cells ?? 0), 0)
+    datasetName.value = activeDataset?.name ?? "—"
+    vectorDim.value = activeDataset?.vector_dim ?? allIndexes[0]?.vector_dim ?? "—"
+    algorithms.value = buildAlgorithmList(allIndexes)
+    isOnline.value = true
 
-  const embedding = await browseSearch({
-    datasetId,
-    pageSize: 1800,
-    colorBy,
-    embeddingKey,
-    dimension: 2,
-  })
-  totalCells.value = embedding.n_total ?? totalCells.value
-  realSpots.value = normalizeEmbeddingPoints(embedding.points ?? [], colorBy)
+    if (datasets.length === 0) {
+      applyDemoData()
+    } else if (activeDataset?.status === "ready") {
+      isDemoMode.value = false
+      const statsPromise = getDatasetStats(activeDataset.id)
+      statsPromise.then(s => {
+        obsAnnotationCount.value = s.obs_columns?.length ?? "—"
+      }).catch(() => {})
+      await loadProjection(activeDataset.id, undefined, statsPromise)
+    }
+  } catch {
+    // 后端离线：空状态
+    isOnline.value = false
+    clearState()
+  } finally {
+    updatePerformanceMetrics()
+    metricsInterval = window.setInterval(updatePerformanceMetrics, 4000)
+  }
+}
+
+async function loadProjection(datasetId: number, embeddingKeyOverride?: string, preloadedStats?: Promise<any>) {
+  projectionLoading.value = true
+  try {
+    const [stats, modes] = await Promise.all([
+      preloadedStats ?? getDatasetStats(datasetId),
+      getVisualizeModes(datasetId),
+    ])
+
+    obsAnnotationCount.value = stats.obs_columns?.length ?? "—"
+
+    const num = stats.numeric_summary ?? {}
+    const stdPriority: Record<string, { label: string; stat: string }> = {
+      n_genes_by_counts: { label: "Median genes", stat: "median" },
+      n_genes: { label: "Median genes", stat: "median" },
+      pct_counts_mt: { label: "MT fraction", stat: "mean" },
+      mt_frac: { label: "MT fraction", stat: "mean" },
+      doublet_score: { label: "Doublet score", stat: "median" },
+    }
+    const clsPalette = ["", "qc-bar--amber", "qc-bar--green", "", "qc-bar--amber", "qc-bar--green"]
+    const found: { label: string; value: string; cls: string; pct: number }[] = []
+    const seenLabels = new Set<string>()
+    // Standard fields first
+    for (const [key, { label, stat }] of Object.entries(stdPriority)) {
+      if (seenLabels.has(label)) continue
+      const col = num[key]
+      const v = col?.[stat]
+      if (v !== undefined) {
+        const fieldMax = col?.max || 1
+        const fmt = key.includes("pct") || key.includes("mt_frac") ? `${Number(v).toFixed(1)}%` : Math.round(Number(v)).toLocaleString()
+        const rawPct = Math.round((Number(v) / fieldMax) * 100)
+        found.push({ label, value: fmt, cls: clsPalette[found.length % clsPalette.length], pct: Math.min(100, Math.abs(rawPct)), neg: rawPct < 0 })
+        seenLabels.add(label)
+      }
+    }
+    // All remaining numeric columns
+    for (const [key, col] of Object.entries(num)) {
+      if (stdPriority[key]) continue
+      const v = (col as any)?.median ?? (col as any)?.mean
+      if (v === undefined) continue
+      const fieldMax = (col as any)?.max || 1
+      const label = key.replace(/_/g, " ")
+      const rawPct = Math.round((Number(v) / fieldMax) * 100)
+      found.push({ label, value: Number(v).toFixed(2), cls: clsPalette[found.length % clsPalette.length], pct: Math.min(100, Math.abs(rawPct)), neg: rawPct < 0 })
+    }
+    qcRows.value = found.length ? found : [
+      { label: "Median genes", value: "—", cls: "", pct: 0 },
+      { label: "MT fraction", value: "—", cls: "qc-bar--amber", pct: 0 },
+      { label: "Doublet score", value: "—", cls: "qc-bar--green", pct: 0 },
+    ]
+
+    availableEmbeddingKeys.value = modes.embedding_options?.length
+      ? modes.embedding_options
+      : [modes.embedding_key]
+
+    const allColorOpts = Array.from(new Set([
+      ...Object.keys(stats.value_counts ?? {}),
+      ...(modes.color_options ?? []),
+    ])).filter(Boolean)
+    colorOptions.value = allColorOpts
+
+    const colorBy = (colorByField.value && allColorOpts.includes(colorByField.value))
+      ? colorByField.value
+      : chooseColorBy(stats, modes)
+    colorByField.value = colorBy
+    applyClusters(stats.value_counts[colorBy] ?? {})
+
+    const chosenKey = embeddingKeyOverride ?? chooseEmbeddingKey(modes)
+    selectedEmbeddingKey.value = chosenKey
+    const lk = chosenKey.toLowerCase()
+    projectionType.value = lk.includes("umap")
+      ? "umap"
+      : lk.includes("pca")
+        ? "pca"
+        : lk.includes("spatial") || lk.includes("visium")
+          ? "spatial"
+          : "umap"
+
+    const embedding = await browseSearch({
+      datasetId,
+      pageSize: 1800,
+      colorBy,
+      embeddingKey: chosenKey,
+      dimension: 2,
+    })
+    totalCells.value = embedding.n_total ?? totalCells.value
+    realSpots.value = normalizeEmbeddingPoints(embedding.points ?? [], colorBy)
+  } finally {
+    projectionLoading.value = false
+  }
+
+  // benchmark 后台异步，不阻塞画布渲染
+  ;(async () => {
+    try {
+      const batches = (await listBenchmarkBatches({ dataset_id: datasetId })) as unknown as any[]
+      if (batches.length > 0) {
+        const detail = (await getBenchmarkBatch(batches[0].id)) as unknown as any
+        const results: any[] = detail.results ?? []
+        if (results.length > 0) {
+          const best = results.reduce((a: any, b: any) => (a.avg_latency_ms < b.avg_latency_ms ? a : b))
+          benchLatency.value = best.avg_latency_ms.toFixed(1)
+          benchQps.value = Math.round(best.qps)
+          benchMemory.value = Math.round(best.index_size_bytes / 1024 / 1024)
+          benchFromReal.value = true
+          // 折线图用实际各算法延迟，不再随机生成
+          latencyHistory.value = results.map((r: any) => r.avg_latency_ms)
+        }
+      }
+    } catch {
+      // benchmark data not available
+    }
+  })()
+}
+
+async function onDatasetChange() {
+  const ds = allDatasets.value.find((item) => item.id === selectedDatasetId.value)
+  if (!ds) return
+  datasetName.value = ds.name
+  vectorDim.value = ds.vector_dim ?? "—"
+  totalCells.value = ds.n_cells ?? 0
+  benchFromReal.value = false
+  selectedEmbeddingKey.value = ""
+  availableEmbeddingKeys.value = []
+  clusterMode.value = "graph"
+  kmeansAssignments.value = []
+  resetDemoClusters()
+  if (ds.status === "ready") {
+    const statsPromise = getDatasetStats(ds.id)
+    statsPromise.then(s => {
+      obsAnnotationCount.value = s.obs_columns?.length ?? "—"
+    }).catch(() => {})
+    await loadProjection(ds.id, undefined, statsPromise)
+  }
+}
+
+async function onEmbeddingChange() {
+  if (!selectedDatasetId.value || !selectedEmbeddingKey.value) return
+  await loadProjection(selectedDatasetId.value, selectedEmbeddingKey.value)
+}
+
+function embeddingLabel(key: string): string {
+  if (key.toLowerCase().includes("umap")) return "UMAP"
+  if (key.toLowerCase().includes("pca")) return "PCA"
+  if (key.toLowerCase().includes("spatial")) return "Spatial"
+  return key
 }
 
 function chooseColorBy(stats: DatasetStatsResponse, modes: VisualizeModesResponse) {
@@ -598,12 +983,12 @@ function applyClusters(counts: Record<string, number>) {
   }
 
   clusters.splice(0, clusters.length, ...next)
-  selectedCluster.value = clusters[0] ?? null
+  selectedCluster.value = null
 }
 
 function resetDemoClusters() {
   clusters.splice(0, clusters.length, ...demoClusters())
-  selectedCluster.value = clusters[1] ?? clusters[0] ?? null
+  selectedCluster.value = null
 }
 
 function normalizeEmbeddingPoints(points: EmbeddingPoint[], colorBy: string): Spot[] {
@@ -639,7 +1024,7 @@ function buildAlgorithmList(indexes: IndexItem[]) {
   const readyAlgorithms = Array.from(
     new Set(indexes.filter((item) => item.status === "ready").map((item) => item.algorithm.toUpperCase())),
   )
-  return readyAlgorithms.length ? readyAlgorithms : ["HNSW"]
+  return readyAlgorithms
 }
 
 function hashString(value: string) {
@@ -658,6 +1043,164 @@ function go(path: string) {
   router.push(path)
 }
 
+// ── K-Means ──────────────────────────────────────────────────────────────────
+function kMeansOnSpots(pts: { x: number; y: number }[], k: number): number[] {
+  if (pts.length === 0 || k <= 0) return []
+
+  // K-Means++ init
+  const centroids: { x: number; y: number }[] = [{ ...pts[Math.floor(Math.random() * pts.length)] }]
+  while (centroids.length < k) {
+    const dists = pts.map((p) => Math.min(...centroids.map((c) => (p.x - c.x) ** 2 + (p.y - c.y) ** 2)))
+    const total = dists.reduce((a, b) => a + b, 0)
+    let rand = Math.random() * total
+    let chosen = 0
+    for (let i = 0; i < dists.length; i++) {
+      rand -= dists[i]
+      if (rand <= 0) { chosen = i; break }
+    }
+    centroids.push({ ...pts[chosen] })
+  }
+
+  const assignments = new Array(pts.length).fill(0)
+  for (let iter = 0; iter < 60; iter++) {
+    let changed = false
+    for (let i = 0; i < pts.length; i++) {
+      let minD = Infinity, nearest = 0
+      for (let j = 0; j < k; j++) {
+        const d = (pts[i].x - centroids[j].x) ** 2 + (pts[i].y - centroids[j].y) ** 2
+        if (d < minD) { minD = d; nearest = j }
+      }
+      if (assignments[i] !== nearest) { assignments[i] = nearest; changed = true }
+    }
+    if (!changed) break
+    const sums = Array.from({ length: k }, () => ({ x: 0, y: 0, n: 0 }))
+    for (let i = 0; i < pts.length; i++) {
+      sums[assignments[i]].x += pts[i].x
+      sums[assignments[i]].y += pts[i].y
+      sums[assignments[i]].n++
+    }
+    for (let j = 0; j < k; j++) {
+      if (sums[j].n > 0) centroids[j] = { x: sums[j].x / sums[j].n, y: sums[j].y / sums[j].n }
+    }
+  }
+  return assignments
+}
+
+async function applyKMeans() {
+  const currentSpots = spots.value
+  if (!currentSpots.length) return
+  kmeansRunning.value = true
+  await nextTick()
+
+  const k = Math.max(2, Math.min(kmeansK.value, currentSpots.length))
+  const pts = currentSpots.map((s) => ({ x: s.x, y: s.y }))
+  const assignments = kMeansOnSpots(pts, k)
+  kmeansAssignments.value = assignments
+
+  const counts = Array.from({ length: k }, () => 0)
+  assignments.forEach((a) => counts[a]++)
+
+  const next: typeof clusters = Array.from({ length: k }, (_, i) => ({
+    name: `Cluster ${i + 1}`,
+    count: counts[i],
+    color: palette[i % palette.length],
+    enabled: true,
+  }))
+  clusters.splice(0, clusters.length, ...next)
+  selectedCluster.value = null
+  kmeansRunning.value = false
+}
+
+async function onClusterModeChange(mode: "graph" | "kmeans") {
+  if (mode === "graph") {
+    kmeansAssignments.value = []
+    if (selectedDatasetId.value) {
+      await loadProjection(selectedDatasetId.value, selectedEmbeddingKey.value || undefined)
+    } else if (isDemoMode.value) {
+      resetDemoClusters()
+    }
+  } else {
+    await applyKMeans()
+  }
+}
+
+async function onColorByChange() {
+  if (!selectedDatasetId.value) return
+  await loadProjection(selectedDatasetId.value, selectedEmbeddingKey.value || undefined)
+}
+
+// ── Download groups ────────────────────────────────────────────────────────────
+function downloadGroups() {
+  if (!clusters.length) return
+  const total = totalCells.value || clusters.reduce((s, c) => s + c.count, 0) || 1
+  const rows = [["Cell type", "Count", "Percentage"]]
+  for (const c of clusters) {
+    rows.push([c.name, String(c.count), ((c.count / total) * 100).toFixed(2) + "%"])
+  }
+  const csv = rows.map((r) => r.join(",")).join("\n")
+  const blob = new Blob([csv], { type: "text/csv" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `${datasetName.value}-groups.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ── Canvas zoom & pan ─────────────────────────────────────────────────────────
+function fitCanvas() {
+  canvasScale.value = 1
+  canvasPanX.value = 0
+  canvasPanY.value = 0
+}
+
+function zoomIn() {
+  canvasScale.value = Math.min(canvasScale.value * 1.5, 8)
+}
+
+function zoomOut() {
+  const next = canvasScale.value / 1.5
+  if (next < 1) {
+    fitCanvas()
+  } else {
+    canvasScale.value = next
+  }
+}
+
+function onCanvasMouseDown(e: MouseEvent) {
+  if (e.button !== 0 || canvasScale.value <= 1) return
+  isPanning = true
+  panStartX = e.clientX - canvasPanX.value
+  panStartY = e.clientY - canvasPanY.value
+  ;(e.currentTarget as HTMLElement).style.cursor = "grabbing"
+}
+
+function onCanvasMouseMove(e: MouseEvent) {
+  if (!isPanning) return
+  canvasPanX.value = e.clientX - panStartX
+  canvasPanY.value = e.clientY - panStartY
+}
+
+function onCanvasMouseUp(e: MouseEvent) {
+  isPanning = false
+  ;(e.currentTarget as HTMLElement).style.cursor = canvasScale.value > 1 ? "grab" : "default"
+}
+
+function onCanvasMouseLeave(e: MouseEvent) {
+  isPanning = false
+  ;(e.currentTarget as HTMLElement).style.cursor = "default"
+}
+
+function onCanvasWheel(e: WheelEvent) {
+  const delta = e.deltaY < 0 ? 1.12 : 1 / 1.12
+  const next = canvasScale.value * delta
+  if (next < 0.95) {
+    fitCanvas()
+  } else {
+    canvasScale.value = Math.min(next, 8)
+  }
+}
+
 onMounted(loadMetrics)
 
 onUnmounted(() => {
@@ -667,6 +1210,7 @@ onUnmounted(() => {
 
 <style scoped>
 .dashboard-workbench {
+  position: relative;
   height: 100%;
   min-height: 0;
   display: grid;
@@ -684,7 +1228,6 @@ onUnmounted(() => {
   padding: 0 18px;
   background: #f5f7fa;
   border-bottom: 1px solid #dce3ea;
-  box-shadow: inset 0 4px 0 #1b6f86;
 }
 
 .titlebar__identity {
@@ -816,28 +1359,37 @@ onUnmounted(() => {
 .opacity-control {
   min-width: 170px;
   display: grid;
+  align-content: center;
   gap: 3px;
-  margin-right: 16px;
-  padding: 8px 12px;
+  margin-right: 8px;
+  padding: 6px 10px 6px 12px;
   border-radius: 8px;
   background: #f7fafc;
+  border: 1px solid #dce5ee;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.select-control:focus-within,
+.select-control:hover {
+  border-color: #147bd1;
+  box-shadow: 0 0 0 3px rgba(20, 123, 209, 0.1);
 }
 
 .select-control span,
 .opacity-control span {
   color: #8b98a8;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   line-height: 1;
 }
 
-.select-control select {
-  width: 100%;
-  border: 0;
-  outline: none;
-  background: transparent;
+.select-control :deep(.ant-select-selector) {
+  padding-left: 0 !important;
+  font-size: 14px;
+  font-weight: 700;
   color: #10233f;
-  font-size: 15px;
-  font-weight: 750;
 }
 
 .opacity-control input {
@@ -990,6 +1542,16 @@ onUnmounted(() => {
   color: #8392a4;
 }
 
+.ghost-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .group-source {
   display: grid;
   grid-template-columns: 18px minmax(0, auto) minmax(72px, 1fr);
@@ -1011,6 +1573,15 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
+.group-source__hover-label {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.group-source:hover .group-source__hover-label {
+  opacity: 1;
+}
+
 .cluster-list {
   margin-top: 14px;
   padding: 12px;
@@ -1021,7 +1592,7 @@ onUnmounted(() => {
 .cluster-row {
   height: 39px;
   display: grid;
-  grid-template-columns: 18px 20px minmax(0, 1fr) auto 24px;
+  grid-template-columns: 18px 20px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 0 6px;
@@ -1107,7 +1678,7 @@ onUnmounted(() => {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 76px minmax(330px, 1fr) 310px;
+  grid-template-rows: 76px minmax(260px, 1fr) 320px;
   background: #ffffff;
 }
 
@@ -1157,6 +1728,28 @@ onUnmounted(() => {
   background: #ffffff;
 }
 
+.canvas-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.canvas-spinner {
+  width: 36px;
+  height: 36px;
+  color: #007bff;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .canvas-grid {
   position: absolute;
   inset: 0;
@@ -1194,36 +1787,40 @@ onUnmounted(() => {
   filter: grayscale(1);
 }
 
-.canvas-control {
+.canvas-controls {
   position: absolute;
   z-index: 3;
   bottom: 20px;
-  width: 42px;
-  height: 42px;
+  left: 22px;
+  display: flex;
+}
+
+.canvas-control {
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border: 1px solid #d9e1ea;
+  border-right: none;
   background: rgba(255, 255, 255, 0.92);
   color: #0d294a;
   cursor: pointer;
 }
 
+.canvas-control:first-child { border-radius: 8px 0 0 8px; }
+.canvas-control:last-child { border-radius: 0 8px 8px 0; border-right: 1px solid #d9e1ea; }
+
+.canvas-control:hover { background: #eef6fc; }
+
 .canvas-control svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
-}
-
-.canvas-control--fit {
-  left: 22px;
-  border-radius: 8px 0 0 8px;
-}
-
-.canvas-control--zoom {
-  left: 63px;
-  border-radius: 0 8px 8px 0;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
 }
 
 .scale-bar {
@@ -1246,6 +1843,324 @@ onUnmounted(() => {
   bottom: 1px;
   height: 2px;
   background: #1d1d1f;
+}
+
+.demo-toggle {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  z-index: 20;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid #c8d6e2;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+  color: #147bd1;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s, border-color 0.15s;
+  z-index: 10;
+}
+
+.demo-toggle:hover {
+  background: #eef6fc;
+  border-color: #147bd1;
+}
+
+.canvas-content {
+  position: absolute;
+  inset: 0;
+  transform-origin: center center;
+  transition: transform 0.2s ease;
+}
+
+.color-by-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: #f0f6fb;
+  font-size: 12px;
+  color: #52667c;
+}
+
+.color-by-select span {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+
+.kmeans-controls {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: #f0f6fb;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #52667c;
+}
+
+.kmeans-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.kmeans-controls input[type="number"] {
+  width: 52px;
+  border: 1px solid #d0dae3;
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 13px;
+  text-align: center;
+  outline: none;
+}
+
+.kmeans-run-btn {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: #147bd1;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kmeans-run-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dist-chart-wrap {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  height: 180px;
+  padding: 14px 18px;
+}
+
+.dist-chart-wrap--expression {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dist-bar-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 44px 72px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dist-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #24405f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dist-bar-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e8eef3;
+  overflow: hidden;
+}
+
+.dist-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.4s ease;
+}
+
+.dist-pct {
+  font-size: 11px;
+  font-weight: 700;
+  color: #52667c;
+  text-align: right;
+}
+
+.dist-count {
+  font-size: 11px;
+  color: #9aa5b1;
+  text-align: right;
+}
+
+.expr-bar-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 72px 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.expr-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #24405f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expr-bar-track {
+  height: 14px;
+  border-radius: 999px;
+  background: #e8eef3;
+  overflow: hidden;
+}
+
+.expr-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.4s ease;
+}
+
+.expr-stat {
+  font-size: 12px;
+  color: #52667c;
+  text-align: right;
+}
+
+.expr-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d294a;
+  text-align: right;
+}
+
+.expr-col-wrap {
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 18px 0;
+  overflow: hidden;
+}
+
+.expr-col-chart {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  min-height: 0;
+}
+
+.expr-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+}
+
+.expr-col__pct {
+  font-size: 10px;
+  color: #52667c;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.expr-col__bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  background: #f0f4f8;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+}
+
+.expr-col__bar {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.4s ease;
+  min-height: 2px;
+}
+
+.expr-col__label {
+  font-size: 10px;
+  color: #52667c;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1;
+}
+
+.expr-col-axis {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0 6px;
+  font-size: 10px;
+  color: #9aa5b1;
+  writing-mode: horizontal-tb;
+}
+
+.dist-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a97a8;
+  font-size: 13px;
+}
+
+.canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #8a97a8;
+}
+
+.canvas-empty svg {
+  width: 52px;
+  height: 52px;
+  opacity: 0.4;
+}
+
+.canvas-empty span {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.canvas-empty button {
+  border: 0;
+  background: transparent;
+  color: #147bd1;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.canvas-empty button:hover {
+  text-decoration: underline;
+}
+
+.cluster-empty {
+  padding: 18px 4px;
+  color: #8a97a8;
+  font-size: 13px;
+  text-align: center;
 }
 
 .de-output {
@@ -1289,8 +2204,7 @@ onUnmounted(() => {
 }
 
 .de-toolbar {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
   gap: 16px;
   padding: 10px 18px;
@@ -1334,7 +2248,8 @@ onUnmounted(() => {
 
 .de-table {
   width: 100%;
-  min-width: 900px;
+  min-width: 500px;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -1457,6 +2372,12 @@ onUnmounted(() => {
   margin-top: 14px;
 }
 
+.qc-list--scroll {
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
 .qc-row {
   display: grid;
   grid-template-columns: 88px 1fr 46px;
@@ -1472,6 +2393,11 @@ onUnmounted(() => {
   border-radius: 999px;
   background: #e3e9ef;
   overflow: hidden;
+  display: flex;
+}
+
+.qc-bar--neg i {
+  margin-left: auto;
 }
 
 .qc-bar i {

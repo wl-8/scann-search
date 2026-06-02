@@ -1,16 +1,24 @@
 <template>
   <AppLayout>
     <div class="benchmark-page workbench-page workbench-page--grid">
-      <div class="benchmark-page__header workbench-page__header">
-        <div>
-          <div class="benchmark-page__eyebrow workbench-page__eyebrow">Performance Lab</div>
-          <h2 class="workbench-page__title">算法性能评测</h2>
+      <div class="page-header workbench-page__header">
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z" />
+              <path d="M12 7v5l3 3" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">Performance Lab</div>
+            <h2 class="workbench-page__title">算法性能评测</h2>
+          </div>
         </div>
-        <p class="workbench-page__meta">选择数据集与算法组合，生成召回率/延迟对比。</p>
+        <div class="workbench-page__pill">评测 ANN 算法的召回率与延迟</div>
       </div>
 
       <a-row :gutter="16" class="benchmark-grid">
-        <a-col :xs="24" :lg="8">
+        <a-col v-if="auth.canResearch" :xs="24" :lg="8">
           <a-card class="panel-card workbench-panel" :bordered="false" title="运行评测">
             <a-form layout="vertical">
               <a-form-item label="数据集">
@@ -37,14 +45,16 @@
 
               <div class="algo-section">
                 <div class="algo-section__title">算法组合</div>
-                <div v-for="(cfg, idx) in algoConfigs" :key="idx" class="algo-card">
-                  <a-form-item label="算法">
-                    <a-select v-model:value="cfg.algorithm" :options="algorithmOptions" />
-                  </a-form-item>
-                  <a-form-item label="参数 JSON">
-                    <a-input v-model:value="cfg.paramsText" placeholder='{ "M": 16 }' />
-                  </a-form-item>
-                  <a-button danger size="small" @click="removeAlgo(idx)" :disabled="algoConfigs.length <= 1">删除</a-button>
+                <div class="algo-card-list">
+                  <div v-for="(cfg, idx) in algoConfigs" :key="idx" class="algo-card">
+                    <a-form-item label="算法">
+                      <a-select v-model:value="cfg.algorithm" :options="algorithmOptions" />
+                    </a-form-item>
+                    <a-form-item label="参数 JSON">
+                      <a-input v-model:value="cfg.paramsText" placeholder='{ "M": 16 }' />
+                    </a-form-item>
+                    <a-button type="primary" danger size="small" @click="removeAlgo(idx)" :disabled="algoConfigs.length <= 1">删除</a-button>
+                  </div>
                 </div>
                 <a-button type="dashed" block @click="addAlgo">添加算法</a-button>
               </div>
@@ -59,7 +69,7 @@
             <div class="table-toolbar workbench-table-toolbar">
               <a-select v-model:value="filterDatasetId" :options="datasetOptions" allow-clear placeholder="按数据集过滤" style="min-width: 200px" />
               <a-input v-model:value="filterLabel" placeholder="标签关键词" style="min-width: 200px" />
-              <a-button @click="loadBatches" :loading="listLoading">查询</a-button>
+              <a-button type="primary" @click="loadBatches" :loading="listLoading">查询</a-button>
             </div>
             <a-table
               :columns="batchColumns"
@@ -76,8 +86,8 @@
                 <template v-if="column.key === 'actions'">
                   <a-space>
                     <a-button size="small" @click.stop="selectBatch(record.id)">详情</a-button>
-                    <a-popconfirm title="确定删除该批次？" @confirm="deleteBatch(record.id)">
-                      <a-button size="small" danger>删除</a-button>
+                    <a-popconfirm v-if="auth.canResearch" title="确定删除该批次？" @confirm="deleteBatch(record.id)">
+                      <a-button size="small" type="primary" danger>删除</a-button>
                     </a-popconfirm>
                   </a-space>
                 </template>
@@ -111,6 +121,8 @@
 import { computed, onMounted, ref } from "vue"
 import { message } from "ant-design-vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
+import { useAuthStore } from "@/stores/auth"
+const auth = useAuthStore()
 import BenchmarkChart from "@/components/benchmark/BenchmarkChart.vue"
 import { listDatasets } from "@/api/search"
 import { getAlgorithms } from "@/api/indexes"
@@ -122,6 +134,7 @@ import {
   type BenchmarkBatchDetail,
   type BenchmarkBatchItem,
 } from "@/api/benchmark"
+import { showErrMsg } from "@/utils/error"
 
 const datasets = ref<any[]>([])
 const algorithms = ref<string[]>([])
@@ -131,7 +144,7 @@ const runK = ref(10)
 const runQueries = ref(100)
 const runSeed = ref(42)
 const algoConfigs = ref<Array<{ algorithm: string; paramsText: string }>>([
-  { algorithm: "flat", paramsText: "{}" },
+  { algorithm: "", paramsText: "{}" },
 ])
 const runLoading = ref(false)
 
@@ -182,18 +195,21 @@ function removeAlgo(idx: number) {
   algoConfigs.value.splice(idx, 1)
 }
 
-async function loadResources() {
+async function loadResources(silent = false) {
   try {
     const [ds, algos] = await Promise.all([listDatasets(), getAlgorithms()])
     datasets.value = ds
     algorithms.value = algos
-    if (!runDatasetId.value) runDatasetId.value = ds[0]?.id
-  } catch {
-    message.error("加载资源失败，请确认后端已启动")
+    if (algos.length > 0 && !algoConfigs.value[0].algorithm) {
+      algoConfigs.value[0].algorithm = algos[0]
+    }
+  } catch (err: any) {
+    if (!silent) showErrMsg(err, "加载资源失败")
+    throw err
   }
 }
 
-async function loadBatches() {
+async function loadBatches(silent = false) {
   listLoading.value = true
   try {
     batches.value = await listBenchmarkBatches({
@@ -201,7 +217,8 @@ async function loadBatches() {
       label: filterLabel.value || undefined,
     })
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "加载批次失败")
+    if (!silent) showErrMsg(err, "加载批次失败")
+    throw err
   } finally {
     listLoading.value = false
   }
@@ -211,7 +228,7 @@ async function selectBatch(batchId: number) {
   try {
     selectedBatch.value = await getBenchmarkBatch(batchId)
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "获取批次详情失败")
+    showErrMsg(err, "获取批次详情失败")
   }
 }
 
@@ -222,7 +239,7 @@ async function deleteBatch(batchId: number) {
     if (selectedBatch.value?.id === batchId) selectedBatch.value = null
     await loadBatches()
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "删除失败")
+    showErrMsg(err, "删除失败")
   }
 }
 
@@ -252,15 +269,18 @@ async function runBenchmark() {
     selectedBatch.value = batch
     await loadBatches()
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "评测失败")
+    showErrMsg(err, "评测失败")
   } finally {
     runLoading.value = false
   }
 }
 
 onMounted(async () => {
-  await loadResources()
-  await loadBatches()
+  try {
+    await Promise.all([loadResources(true), loadBatches(true)])
+  } catch (err: any) {
+    showErrMsg(err, "加载失败")
+  }
 })
 </script>
 
@@ -314,6 +334,13 @@ onMounted(async () => {
   margin-bottom: 14px;
 }
 
+.algo-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
 .algo-section__title {
   font-weight: 800;
   margin-bottom: 8px;
@@ -331,6 +358,7 @@ onMounted(async () => {
 .table-toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -353,16 +381,20 @@ onMounted(async () => {
 }
 
 .benchmark-grid {
+  flex: 1;
+  min-height: 0;
   display: grid !important;
   grid-template-columns: minmax(360px, 430px) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .benchmark-grid :deep(.ant-col) {
   width: auto;
   max-width: none;
   flex: none;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 992px) {
@@ -377,8 +409,10 @@ onMounted(async () => {
 }
 
 .benchmark-page {
-  min-height: 100%;
-  align-content: start;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   padding: 18px;
   background: #ffffff;
   border: 1px solid var(--bio-line);
@@ -409,16 +443,28 @@ onMounted(async () => {
   font-size: 13px;
 }
 
-.panel-card,
-.algo-card {
+.panel-card {
   border-radius: 9px;
   border: 1px solid var(--bio-line);
   background: var(--bio-panel);
   box-shadow: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-card :deep(.ant-card-body) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .algo-card {
+  border-radius: 9px;
+  border: 1px solid var(--bio-line);
   background: var(--bio-panel-muted);
+  box-shadow: none;
 }
 
 .algo-section__title {
@@ -429,4 +475,12 @@ onMounted(async () => {
 .detail-meta {
   color: #52667c;
 }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-title { display: flex; align-items: center; gap: 14px; }
+.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
+.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
+.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
+.page-meta { color: #64748b; font-size: 0.92rem; font-weight: 600; max-width: 480px; }
 </style>

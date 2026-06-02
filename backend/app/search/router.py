@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.auth.models import User
-from app.core.dependencies import get_current_user, get_db
+from app.core.dependencies import get_current_user, get_db, require_researcher
 from app.search import service
 from app.search.schemas import (
     BatchSearchRequest,
@@ -47,7 +47,7 @@ def search_by_vector(
 def search_batch(
     req: BatchSearchRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_researcher),
 ) -> BatchSearchResponse:
     return service.search_batch(db, req)
 
@@ -56,7 +56,7 @@ def search_batch(
 def compare_strategies(
     req: CompareStrategiesRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_researcher),
 ) -> CompareStrategiesResponse:
     """跑 post/pre/hybrid 三种过滤策略并返回 recall × latency × n_returned 对比。
 

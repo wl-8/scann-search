@@ -1,9 +1,10 @@
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.auth.models import User
 from app.auth.constants import (
     ROLE_ADMIN, ROLE_USER, ROLE_RESEARCHER,
     REVIEW_APPROVED, REVIEW_REJECTED, REVIEW_PENDING,
-    ACCOUNT_NORMAL, ACCOUNT_BANNED,
+    ACCOUNT_NORMAL, ACCOUNT_BANNED, ACCOUNT_LOCKED,
 )
 from app.users.schemas import UserUpdate
 from app.users.exceptions import UserNotFoundError, CannotModifyAdminError, InvalidRoleError
@@ -18,6 +19,18 @@ def _get_or_404(db: Session, user_id: int) -> User:
 
 
 def list_users(db: Session) -> list[User]:
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    expired = db.query(User).filter(
+        User.account_status == ACCOUNT_LOCKED,
+        User.locked_until != None,
+        User.locked_until <= now,
+    ).all()
+    for u in expired:
+        u.account_status = ACCOUNT_NORMAL
+        u.login_fail_count = 0
+        u.locked_until = None
+    if expired:
+        db.commit()
     return db.query(User).order_by(User.created_at.desc()).all()
 
 
@@ -71,6 +84,8 @@ def unban(db: Session, user_id: int) -> User:
 
 
 def set_role(db: Session, user_id: int, role: str) -> User:
+    if role == ROLE_ADMIN:
+        raise InvalidRoleError("不允许将用户提升为管理员")
     if role not in (ROLE_USER, ROLE_RESEARCHER):
         raise InvalidRoleError()
     user = _get_or_404(db, user_id)

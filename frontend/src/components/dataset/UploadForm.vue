@@ -62,6 +62,7 @@ import { ref } from "vue"
 import { message } from "ant-design-vue"
 import * as datasetsApi from "@/api/datasets"
 import request from "@/api/request"
+import { showErrMsg } from "@/utils/error"
 
 const emit = defineEmits<{ (e: "uploaded", payload: { name: string; size: number }): void }>()
 
@@ -118,7 +119,7 @@ async function beforeUpload(file: File) {
 		}
 		message.success(`文件已上传：${result.filename}，请填写信息后点注册`)
 	} catch (err: any) {
-		message.error(err?.message ?? "文件上传失败")
+		showErrMsg(err, "文件上传失败")
 		fileList.value = []
 	} finally {
 		fileUploading.value = false
@@ -152,7 +153,7 @@ async function submitRegister() {
 		embeddingKeyOptions.value = []
 		fileList.value = []
 	} catch (err: any) {
-		message.error(err?.response?.data?.detail ?? err?.message ?? "注册失败")
+		showErrMsg(err, "注册失败")
 	} finally {
 		loading.value = false
 		setTimeout(() => (progress.value = 0), 800)
@@ -323,6 +324,16 @@ async function submitRegister() {
 	background: var(--bio-panel);
 	border-color: var(--bio-line);
 	box-shadow: none;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.upload-card :deep(.ant-card-body) {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
 }
 
 .upload-card :deep(.ant-card-head) {
@@ -341,18 +352,26 @@ async function submitRegister() {
 }
 
 .upload-dragger {
+	border: none !important;
+	border-radius: 8px !important;
+	background: transparent !important;
+	box-shadow: none !important;
+}
+
+:deep(.ant-upload-wrapper) {
+	border: none !important;
+}
+
+:deep(.ant-upload-drag) {
 	border: 1px dashed rgba(20, 123, 209, 0.42) !important;
 	border-radius: 8px !important;
 	background: #f7fbfd !important;
 	box-shadow: none !important;
 }
 
-.upload-dragger:hover,
-.upload-dragger:focus-within {
+:deep(.ant-upload-drag:hover) {
 	background: #eaf6fd !important;
 	border-color: var(--bio-blue) !important;
-	box-shadow: none !important;
-	transform: none;
 }
 
 .upload-dragger__content {

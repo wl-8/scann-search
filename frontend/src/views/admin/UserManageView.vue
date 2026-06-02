@@ -1,12 +1,22 @@
 <template>
   <AppLayout>
     <div class="admin-page workbench-page workbench-page--grid">
-      <div class="admin-page__header workbench-page__header">
-        <div>
-          <div class="admin-page__eyebrow workbench-page__eyebrow">Admin Console</div>
-          <h2 class="workbench-page__title">用户管理</h2>
+      <div class="page-header workbench-page__header">
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <circle cx="9" cy="7" r="4" />
+              <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              <path d="M21 21v-2a4 4 0 0 0-3-3.85" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">User Management</div>
+            <h2 class="workbench-page__title">用户管理</h2>
+          </div>
         </div>
-        <p class="workbench-page__meta">审批注册、调整角色、封禁账号。</p>
+        <div class="workbench-page__pill">审批注册申请，管理用户角色权限</div>
       </div>
 
       <a-tabs v-model:activeKey="activeTab" class="admin-tabs">
@@ -14,7 +24,7 @@
           <a-card class="admin-card workbench-panel" :bordered="false">
             <div class="table-toolbar workbench-table-toolbar">
               <span class="toolbar-title">用户列表</span>
-              <a-button @click="loadAllUsers" :loading="loading">刷新</a-button>
+              <a-button type="primary" @click="loadAllUsers" :loading="loading">刷新</a-button>
             </div>
             <a-table
               :columns="columns"
@@ -26,12 +36,14 @@
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'role'">
                   <a-select
-                    v-model:value="record.role"
+                    v-if="record.role !== 'admin'"
+                    :value="record.role"
                     :options="roleOptions"
                     size="small"
                     style="min-width: 120px"
                     @change="(val: string) => onRoleChange(record, val)"
                   />
+                  <a-tag v-else color="red">admin</a-tag>
                 </template>
                 <template v-if="column.key === 'review_status'">
                   <a-tag :color="reviewColor(record.review_status)">{{ record.review_status }}</a-tag>
@@ -42,11 +54,11 @@
                 <template v-if="column.key === 'actions'">
                   <a-space>
                     <a-button v-if="record.review_status === 'pending'" size="small" type="primary" @click="approve(record.id)">通过</a-button>
-                    <a-button v-if="record.review_status === 'pending'" size="small" @click="reject(record.id)">拒绝</a-button>
+                    <a-button v-if="record.review_status === 'pending'" size="small" danger @click="reject(record.id)">拒绝</a-button>
                     <a-button v-if="record.account_status !== 'banned'" size="small" danger @click="ban(record.id)">封禁</a-button>
-                    <a-button v-else size="small" @click="unban(record.id)">解封</a-button>
+                    <a-button v-else size="small" type="default" @click="unban(record.id)">解封</a-button>
                     <a-popconfirm title="确定删除该用户？" @confirm="remove(record.id)">
-                      <a-button size="small">删除</a-button>
+                      <a-button size="small" type="primary" danger>删除</a-button>
                     </a-popconfirm>
                   </a-space>
                 </template>
@@ -59,7 +71,7 @@
           <a-card class="admin-card workbench-panel" :bordered="false">
             <div class="table-toolbar workbench-table-toolbar">
               <span class="toolbar-title">待审核用户</span>
-              <a-button @click="loadPendingUsers" :loading="pendingLoading">刷新</a-button>
+              <a-button type="primary" @click="loadPendingUsers" :loading="pendingLoading">刷新</a-button>
             </div>
             <a-table
               :columns="pendingColumns"
@@ -99,6 +111,7 @@ import {
   unbanUser,
   type UserResponse,
 } from "@/api/users"
+import { showErrMsg } from "@/utils/error"
 
 const users = ref<UserResponse[]>([])
 const pendingUsers = ref<UserResponse[]>([])
@@ -109,7 +122,6 @@ const activeTab = ref("all")
 const roleOptions = [
   { label: "user", value: "user" },
   { label: "researcher", value: "researcher" },
-  { label: "admin", value: "admin" },
 ]
 
 const columns = [
@@ -119,7 +131,7 @@ const columns = [
   { title: "角色", dataIndex: "role", key: "role", width: 140 },
   { title: "审核状态", dataIndex: "review_status", key: "review_status", width: 120 },
   { title: "账号状态", dataIndex: "account_status", key: "account_status", width: 120 },
-  { title: "失败次数", dataIndex: "login_fail_count", key: "login_fail_count", width: 90 },
+  { title: "登录失败", dataIndex: "login_fail_count", key: "login_fail_count", width: 90 },
   { title: "操作", key: "actions", width: 220 },
 ]
 
@@ -143,25 +155,27 @@ function accountColor(status: string) {
   return "default"
 }
 
-async function loadAllUsers() {
+async function loadAllUsers(silent = false) {
   loading.value = true
   try {
     const res = await listUsers()
     users.value = res.items
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "加载用户失败")
+    if (!silent) showErrMsg(err, "加载用户失败")
+    throw err
   } finally {
     loading.value = false
   }
 }
 
-async function loadPendingUsers() {
+async function loadPendingUsers(silent = false) {
   pendingLoading.value = true
   try {
     const res = await listPendingUsers()
     pendingUsers.value = res.items
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "加载待审核用户失败")
+    if (!silent) showErrMsg(err, "加载待审核用户失败")
+    throw err
   } finally {
     pendingLoading.value = false
   }
@@ -174,7 +188,7 @@ async function onRoleChange(user: UserResponse, role: string) {
     message.success("角色已更新")
     await loadAllUsers()
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "更新角色失败")
+    showErrMsg(err, "更新角色失败")
   }
 }
 
@@ -184,7 +198,7 @@ async function approve(userId: number) {
     message.success("已通过审核")
     await Promise.all([loadAllUsers(), loadPendingUsers()])
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "审核失败")
+    showErrMsg(err, "审核失败")
   }
 }
 
@@ -194,7 +208,7 @@ async function reject(userId: number) {
     message.success("已拒绝")
     await Promise.all([loadAllUsers(), loadPendingUsers()])
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "拒绝失败")
+    showErrMsg(err, "拒绝失败")
   }
 }
 
@@ -204,7 +218,7 @@ async function ban(userId: number) {
     message.success("用户已封禁")
     await loadAllUsers()
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "封禁失败")
+    showErrMsg(err, "封禁失败")
   }
 }
 
@@ -214,7 +228,7 @@ async function unban(userId: number) {
     message.success("用户已解封")
     await loadAllUsers()
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "解封失败")
+    showErrMsg(err, "解封失败")
   }
 }
 
@@ -224,13 +238,16 @@ async function remove(userId: number) {
     message.success("用户已删除")
     await Promise.all([loadAllUsers(), loadPendingUsers()])
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "删除失败")
+    showErrMsg(err, "删除失败")
   }
 }
 
-onMounted(() => {
-  loadAllUsers()
-  loadPendingUsers()
+onMounted(async () => {
+  try {
+    await Promise.all([loadAllUsers(true), loadPendingUsers(true)])
+  } catch (err: any) {
+    showErrMsg(err, "加载用户失败")
+  }
 })
 </script>
 
@@ -346,4 +363,11 @@ onMounted(() => {
   color: var(--bio-navy);
   font-weight: 850;
 }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-title { display: flex; align-items: center; gap: 14px; }
+.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
+.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
+.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
 </style>

@@ -201,7 +201,7 @@ select {
 }
 
 .workbench-page__eyebrow {
-	color: var(--bio-muted);
+	color: #007bff;
 	font-size: 12px;
 	font-weight: 850;
 	letter-spacing: 0.06em;

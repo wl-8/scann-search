@@ -25,6 +25,7 @@ router.beforeEach(async (to) => {
       if (!auth.isLoggedIn) return "/login"
     }
     if (to.meta.requiresAdmin && !auth.isAdmin) return "/dashboard"
+    if (to.meta.requiresResearcher && !auth.canResearch) return "/dashboard"
   }
 })
 

@@ -1,12 +1,21 @@
 <template>
   <AppLayout>
     <div class="export-page workbench-page workbench-page--grid">
-      <div class="export-page__header workbench-page__header">
-        <div>
-          <div class="export-page__eyebrow workbench-page__eyebrow">Export Center</div>
-          <h2 class="workbench-page__title">结果导出</h2>
+      <div class="page-header workbench-page__header">
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <path d="M14 2v6h6" />
+              <path d="M9 13h6M12 10v6" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">Export Center</div>
+            <h2 class="workbench-page__title">结果导出</h2>
+          </div>
         </div>
-        <p class="workbench-page__meta">导出最近一次检索、过滤或指定 Benchmark 批次的 CSV。</p>
+        <div class="workbench-page__pill">将检索与过滤结果导出为 CSV</div>
       </div>
 
       <a-row :gutter="16" class="export-grid">
@@ -42,6 +51,7 @@ import { ref } from "vue"
 import { message } from "ant-design-vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import { exportBenchmarkCsv, exportFilterCsv, exportSearchCsv } from "@/api/export"
+import { showErrMsg } from "@/utils/error"
 
 const searchLoading = ref(false)
 const filterLoading = ref(false)
@@ -63,7 +73,7 @@ async function exportSearch() {
     const blob = await exportSearchCsv()
     downloadBlob(blob, "search_export.csv")
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "导出失败")
+    showErrMsg(err, "导出失败")
   } finally {
     searchLoading.value = false
   }
@@ -75,7 +85,7 @@ async function exportFilter() {
     const blob = await exportFilterCsv()
     downloadBlob(blob, "filter_export.csv")
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "导出失败")
+    showErrMsg(err, "导出失败")
   } finally {
     filterLoading.value = false
   }
@@ -97,7 +107,7 @@ async function exportBenchmark() {
     const blob = await exportBenchmarkCsv(ids)
     downloadBlob(blob, `benchmark_${ids.join("_")}.csv`)
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "导出失败")
+    showErrMsg(err, "导出失败")
   } finally {
     benchmarkLoading.value = false
   }
@@ -166,7 +176,7 @@ async function exportBenchmark() {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(260px, 1fr));
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .export-grid :deep(.ant-col) {
@@ -221,10 +231,18 @@ async function exportBenchmark() {
 
 .export-card {
   min-height: 190px;
+  height: 100%;
   border-radius: 9px;
   border: 1px solid var(--bio-line);
   background: var(--bio-panel);
   box-shadow: none;
+}
+
+.export-card :deep(.ant-card-body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .export-card__title {
@@ -235,5 +253,14 @@ async function exportBenchmark() {
 
 .export-card__desc {
   color: #52667c;
+  flex: 1;
 }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-title { display: flex; align-items: center; gap: 14px; }
+.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
+.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
+.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
+.page-meta { color: #64748b; font-size: 0.92rem; font-weight: 600; max-width: 480px; }
 </style>

@@ -168,31 +168,12 @@ function parseVector(raw: string | undefined) {
     .map(Number)
 }
 
-export async function listDatasets(options: ApiListOptions = {}) {
-  try {
-    return (await request.get("/datasets")) as DatasetItem[]
-  } catch (e) {
-    // 在开发模式下回退到示例数据，便于未启动后端时演示
-    if (import.meta.env.DEV && options.mockFallback !== false) {
-      return Promise.resolve([
-        { id: 1, name: "PBMC-3k", status: "ready", n_cells: 3200, vector_dim: 64 },
-      ])
-    }
-    throw e
-  }
+export async function listDatasets(_options: ApiListOptions = {}) {
+  return (await request.get("/datasets")) as DatasetItem[]
 }
 
-export async function listIndexes(datasetId?: number, options: ApiListOptions = {}) {
-  try {
-    return (await request.get("/index", { params: datasetId ? { dataset_id: datasetId } : undefined })) as IndexItem[]
-  } catch (e) {
-    if (import.meta.env.DEV && options.mockFallback !== false) {
-      return Promise.resolve([
-        { id: 1, dataset_id: datasetId ?? 1, algorithm: "hnsw", status: "ready", n_vectors: 3200, vector_dim: 64 },
-      ])
-    }
-    throw e
-  }
+export async function listIndexes(datasetId?: number, _options: ApiListOptions = {}) {
+  return (await request.get("/index", { params: datasetId ? { dataset_id: datasetId } : undefined })) as IndexItem[]
 }
 
 // 调用 sjq 后端检索接口：POST /search/by-cell 或 /search/by-vector

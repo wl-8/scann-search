@@ -2,13 +2,21 @@
   <AppLayout>
     <div class="multi-search-page workbench-page workbench-page--grid">
       <div class="page-header workbench-page__header">
-        <div>
-          <div class="page-crumb workbench-page__eyebrow">检索 / Multi</div>
-          <h2 class="workbench-page__title">批量检索与过滤策略对比</h2>
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M11 4a7 7 0 105.196 11.688L20 20.5" />
+              <path d="M7 4a7 7 0 105.196 11.688" opacity="0.4" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">Multi Search</div>
+            <h2 class="workbench-page__title">批量检索与过滤策略对比</h2>
+          </div>
         </div>
-        <div class="page-meta workbench-page__pill">
+        <div class="workbench-page__pill">
           <span v-if="resourceLoading">资源加载中...</span>
-          <span v-else>选择数据集与索引后开始批量检索或策略对比</span>
+          <span v-else>选择数据集与索引后开始批量检索</span>
         </div>
       </div>
 
@@ -38,7 +46,7 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :md="8" class="resource-actions">
-              <a-button block :loading="resourceLoading" @click="loadResources">刷新资源</a-button>
+              <a-button block type="primary" :loading="resourceLoading" @click="loadResources">刷新资源</a-button>
             </a-col>
           </a-row>
         </a-form>
@@ -70,11 +78,19 @@
                       :options="columnOptions"
                       allow-clear
                       placeholder="例如: cell_type"
-                      @change="batchFilterValues = ''"
+                      @change="batchFilterValues = []; batchFilterValuesText = ''"
                     />
                   </a-form-item>
                   <a-form-item label="过滤值（可多个）">
-                    <a-input v-model:value="batchFilterValues" placeholder="例如: Type0, Type1" />
+                    <a-select
+                      v-if="batchValueOptions.length"
+                      v-model:value="batchFilterValues"
+                      mode="multiple"
+                      :options="batchValueOptions"
+                      placeholder="选择过滤值"
+                      style="width: 100%"
+                    />
+                    <a-input v-else v-model:value="batchFilterValuesText" placeholder="例如: Type0, Type1" />
                   </a-form-item>
                   <a-button type="primary" block :loading="batchLoading" @click="runBatchSearch">开始批量检索</a-button>
                 </a-form>
@@ -125,10 +141,18 @@
                     <a-input v-else v-model:value="compareQuery" placeholder="例如: cell_0042" />
                   </a-form-item>
                   <a-form-item label="过滤字段">
-                    <a-select v-model:value="compareFilterColumn" :options="columnOptions" @change="compareFilterValues = ''" />
+                    <a-select v-model:value="compareFilterColumn" :options="columnOptions" @change="compareFilterValues = []; compareFilterValuesText = ''" />
                   </a-form-item>
                   <a-form-item label="过滤值（必填，可多个）">
-                    <a-input v-model:value="compareFilterValues" placeholder="例如: Type0" />
+                    <a-select
+                      v-if="compareValueOptions.length"
+                      v-model:value="compareFilterValues"
+                      mode="multiple"
+                      :options="compareValueOptions"
+                      placeholder="选择过滤值"
+                      style="width: 100%"
+                    />
+                    <a-input v-else v-model:value="compareFilterValuesText" placeholder="例如: Type0" />
                   </a-form-item>
                   <a-form-item label="Metric">
                     <a-select v-model:value="compareMetric" :options="metricOptions" />
@@ -190,9 +214,10 @@
 import { computed, onMounted, ref } from "vue"
 import { message } from "ant-design-vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
-import { batchSearch, compareStrategies, listDatasets, listIndexes, type CompareStrategiesResponse } from "@/api/search"
+import { batchSearch, compareStrategies as compareStrategiesApi, listDatasets, listIndexes, type CompareStrategiesResponse } from "@/api/search"
 import request from "@/api/request"
 import type { BatchSearchResponse, SearchFilter } from "@/api/search"
+import { showErrMsg } from "@/utils/error"
 
 const activeTab = ref("batch")
 const resourceLoading = ref(false)
@@ -207,14 +232,16 @@ const batchAggregate = ref("ranked")
 const batchMetric = ref("l2")
 const batchK = ref(10)
 const batchFilterColumn = ref<string | undefined>()
-const batchFilterValues = ref("")
+const batchFilterValues = ref<string[]>([])
+const batchFilterValuesText = ref("")
 const batchResult = ref<BatchSearchResponse | null>(null)
 const batchLoading = ref(false)
 
 const compareQueryType = ref<"id" | "vector">("id")
 const compareQuery = ref("")
 const compareFilterColumn = ref<string | undefined>()
-const compareFilterValues = ref("")
+const compareFilterValues = ref<string[]>([])
+const compareFilterValuesText = ref("")
 const compareMetric = ref("l2")
 const compareK = ref(10)
 const compareOversample = ref(10)
@@ -239,6 +266,14 @@ const indexOptions = computed(() =>
 )
 
 const columnOptions = computed(() => (obsStats.value?.obs_columns ?? []).map((c) => ({ label: c, value: c })))
+const batchValueOptions = computed(() => {
+  if (!batchFilterColumn.value || !obsStats.value?.value_counts[batchFilterColumn.value]) return []
+  return Object.keys(obsStats.value.value_counts[batchFilterColumn.value]).map((v) => ({ label: v, value: v }))
+})
+const compareValueOptions = computed(() => {
+  if (!compareFilterColumn.value || !obsStats.value?.value_counts[compareFilterColumn.value]) return []
+  return Object.keys(obsStats.value.value_counts[compareFilterColumn.value]).map((v) => ({ label: v, value: v }))
+})
 const aggregateOptions = [
   { label: "ranked", value: "ranked" },
   { label: "union", value: "union" },
@@ -268,7 +303,6 @@ const strategyColumns = [
   { title: "返回数", dataIndex: "n_returned", key: "n_returned", width: 90 },
   { title: "耗时(ms)", dataIndex: "latency_ms", key: "latency_ms", width: 120 },
   { title: "Recall@K", dataIndex: "recall_at_k", key: "recall_at_k", width: 110 },
-  { title: "备注", dataIndex: "note", key: "note" },
 ]
 
 const strategyHitColumns = [
@@ -289,7 +323,6 @@ const batchRows = computed(() =>
 const strategyRows = computed(() =>
   (compareResult.value?.results ?? []).map((item) => ({
     ...item,
-    note: item.extra?.skipped_reason ?? "-",
   }))
 )
 
@@ -309,13 +342,12 @@ async function loadResources() {
   resourceLoading.value = true
   try {
     datasets.value = await listDatasets()
-    const initialDatasetId = selectedDatasetId.value ?? readyDatasets.value[0]?.id
-    selectedDatasetId.value = initialDatasetId
-    indexes.value = await listIndexes(initialDatasetId)
-    selectedIndexId.value = readyIndexes.value[0]?.id
-    if (initialDatasetId) await fetchObsStats(initialDatasetId)
+    if (selectedDatasetId.value) {
+      indexes.value = await listIndexes(selectedDatasetId.value)
+      await fetchObsStats(selectedDatasetId.value)
+    }
   } catch (err: any) {
-    message.warning(err?.response?.data?.detail ?? err?.message ?? "资源加载失败")
+    showErrMsg(err, "加载资源失败")
   } finally {
     resourceLoading.value = false
   }
@@ -342,9 +374,8 @@ function parseCellIds(raw: string) {
     .filter(Boolean)
 }
 
-function buildEqualsFilter(column?: string, valuesText?: string): SearchFilter | undefined {
-  const values = parseCellIds(valuesText ?? "")
-  if (!column || values.length === 0) return undefined
+function buildEqualsFilter(column?: string, values?: string[]): SearchFilter | undefined {
+  if (!column || !values?.length) return undefined
   return { equals: { [column]: values } }
 }
 
@@ -364,7 +395,8 @@ async function runBatchSearch() {
 
   batchLoading.value = true
   try {
-    const filters = buildEqualsFilter(batchFilterColumn.value, batchFilterValues.value)
+    const batchVals = batchValueOptions.value.length ? batchFilterValues.value : batchFilterValuesText.value.split(/[\s,]+/).map(s => s.trim()).filter(Boolean)
+    const filters = buildEqualsFilter(batchFilterColumn.value, batchVals)
     batchResult.value = await batchSearch({
       indexId: selectedIndexId.value,
       cellIds,
@@ -374,7 +406,7 @@ async function runBatchSearch() {
       filters,
     })
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "批量检索失败")
+    showErrMsg(err, "批量检索失败")
   } finally {
     batchLoading.value = false
   }
@@ -382,11 +414,12 @@ async function runBatchSearch() {
 
 async function runCompare() {
   if (!selectedIndexId.value) return message.warning("请先选择索引")
-  if (!compareFilterColumn.value || !compareFilterValues.value.trim()) {
+  const compareVals = compareValueOptions.value.length ? compareFilterValues.value : compareFilterValuesText.value.split(/[\s,]+/).map(s => s.trim()).filter(Boolean)
+  if (!compareFilterColumn.value || !compareVals.length) {
     return message.warning("过滤条件不能为空")
   }
 
-  const filters = buildEqualsFilter(compareFilterColumn.value, compareFilterValues.value)
+  const filters = buildEqualsFilter(compareFilterColumn.value, compareVals)
   if (!filters) return message.warning("过滤条件不能为空")
 
   compareLoading.value = true
@@ -408,10 +441,10 @@ async function runCompare() {
       return message.warning("请输入查询内容")
     }
 
-    compareResult.value = await compareStrategies(payload)
+    compareResult.value = await compareStrategiesApi(payload)
     selectedStrategy.value = compareResult.value.results[0]?.strategy ?? "post"
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "策略对比失败")
+    showErrMsg(err, "策略对比失败")
   } finally {
     compareLoading.value = false
   }
@@ -478,23 +511,31 @@ onMounted(loadResources)
 .resource-actions {
   display: flex;
   align-items: flex-end;
+  padding-bottom: 24px;
 }
 
 .multi-tabs :deep(.ant-tabs-nav) {
   margin-bottom: 12px;
 }
 
-.multi-tabs :deep(.ant-tab-pane > .ant-row) {
+.multi-tabs :deep(.ant-tabs-content),
+.multi-tabs :deep(.ant-tabs-tabpane) {
+  height: 100%;
+}
+
+.multi-tabs :deep(.ant-tabs-tabpane > .ant-row) {
   display: grid !important;
   grid-template-columns: minmax(360px, 430px) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
-.multi-tabs :deep(.ant-tab-pane > .ant-row > .ant-col) {
+.multi-tabs :deep(.ant-tabs-tabpane > .ant-row > .ant-col) {
   width: auto;
   max-width: none;
   flex: none;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-card {
@@ -548,7 +589,7 @@ onMounted(loadResources)
     align-items: flex-start;
   }
 
-  .multi-tabs :deep(.ant-tab-pane > .ant-row) {
+  .multi-tabs :deep(.ant-tabs-tabpane > .ant-row) {
     grid-template-columns: 1fr;
   }
 }
@@ -597,6 +638,17 @@ onMounted(loadResources)
   border: 1px solid var(--bio-line);
   background: var(--bio-panel);
   box-shadow: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.resource-card :deep(.ant-card-body),
+.panel-card :deep(.ant-card-body) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .resource-card__title,
@@ -609,4 +661,12 @@ onMounted(loadResources)
   margin-bottom: 14px;
   border-bottom: 1px solid var(--bio-line);
 }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-title { display: flex; align-items: center; gap: 14px; }
+.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
+.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
+.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
+.page-meta { color: #64748b; font-size: 0.92rem; font-weight: 600; max-width: 480px; }
 </style>

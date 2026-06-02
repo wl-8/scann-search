@@ -2,9 +2,9 @@
   <div class="login-page">
     <div class="login-card">
       <div class="login-card__header">
-        <p class="login-card__eyebrow">Workspace Login</p>
-        <h2>登录</h2>
-        <p class="login-card__subtitle">使用你的账号继续访问系统。</p>
+        <p class="login-card__eyebrow">scann-search Workbench</p>
+        <h2>{{ mode === 'login' ? '登录' : '注册' }}</h2>
+        <p class="login-card__subtitle">{{ mode === 'login' ? '使用你的账号继续访问系统。' : '填写信息提交注册申请，审核通过后即可登录。' }}</p>
       </div>
 
       <div class="login-tabs">
@@ -15,40 +15,62 @@
       <form v-if="mode === 'login'" class="login-form" @submit.prevent="onLogin">
         <div class="field">
           <label>用户名</label>
-          <input v-model="username" placeholder="输入用户名" />
+          <input v-model="username" placeholder="输入用户名" autocomplete="username" />
         </div>
 
         <div class="field">
           <label>密码</label>
-          <input v-model="password" type="password" placeholder="输入密码" />
+          <div class="input-wrap">
+            <input v-model="password" :type="showLoginPwd ? 'text' : 'password'" placeholder="输入密码" autocomplete="current-password" />
+            <button type="button" class="eye-btn" @click="showLoginPwd = !showLoginPwd" :aria-label="showLoginPwd ? '隐藏密码' : '显示密码'">
+              <svg v-if="showLoginPwd" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              <svg v-else viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
 
-        <button type="submit" class="login-button">登录</button>
+        <button type="submit" class="login-button" :disabled="loginLoading">
+          {{ loginLoading ? '登录中…' : '登录' }}
+        </button>
       </form>
 
       <form v-else class="login-form" @submit.prevent="onRegister">
         <div class="field">
           <label>用户名</label>
-          <input v-model="registerUsername" placeholder="字母/数字/下划线，3-32 位" />
+          <input v-model="registerUsername" placeholder="字母/数字/下划线，3-32 位" autocomplete="username" />
         </div>
 
         <div class="field">
           <label>邮箱</label>
-          <input v-model="registerEmail" type="email" placeholder="name@example.com" />
+          <input v-model="registerEmail" type="email" placeholder="name@example.com" autocomplete="email" />
         </div>
 
         <div class="field">
           <label>密码</label>
-          <input v-model="registerPassword" type="password" placeholder="至少 8 位，含大写字母和数字" />
+          <div class="input-wrap">
+            <input v-model="registerPassword" :type="showRegPwd ? 'text' : 'password'" placeholder="至少 8 位，含大写字母和数字" autocomplete="new-password" />
+            <button type="button" class="eye-btn" @click="showRegPwd = !showRegPwd">
+              <svg v-if="showRegPwd" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              <svg v-else viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="field">
           <label>确认密码</label>
-          <input v-model="registerPasswordConfirm" type="password" placeholder="再次输入密码" />
+          <div class="input-wrap">
+            <input v-model="registerPasswordConfirm" :type="showRegPwdConfirm ? 'text' : 'password'" placeholder="再次输入密码" autocomplete="new-password" />
+            <button type="button" class="eye-btn" @click="showRegPwdConfirm = !showRegPwdConfirm">
+              <svg v-if="showRegPwdConfirm" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              <svg v-else viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
 
         <p class="form-hint">注册后需要管理员审核通过才能登录。</p>
-        <button type="submit" class="login-button">提交注册</button>
+        <button type="submit" class="login-button" :disabled="registerLoading">
+          {{ registerLoading ? '提交中…' : '提交注册' }}
+        </button>
       </form>
     </div>
   </div>
@@ -56,8 +78,10 @@
 
 <script setup lang="ts">
 import { ref } from "vue"
+import { message } from "ant-design-vue"
 import { useAuthStore } from "@/stores/auth"
 import { register } from "@/api/auth"
+import { showErrMsg } from "@/utils/error"
 
 const username = ref("")
 const password = ref("")
@@ -67,13 +91,20 @@ const registerUsername = ref("")
 const registerEmail = ref("")
 const registerPassword = ref("")
 const registerPasswordConfirm = ref("")
+const loginLoading = ref(false)
+const registerLoading = ref(false)
+const showLoginPwd = ref(false)
+const showRegPwd = ref(false)
+const showRegPwdConfirm = ref(false)
 
 async function onLogin() {
+  loginLoading.value = true
   try {
     await auth.login(username.value, password.value)
   } catch (err: any) {
-    const detail = err?.response?.data?.detail ?? err?.message ?? "用户名或密码错误"
-    alert(`登录失败：${detail}`)
+    showErrMsg(err, "登录失败，用户名或密码错误")
+  } finally {
+    loginLoading.value = false
   }
 }
 
@@ -83,34 +114,24 @@ async function onRegister() {
   const pwd = registerPassword.value
   const confirm = registerPasswordConfirm.value
 
-  if (!uname || !email || !pwd) {
-    alert("请填写完整的注册信息")
-    return
-  }
-  if (!/^[a-zA-Z0-9_]{3,32}$/.test(uname)) {
-    alert("用户名只能包含字母、数字、下划线，长度 3-32")
-    return
-  }
-  if (pwd.length < 8 || !/[A-Z]/.test(pwd) || !/[0-9]/.test(pwd)) {
-    alert("密码至少 8 位，需包含大写字母和数字")
-    return
-  }
-  if (pwd !== confirm) {
-    alert("两次输入的密码不一致")
-    return
-  }
+  if (!uname || !email || !pwd) return message.warning("请填写完整的注册信息")
+  if (!/^[a-zA-Z0-9_]{3,32}$/.test(uname)) return message.warning("用户名需包含字母、数字、下划线，长度 3-32")
+  if (pwd.length < 8 || !/[A-Z]/.test(pwd) || !/[0-9]/.test(pwd)) return message.warning("密码至少 8 位，需包含大写字母和数字")
+  if (pwd !== confirm) return message.warning("两次输入的密码不一致")
 
+  registerLoading.value = true
   try {
     const res = await register({ username: uname, email, password: pwd }) as any
-    alert(res?.message ?? "注册成功，请等待管理员审核")
+    message.success(res?.message ?? "注册成功，请等待管理员审核")
     registerUsername.value = ""
     registerEmail.value = ""
     registerPassword.value = ""
     registerPasswordConfirm.value = ""
     mode.value = "login"
   } catch (err: any) {
-    const detail = err?.response?.data?.detail ?? err?.message ?? "注册失败"
-    alert(`注册失败：${detail}`)
+    showErrMsg(err, "注册失败")
+  } finally {
+    registerLoading.value = false
   }
 }
 </script>
@@ -232,6 +253,52 @@ async function onRegister() {
   font-size: 13px;
   font-weight: 800;
   color: var(--bio-navy);
+}
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrap input {
+  flex: 1;
+  padding-right: 40px;
+}
+
+.eye-btn {
+  position: absolute;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #8b98a8;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color 0.18s ease;
+}
+
+.eye-btn:hover {
+  color: var(--bio-blue);
+}
+
+.eye-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
 }
 
 .login-page input {
