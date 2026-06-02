@@ -1,34 +1,52 @@
 <template>
   <AppLayout>
-    <div class="visualize-page">
-      <a-card class="control-panel" :bordered="false">
-        <div class="control-panel__inner">
-          <div class="control-panel__header">
-            <div>
-              <div class="control-panel__eyebrow">UMAP Control Bar</div>
-              <h2>单细胞数据 UMAP 可视化</h2>
-            </div>
-            <p>选择维度、着色方式与 Top-K，然后刷新图谱查看分布。</p>
+    <div class="visualize-page workbench-page workbench-page--grid">
+      <div class="page-header workbench-page__header">
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <circle cx="6" cy="18" r="2" /><circle cx="12" cy="10" r="2" />
+              <circle cx="18" cy="14" r="2" /><circle cx="9" cy="5" r="2" />
+              <circle cx="16" cy="6" r="2" /><circle cx="4" cy="12" r="2" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">Visualization</div>
+            <h2 class="workbench-page__title">单细胞数据嵌入可视化</h2>
           </div>
+        </div>
+        <div class="workbench-page__pill">选择数据集，探索细胞空间分布</div>
+      </div>
 
-          <a-row :gutter="16" align="middle" class="control-row">
+      <a-card class="control-panel workbench-panel" :bordered="false">
+        <div class="control-panel__inner">
+
+          <a-row :gutter="16" align="middle" class="control-row workbench-control-band">
           <a-col :xs="24" :md="6">
-            <a-select v-model:value="dimension" class="control-select">
+            <a-select
+              v-model:value="selectedDatasetId"
+              :options="datasetOptions"
+              placeholder="选择数据集"
+              class="control-select"
+              :loading="datasetsLoading"
+              @change="onDatasetChange"
+            />
+          </a-col>
+          <a-col :xs="24" :md="4">
+            <a-select v-model:value="dimension" class="control-select" :disabled="!selectedDatasetId">
               <a-select-option :value="2">2D</a-select-option>
-              <a-select-option :value="3">3D</a-select-option>
+              <a-select-option :value="3" :disabled="!availableModes.includes('3d')">3D</a-select-option>
             </a-select>
           </a-col>
           <a-col :xs="24" :md="6">
             <a-select v-model:value="colorBy" class="control-select">
-              <a-select-option value="cell_type">按 cell_type</a-select-option>
-              <a-select-option value="dataset">按 dataset</a-select-option>
-              <a-select-option value="disease">按 disease</a-select-option>
+              <a-select-option v-for="col in colorOptions" :key="col" :value="col">按 {{ col }}</a-select-option>
             </a-select>
           </a-col>
-          <a-col :xs="24" :md="6">
+          <a-col :xs="24" :md="4">
             <a-input-number v-model:value="topK" :min="1" :max="50" class="control-number" />
           </a-col>
-          <a-col :xs="24" :md="6">
+          <a-col :xs="24" :md="4">
             <a-button type="primary" block class="refresh-button" :loading="loading" @click="loadPoints">刷新图谱</a-button>
           </a-col>
           </a-row>
@@ -37,22 +55,28 @@
 
       <a-row :gutter="16" class="visualize-layout">
         <a-col :xs="24" :lg="16">
-          <a-card class="chart-card" :bordered="false">
+          <a-card class="chart-card workbench-panel" :bordered="false">
             <template #title>
               <div class="card-title card-title--accent">
                 <span class="card-title__bar" aria-hidden="true"></span>
-                <span>UMAP 可视化</span>
+                <span>嵌入空间可视化</span>
               </div>
             </template>
             <div class="chart-card__body">
-              <div class="chart-skeleton" aria-hidden="true">
-                <span v-for="n in 42" :key="n" class="chart-skeleton__dot" :style="{ '--delay': `${n * 0.03}s` }"></span>
+              <div v-if="loading" class="chart-loading">
+                <a-spin size="large" />
+                <p>加载中，共 {{ allDatasets.find(d => d.id === selectedDatasetId)?.n_cells?.toLocaleString() ?? '?' }} 个细胞…</p>
+              </div>
+              <div v-else-if="!points.length" class="chart-empty">
+                <a-empty description="暂无数据，请点击「刷新图谱」" />
               </div>
               <UmapPlot
+                v-if="points.length"
                 :points="points"
                 :dimension="dimension"
                 :colorBy="colorBy"
                 :selectedId="selectedPoint?.id ?? null"
+                :highlightPoints="highlightPoints"
                 @point-click="onPointClick"
               />
             </div>
@@ -60,74 +84,74 @@
         </a-col>
 
         <a-col :xs="24" :lg="8">
-          <div class="sidebar-stack">
-            <a-card class="info-card" :bordered="false">
-              <template #title>
-                <div class="card-title"><span>选中细胞</span></div>
-              </template>
-              <div v-if="selectedPoint" class="selected-panel">
-                <p><strong>ID：</strong>{{ selectedPoint.id }}</p>
-                <p><strong>cell_type：</strong>{{ selectedPoint.cell_type }}</p>
-                <p><strong>dataset：</strong>{{ selectedPoint.dataset }}</p>
-                <p><strong>metadata：</strong></p>
-                <pre>{{ JSON.stringify(selectedPoint.metadata, null, 2) }}</pre>
+          <a-collapse v-model:activeKey="sidebarOpenKeys" class="sidebar-collapse" :bordered="false" accordion>
+            <a-collapse-panel key="locate" header="高亮定位">
+              <div class="locate-panel">
+                <a-textarea v-model:value="locateInput" :auto-size="{ minRows: 3, maxRows: 5 }" placeholder="输入 cell_id（逗号或换行分隔）" />
+                <a-button type="primary" block :loading="locateLoading" @click="locateCells">定位并高亮</a-button>
               </div>
-              <div v-else class="empty-waiting">
-                <div class="empty-waiting__box">
-                  <div class="empty-waiting__icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M4 18h16" />
-                      <path d="M6 18V7" />
-                      <path d="M10 18V11" />
-                      <path d="M14 18V5" />
-                      <path d="M18 18V9" />
-                    </svg>
+            </a-collapse-panel>
+
+            <a-collapse-panel key="selected" header="选中细胞">
+              <div class="panel-scroll-body">
+                <div v-if="selectedPoint" class="selected-panel">
+                  <p><strong>ID：</strong>{{ selectedPoint.id }}</p>
+                  <p><strong>cell_type：</strong>{{ selectedPoint.cell_type }}</p>
+                  <p><strong>dataset：</strong>{{ selectedPoint.dataset }}</p>
+                  <p><strong>metadata：</strong></p>
+                  <pre>{{ JSON.stringify(selectedPoint.metadata, null, 2) }}</pre>
+                </div>
+                <div v-else class="empty-waiting">
+                  <div class="empty-waiting__box">
+                    <div class="empty-waiting__icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M4 18h16" /><path d="M6 18V7" /><path d="M10 18V11" /><path d="M14 18V5" /><path d="M18 18V9" />
+                      </svg>
+                    </div>
+                    <p>点击左侧散点图中的任一点查看详情，并自动发起相似性查询。</p>
                   </div>
-                  <p>点击左侧散点图中的任一点查看详情，并自动发起相似性查询。</p>
                 </div>
               </div>
-            </a-card>
+            </a-collapse-panel>
 
-            <a-card class="info-card" :bordered="false">
-              <template #title>
-                <div class="card-title"><span>相似细胞结果</span></div>
-              </template>
-              <a-table
-                class="neighbor-table"
-                :columns="neighborColumns"
-                :data-source="neighbors"
-                :pagination="false"
-                size="small"
-                row-key="rank"
-                :loading="neighborLoading"
-              />
-            </a-card>
+            <a-collapse-panel key="neighbors" header="相似细胞结果">
+              <div class="panel-scroll-body">
+                <a-table
+                  class="neighbor-table"
+                  :columns="neighborColumns"
+                  :data-source="neighbors"
+                  :pagination="false"
+                  size="small"
+                  row-key="rank"
+                  :loading="neighborLoading"
+                />
+              </div>
+            </a-collapse-panel>
 
-            <a-card class="info-card" :bordered="false">
-              <template #title>
-                <div class="card-title"><span>数据分布统计</span></div>
-              </template>
-              <div v-if="facets" class="facets-visual">
-                <div v-for="(vals, key) in facets" :key="key" class="facet-block">
-                  <strong>{{ key }}</strong>
-                  <div class="facet-list">
-                    <div v-for="(count, name) in vals" :key="name" class="facet-row">
-                      <span class="facet-row__name">{{ name }}</span>
-                      <span class="facet-row__value">{{ count }}</span>
+            <a-collapse-panel key="stats" header="数据分布统计">
+              <div class="panel-scroll-body">
+                <div v-if="facets" class="facets-visual">
+                  <div v-for="(vals, key) in facets" :key="key" class="facet-block">
+                    <strong>{{ key }}</strong>
+                    <div class="facet-list">
+                      <div v-for="(count, name) in vals" :key="name" class="facet-row">
+                        <span class="facet-row__name">{{ name }}</span>
+                        <span class="facet-row__value">{{ count }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div v-else class="stats-empty">
-                <div class="stats-skeleton" aria-hidden="true">
-                  <span class="stats-skeleton__bar stats-skeleton__bar--1"></span>
-                  <span class="stats-skeleton__bar stats-skeleton__bar--2"></span>
-                  <span class="stats-skeleton__bar stats-skeleton__bar--3"></span>
+                <div v-else class="stats-empty">
+                  <div class="stats-skeleton" aria-hidden="true">
+                    <span class="stats-skeleton__bar stats-skeleton__bar--1"></span>
+                    <span class="stats-skeleton__bar stats-skeleton__bar--2"></span>
+                    <span class="stats-skeleton__bar stats-skeleton__bar--3"></span>
+                  </div>
+                  <div class="stats-empty__text">暂无数据</div>
                 </div>
-                <div class="stats-empty__text">暂无数据</div>
               </div>
-            </a-card>
-          </div>
+            </a-collapse-panel>
+          </a-collapse>
         </a-col>
       </a-row>
     </div>
@@ -135,11 +159,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue"
+import { computed, onMounted, ref, watch } from "vue"
+import { message } from "ant-design-vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import UmapPlot from "@/components/visualize/UmapPlot.vue"
-import { browseSearch, listDatasets } from "@/api/search"
+import { browseSearch, listDatasets, listIndexes } from "@/api/search"
 import { useSearch } from "@/composables/useSearch"
+import request from "@/api/request"
+import { showErrMsg } from "@/utils/error"
 
 type Point = {
   id: string
@@ -160,6 +187,22 @@ const neighbors = ref<any[]>([])
 const facets = ref<any>(null)
 const loading = ref(false)
 const neighborLoading = ref(false)
+const activeIndexId = ref<number | undefined>()
+const highlightPoints = ref<Array<{ id: string; umap_x: number; umap_y: number; umap_z?: number }>>([])
+const locateInput = ref("")
+const locateLoading = ref(false)
+const sidebarOpenKeys = ref<string[]>(["locate"])
+
+// 数据集选择
+const allDatasets = ref<any[]>([])
+const datasetsLoading = ref(false)
+const selectedDatasetId = ref<number | undefined>()
+const colorOptions = ref<string[]>(["cell_type"])
+const availableModes = ref<string[]>(["2d", "3d"])
+
+const datasetOptions = computed(() =>
+  allDatasets.value.map((d: any) => ({ label: `${d.name} (${d.n_cells ?? "?"} cells)`, value: d.id }))
+)
 
 const neighborColumns = [
   { title: "Rank", dataIndex: "rank", key: "rank", width: 70 },
@@ -170,23 +213,56 @@ const neighborColumns = [
 
 const { search } = useSearch()
 
+async function loadAllDatasets() {
+  datasetsLoading.value = true
+  try {
+    allDatasets.value = await listDatasets()
+  } catch (e: any) {
+    showErrMsg(e, "加载数据集失败")
+  } finally {
+    datasetsLoading.value = false
+  }
+}
+
+async function fetchColorOptions(datasetId: number) {
+  try {
+    const modes = await request.get(`/visualize/${datasetId}/modes`) as any
+    if (modes?.color_options?.length) {
+      colorOptions.value = modes.color_options
+      if (!colorOptions.value.includes(colorBy.value)) {
+        colorBy.value = colorOptions.value[0]
+      }
+    }
+    if (modes?.available_modes?.length) {
+      availableModes.value = modes.available_modes
+      if (!availableModes.value.includes(dimension.value === 3 ? "3d" : "2d")) {
+        dimension.value = 2
+      }
+    }
+  } catch {
+    colorOptions.value = []
+  }
+}
+
+async function onDatasetChange(datasetId: number) {
+  selectedDatasetId.value = datasetId
+  await fetchColorOptions(datasetId)
+  highlightPoints.value = []
+}
+
 async function loadPoints() {
+  const dsId = selectedDatasetId.value
+  if (!dsId) return
   loading.value = true
   try {
-    // choose first ready dataset if none selected
-    const datasets = await listDatasets()
-    const ds = datasets[0]
-    if (!ds) {
-      points.value = []
-      facets.value = null
-      return
-    }
-    const res = await browseSearch({ datasetId: ds.id, pageSize: 5000, queryType: dimension.value === 3 ? "vector" : "id", colorBy: colorBy.value })
-    // backend visualize embedding returns { points: [{cell_id,x,y,z,label,obs}], n_returned }
+    // 顺带拿第一个 ready 索引，供点击相似查询使用
+    const indexes = await listIndexes(dsId)
+    activeIndexId.value = indexes.find((i: any) => i.status === "ready")?.id
+    const res = await browseSearch({ datasetId: dsId, pageSize: 5000, queryType: dimension.value === 3 ? "vector" : "id", colorBy: colorBy.value })
     const pts = res.points ?? []
     points.value = pts.map((item: any, idx: number) => ({
       id: item.cell_id,
-      cell_type: item.obs?.cell_type ?? item.label,
+      cell_type: item.obs?.[colorBy.value] ?? item.obs?.cell_type ?? item.label,
       dataset: `dataset_${res.dataset_id}`,
       umap_x: item.x,
       umap_y: item.y,
@@ -194,8 +270,9 @@ async function loadPoints() {
       metadata: item.obs ?? {},
     }))
     facets.value = res.color_options ? { [res.color_by ?? "color_by"]: res.color_options } : null
-  } catch (error) {
-    console.error("Failed to load visualize points:", error)
+    highlightPoints.value = []
+  } catch (error: any) {
+    showErrMsg(error, "加载可视化数据失败")
     points.value = []
     facets.value = null
   } finally {
@@ -205,9 +282,13 @@ async function loadPoints() {
 
 async function onPointClick(point: Point) {
   selectedPoint.value = point
+  if (!activeIndexId.value) {
+    neighbors.value = []
+    return
+  }
   neighborLoading.value = true
   try {
-    const res = await search({ queryType: "id", query: point.id, k: topK.value, page: 1, pageSize: topK.value })
+    const res = await search({ queryType: "id", query: point.id, indexId: activeIndexId.value, k: topK.value, page: 1, pageSize: topK.value })
     neighbors.value = res.results
   } catch (e) {
     neighbors.value = []
@@ -216,7 +297,42 @@ async function onPointClick(point: Point) {
   }
 }
 
-onMounted(loadPoints)
+async function locateCells() {
+  const dsId = selectedDatasetId.value
+  if (!dsId) return message.warning("请先选择数据集")
+  const ids = locateInput.value
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  if (!ids.length) return message.warning("请输入 cell_id")
+
+  locateLoading.value = true
+  try {
+    const res = await request.post(`/visualize/${dsId}/locate`, {
+      cell_ids: ids,
+      mode: dimension.value === 3 ? "3d" : "2d",
+    }) as any
+    highlightPoints.value = (res.points ?? []).map((p: any) => ({
+      id: p.cell_id,
+      umap_x: p.x,
+      umap_y: p.y,
+      umap_z: p.z,
+    }))
+  } catch (err: any) {
+    showErrMsg(err, "定位失败")
+  } finally {
+    locateLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  await loadAllDatasets()
+  await loadPoints()
+})
+
+watch(dimension, () => {
+  highlightPoints.value = []
+})
 </script>
 
 <style scoped>
@@ -264,6 +380,12 @@ onMounted(loadPoints)
   box-shadow:
     0 24px 54px rgba(15, 23, 42, 0.06),
     0 8px 16px rgba(15, 23, 42, 0.04);
+}
+
+.locate-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
 }
 
 .control-panel__inner {
@@ -349,12 +471,29 @@ onMounted(loadPoints)
 }
 
 .visualize-layout {
+  flex: 1;
+  min-height: 0;
   align-items: stretch;
 }
 
+.visualize-layout :deep(.ant-col) {
+  display: flex;
+  flex-direction: column;
+}
+
 .chart-card {
+  flex: 1;
   height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+.chart-card :deep(.ant-card-body) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
 }
 
 .chart-card :deep(.ant-card-head),
@@ -390,14 +529,36 @@ onMounted(loadPoints)
 
 .chart-card__body {
   position: relative;
-  min-height: 520px;
-  padding: 18px;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
   overflow: hidden;
+}
+
+.chart-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.chart-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #64748b;
+  z-index: 2;
 }
 
 .chart-skeleton {
   position: absolute;
-  inset: 18px;
+  inset: 0;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   grid-template-rows: repeat(6, 1fr);
@@ -426,7 +587,8 @@ onMounted(loadPoints)
 .chart-card :deep(.plot-wrap) {
   position: relative;
   z-index: 1;
-  min-height: 520px;
+  height: 100%;
+  min-height: 0;
 }
 
 .chart-card :deep(.js-plotly-plot .plotly),
@@ -434,9 +596,44 @@ onMounted(loadPoints)
   background: transparent !important;
 }
 
-.sidebar-stack {
-  display: grid;
-  gap: 16px;
+.sidebar-collapse {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: transparent;
+}
+
+.sidebar-collapse :deep(.ant-collapse-item) {
+  margin-bottom: 8px;
+  border-radius: 9px !important;
+  border: 1px solid var(--bio-line) !important;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.sidebar-collapse :deep(.ant-collapse-header) {
+  font-weight: 700;
+  color: var(--bio-navy);
+  padding: 12px 16px !important;
+}
+
+.sidebar-collapse :deep(.ant-collapse-content) {
+  border-top: 1px solid var(--bio-line);
+}
+
+.sidebar-collapse :deep(.ant-collapse-content-box) {
+  padding: 0 !important;
+}
+
+.panel-scroll-body {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 14px 16px;
+}
+
+.locate-panel {
+  padding: 0;
 }
 
 .info-card {
@@ -665,4 +862,84 @@ pre {
     transform: translate3d(1%, 0.8%, 0) scale(1.02);
   }
 }
+
+.visualize-page {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--bio-line);
+}
+
+.visualize-page::before {
+  display: none;
+}
+
+.control-panel,
+.chart-card,
+.info-card {
+  border-radius: 9px;
+  border: 1px solid var(--bio-line);
+  background: var(--bio-panel);
+  box-shadow: none;
+}
+
+.control-panel :deep(.ant-card-body) {
+  padding: 0;
+}
+
+.control-panel__inner {
+  padding: 14px 18px;
+}
+
+.control-panel__header {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.control-panel__eyebrow {
+  color: var(--bio-muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.control-panel__header h2,
+.card-title {
+  color: var(--bio-navy);
+  font-weight: 850;
+}
+
+.control-panel__header p,
+.stats-empty__text {
+  color: #52667c;
+}
+
+.control-row {
+  padding: 10px 12px;
+  border-radius: 9px;
+}
+
+.chart-card :deep(.ant-card-head),
+.info-card :deep(.ant-card-head) {
+  border-bottom-color: var(--bio-line);
+  background: #ffffff;
+}
+
+.chart-card__body {
+  background:
+    linear-gradient(#eff4f8 1px, transparent 1px),
+    linear-gradient(90deg, #eff4f8 1px, transparent 1px),
+    #ffffff;
+  background-size: 44px 44px;
+}
+
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-title { display: flex; align-items: center; gap: 14px; }
+.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
+.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
+.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
+.page-meta { color: #64748b; font-size: 0.92rem; font-weight: 600; max-width: 480px; }
 </style>

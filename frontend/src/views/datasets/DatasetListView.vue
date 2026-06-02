@@ -1,20 +1,30 @@
 <template>
   <AppLayout>
-    <div class="dataset-page">
-      <div class="dataset-page__header">
-        <div>
-          <div class="dataset-page__eyebrow">Dataset Management</div>
-          <h2>数据集管理</h2>
+    <div class="dataset-page workbench-page workbench-page--grid">
+      <div class="page-header workbench-page__header">
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M3 5v5c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
+              <path d="M3 10v5c0 1.66 4.03 3 9 3s9-1.34 9-3v-5" />
+              <path d="M3 15v4c0 1.66 4.03 3 9 3s9-1.34 9-3v-4" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">Dataset Management</div>
+            <h2 class="workbench-page__title">数据集管理</h2>
+          </div>
         </div>
-        <p>上传数据、查看状态与维护索引的统一控制台。</p>
+        <div class="workbench-page__pill">上传注册数据集，追踪处理状态</div>
       </div>
 
-      <a-row :gutter="16" class="dataset-grid">
-        <a-col :xs="24" :lg="10">
+      <a-row :gutter="16" class="dataset-grid" :class="{ 'dataset-grid--full': !auth.canResearch }">
+        <a-col v-if="auth.canResearch" :xs="24" :lg="10">
           <UploadForm @uploaded="onUploaded" />
         </a-col>
         <a-col :xs="24" :lg="14">
-          <a-card class="dataset-table-card" :bordered="false" title="数据集列表">
+          <a-card class="dataset-table-card workbench-panel" :bordered="false" title="数据集列表">
             <a-table
               class="dataset-table"
               :columns="columns"
@@ -22,6 +32,7 @@
               row-key="id"
               :pagination="false"
               :rowClassName="() => 'dataset-row'"
+              :scroll="{ x: 'max-content' }"
             >
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'status'">
@@ -35,8 +46,8 @@
                         <circle cx="12" cy="12" r="2.75" />
                       </svg>
                     </a-button>
-                    <a-popconfirm title="确定删除该数据集？" @confirm="removeDataset(record.id)">
-                      <a-button class="icon-button icon-button--delete" size="small">
+                    <a-popconfirm v-if="auth.canResearch" title="确定删除该数据集？" @confirm="removeDataset(record.id)">
+                      <a-button class="icon-button icon-button--delete" size="small" type="primary" danger>
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M3 6h18" />
                           <path d="M8 6V4.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5V6" />
@@ -53,19 +64,135 @@
         </a-col>
       </a-row>
 
-      <a-modal v-model:open="detailOpen" title="数据集详情" :footer="null">
-        <pre>{{ JSON.stringify(activeDataset, null, 2) }}</pre>
+      <a-modal v-model:open="detailOpen" :title="`数据集详情：${activeDataset?.name ?? ''}`" :footer="null" width="720">
+        <a-tabs v-model:activeKey="detailTab" @change="onDetailTabChange">
+          <a-tab-pane key="stats" tab="统计">
+            <div v-if="statsLoading" style="text-align:center;padding:24px"><a-spin /></div>
+            <div v-else-if="statsData">
+              <a-descriptions :column="2" size="small" bordered style="margin-bottom:16px">
+                <a-descriptions-item label="细胞数">{{ detailDataset?.n_cells?.toLocaleString() ?? activeDataset?.cells?.toLocaleString() }}</a-descriptions-item>
+                <a-descriptions-item label="基因数">{{ detailDataset?.n_genes?.toLocaleString() ?? activeDataset?.genes?.toLocaleString() }}</a-descriptions-item>
+                <a-descriptions-item label="状态">{{ detailDataset?.status ?? activeDataset?.status }}</a-descriptions-item>
+                <a-descriptions-item label="Embedding">{{ detailDataset?.embedding_key ?? '-' }}</a-descriptions-item>
+                <a-descriptions-item label="来源" :span="2">{{ detailDataset?.source_path ?? activeDataset?.source }}</a-descriptions-item>
+              </a-descriptions>
+              <div v-for="col in statsData.obs_columns" :key="col" style="margin-bottom:14px">
+                <div style="font-weight:700;margin-bottom:6px;color:#334155">{{ col }}</div>
+                <div v-for="(cnt, val) in statsData.value_counts[col]" :key="val" style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <span style="min-width:120px;font-size:0.88rem;color:#475569">{{ val }}</span>
+                  <div style="flex:1;height:8px;background:#f1f5f9;border-radius:999px;overflow:hidden">
+                    <div :style="{ width: barWidth(statsData.value_counts[col], cnt) + '%', height: '100%', background: '#3b82f6', borderRadius: '999px' }"></div>
+                  </div>
+                  <span style="min-width:40px;text-align:right;font-size:0.82rem;color:#64748b">{{ cnt }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-else style="color:#94a3b8;text-align:center;padding:24px">暂无统计数据</div>
+          </a-tab-pane>
+
+          <a-tab-pane key="cells" tab="细胞列表">
+            <a-table
+              :columns="cellColumns"
+              :data-source="cellsRows"
+              row-key="cell_id"
+              :loading="cellsLoading"
+              :pagination="false"
+              size="small"
+            />
+            <div class="pager">
+              <a-pagination
+                :current="cellsPage"
+                :pageSize="cellsPageSize"
+                :total="cellsTotal"
+                :show-size-changer="false"
+                @change="onCellsPageChange"
+              />
+            </div>
+          </a-tab-pane>
+
+          <a-tab-pane key="filter" tab="条件过滤">
+            <a-form layout="vertical">
+              <a-row :gutter="12">
+                <a-col :span="12">
+                  <a-form-item label="过滤字段">
+                    <a-select v-model:value="filterColumn" :options="filterColumnOptions" allow-clear placeholder="选择 obs 字段" @change="filterValues = []" />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                  <a-form-item label="过滤值（可多个）">
+                    <a-select
+                      v-if="filterValueOptions.length"
+                      v-model:value="filterValues"
+                      mode="multiple"
+                      :options="filterValueOptions"
+                      placeholder="选择过滤值"
+                      style="width: 100%"
+                    />
+                    <a-input v-else :value="filterValuesText" placeholder="例如: Type0, Type1" @change="(e: any) => filterValuesText = e.target.value" />
+                  </a-form-item>
+                </a-col>
+              </a-row>
+              <a-button type="primary" :loading="filterLoading" @click="runFilter">开始过滤</a-button>
+            </a-form>
+
+            <div v-if="filterResult" class="filter-summary">
+              <span>匹配：{{ filterResult.total_matched }}</span>
+              <span>返回：{{ filterResult.items.length }}</span>
+            </div>
+            <a-table
+              :columns="cellColumns"
+              :data-source="filterRows"
+              row-key="cell_id"
+              :loading="filterLoading"
+              :pagination="false"
+              size="small"
+            />
+          </a-tab-pane>
+
+          <a-tab-pane key="embedding" tab="Embedding">
+            <div class="embedding-panel">
+              <p>当前 embedding：<strong>{{ detailDataset?.embedding_key ?? "-" }}</strong></p>
+              <a-select
+                v-if="embeddingKeyOptions.length"
+                v-model:value="embeddingKeyInput"
+                :options="embeddingKeyOptions"
+                placeholder="选择向量 key"
+                style="max-width: 320px; width: 100%"
+              />
+              <a-input v-else v-model:value="embeddingKeyInput" placeholder="如 X_umap" style="max-width: 320px" />
+              <a-button type="primary" :loading="embeddingLoading" @click="submitEmbedding">切换 Embedding</a-button>
+              <p class="embedding-hint">切换后会删除旧索引，需要重新构建。</p>
+            </div>
+          </a-tab-pane>
+        </a-tabs>
       </a-modal>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue"
+import { computed, ref } from "vue"
+import { message } from "ant-design-vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import UploadForm from "@/components/dataset/UploadForm.vue"
+import { listDatasets } from "@/api/search"
+import { showErrMsg } from "@/utils/error"
+import { useAuthStore } from "@/stores/auth"
+const auth = useAuthStore()
+import {
+  deleteDataset,
+  filterDatasetCells,
+  getDataset,
+  listDatasetCells,
+  switchEmbedding,
+  type CellFilterResponse,
+  type CellPageResponse,
+  type DatasetResponse,
+} from "@/api/datasets"
+import request from "@/api/request"
 
 type DatasetItem = {
+  id: number
   name: string
   cells: number
   genes: number
@@ -75,9 +202,6 @@ type DatasetItem = {
 }
 
 const datasets = ref<DatasetItem[]>([])
-import { listDatasets } from "@/api/search"
-import { deleteDataset } from "@/api/datasets"
-import { ref as refR } from "vue"
 
 async function loadDatasets() {
   try {
@@ -89,13 +213,11 @@ async function loadDatasets() {
       genes: d.n_genes,
       status: d.status,
       source: d.source_path ?? "server",
-      updatedAt: new Date(d.created_at).toISOString().slice(0, 10),
+      updatedAt: d.created_at ? new Date(d.created_at).toISOString().slice(0, 10) : "-",
     }))
-  } catch (e) {
-    // fallback to demo
-    datasets.value = [
-      { name: "PBMC-3k", cells: 3200, genes: 18987, status: "Ready", source: "demo", updatedAt: "2026-05-25" },
-    ]
+  } catch (e: any) {
+    datasets.value = []
+    showErrMsg(e, "加载数据集失败")
   }
 }
 
@@ -103,16 +225,67 @@ loadDatasets()
 
 const detailOpen = ref(false)
 const activeDataset = ref<DatasetItem | null>(null)
+const detailDataset = ref<DatasetResponse | null>(null)
+const statsData = ref<{ obs_columns: string[]; value_counts: Record<string, Record<string, number>> } | null>(null)
+const statsLoading = ref(false)
+const detailTab = ref("stats")
+
+const cellsData = ref<CellPageResponse | null>(null)
+const cellsLoading = ref(false)
+const cellsPage = ref(1)
+const cellsPageSize = ref(50)
+
+const filterColumn = ref<string | undefined>()
+const filterValues = ref<string[]>([])
+const filterValuesText = ref("")
+const filterResult = ref<CellFilterResponse | null>(null)
+const filterLoading = ref(false)
+
+const embeddingKeyInput = ref("")
+const embeddingKeyOptions = ref<{ label: string; value: string }[]>([])
+const embeddingLoading = ref(false)
+
+function barWidth(counts: Record<string, number>, val: number): number {
+  const max = Math.max(...Object.values(counts))
+  return max > 0 ? Math.round((val / max) * 100) : 0
+}
 
 const columns = [
-  { title: "Name", dataIndex: "name", key: "name" },
-  { title: "Cells", dataIndex: "cells", key: "cells" },
-  { title: "Genes", dataIndex: "genes", key: "genes" },
-  { title: "Status", dataIndex: "status", key: "status" },
-  { title: "Source", dataIndex: "source", key: "source" },
-  { title: "Updated", dataIndex: "updatedAt", key: "updatedAt" },
-  { title: "Action", key: "action", slots: { customRender: "action" } },
+  { title: "Name", dataIndex: "name", key: "name", width: 120 },
+  { title: "Cells", dataIndex: "cells", key: "cells", width: 90 },
+  { title: "Genes", dataIndex: "genes", key: "genes", width: 90 },
+  { title: "Status", dataIndex: "status", key: "status", width: 100 },
+  { title: "Source", dataIndex: "source", key: "source", ellipsis: true, minWidth: 160 },
+  { title: "Updated", dataIndex: "updatedAt", key: "updatedAt", width: 110 },
+  { title: "操作", key: "action", width: 80 },
 ]
+
+const cellColumns = [
+  { title: "Cell ID", dataIndex: "cell_id", key: "cell_id" },
+  { title: "Row", dataIndex: "row_index", key: "row_index", width: 80 },
+  { title: "Cell Type", dataIndex: "cell_type", key: "cell_type", width: 120 },
+]
+
+const cellsRows = computed(() =>
+  (cellsData.value?.items ?? []).map((item) => ({
+    ...item,
+    cell_type: item.obs?.cell_type ?? "-",
+  }))
+)
+
+const filterRows = computed(() =>
+  (filterResult.value?.items ?? []).map((item) => ({
+    ...item,
+    cell_type: item.obs?.cell_type ?? "-",
+  }))
+)
+
+const cellsTotal = computed(() => cellsData.value?.total ?? 0)
+const filterColumnOptions = computed(() => (statsData.value?.obs_columns ?? []).map((c) => ({ label: c, value: c })))
+const filterValueOptions = computed(() => {
+  if (!filterColumn.value || !statsData.value?.value_counts[filterColumn.value]) return []
+  return Object.keys(statsData.value.value_counts[filterColumn.value]).map((v) => ({ label: v, value: v }))
+})
 
 function statusClass(status: string) {
   const normalized = status.toLowerCase()
@@ -127,9 +300,100 @@ function onUploaded(file: { name: string; size: number }) {
   loadDatasets()
 }
 
-function viewDetail(record: DatasetItem) {
+async function viewDetail(record: DatasetItem) {
   activeDataset.value = record
+  statsData.value = null
+  cellsData.value = null
+  filterResult.value = null
+  filterColumn.value = undefined
+  filterValues.value = []
+  filterValuesText.value = ""
+  embeddingKeyOptions.value = []
+  cellsPage.value = 1
   detailOpen.value = true
+  detailTab.value = "stats"
+  if (!record.id) return
+  statsLoading.value = true
+  try {
+    const [dataset, stats, modes] = await Promise.allSettled([
+      getDataset(record.id),
+      request.get(`/datasets/${record.id}/stats`),
+      request.get(`/visualize/${record.id}/modes`),
+    ])
+    if (dataset.status === "fulfilled") {
+      detailDataset.value = dataset.value as any
+      embeddingKeyInput.value = (dataset.value as any).embedding_key ?? ""
+    }
+    if (stats.status === "fulfilled") statsData.value = stats.value as any
+    if (modes.status === "fulfilled") {
+      const m = modes.value as any
+      if (m.embedding_options?.length) {
+        embeddingKeyOptions.value = m.embedding_options.map((k: string) => ({ label: k, value: k }))
+      }
+    }
+  } finally {
+    statsLoading.value = false
+  }
+}
+
+async function loadCells(page = 1) {
+  if (!activeDataset.value?.id) return
+  cellsLoading.value = true
+  try {
+    const offset = (page - 1) * cellsPageSize.value
+    cellsData.value = await listDatasetCells(activeDataset.value.id, { offset, limit: cellsPageSize.value })
+    cellsPage.value = page
+  } catch (err: any) {
+    showErrMsg(err, "加载细胞列表失败")
+  } finally {
+    cellsLoading.value = false
+  }
+}
+
+function onCellsPageChange(page: number) {
+  loadCells(page)
+}
+
+async function runFilter() {
+  if (!activeDataset.value?.id) return
+  if (!filterColumn.value) return message.warning("请选择过滤字段")
+  const values = filterValueOptions.value.length
+    ? filterValues.value
+    : filterValuesText.value.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean)
+  if (!values.length) return message.warning("请输入过滤值")
+
+  filterLoading.value = true
+  try {
+    filterResult.value = await filterDatasetCells(activeDataset.value.id, {
+      filters: { equals: { [filterColumn.value]: values } },
+      offset: 0,
+      limit: 50,
+    })
+  } catch (err: any) {
+    showErrMsg(err, "过滤失败")
+  } finally {
+    filterLoading.value = false
+  }
+}
+
+async function submitEmbedding() {
+  if (!activeDataset.value?.id) return
+  if (!embeddingKeyInput.value.trim()) return message.warning("请输入 embedding key")
+
+  embeddingLoading.value = true
+  try {
+    detailDataset.value = await switchEmbedding(activeDataset.value.id, embeddingKeyInput.value.trim())
+    message.success("Embedding 已切换")
+    await loadDatasets()
+  } catch (err: any) {
+    showErrMsg(err, "切换失败")
+  } finally {
+    embeddingLoading.value = false
+  }
+}
+
+function onDetailTabChange(key: string) {
+  if (key === "cells" && !cellsData.value) loadCells(1)
 }
 
 async function removeDataset(datasetId: number) {
@@ -209,11 +473,27 @@ async function removeDataset(datasetId: number) {
 }
 
 .dataset-grid {
+  display: grid !important;
+  grid-template-columns: minmax(420px, 520px) minmax(0, 1fr);
+  gap: 16px;
   align-items: stretch;
+}
+
+.dataset-grid--full {
+  grid-template-columns: 1fr !important;
+}
+
+.dataset-grid :deep(.ant-col) {
+  width: auto;
+  max-width: none;
+  flex: none;
+  display: flex;
+  flex-direction: column;
 }
 
 .dataset-table-card {
   height: 100%;
+  min-height: 520px;
   border-radius: 16px;
   background: #fff;
   border: 1px solid rgba(148, 163, 184, 0.14);
@@ -342,6 +622,31 @@ async function removeDataset(datasetId: number) {
   background: rgba(220, 38, 38, 0.08);
 }
 
+.pager {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.filter-summary {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0;
+  font-weight: 600;
+  color: #475569;
+}
+
+.embedding-panel {
+  display: grid;
+  gap: 12px;
+  color: #334155;
+}
+
+.embedding-hint {
+  color: #94a3b8;
+  font-size: 0.86rem;
+}
+
 pre {
   white-space: pre-wrap;
   word-break: break-word;
@@ -351,6 +656,10 @@ pre {
   .dataset-page__header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .dataset-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -369,4 +678,138 @@ pre {
     transform: translate3d(1%, 0.8%, 0) scale(1.02);
   }
 }
+
+.dataset-page {
+  padding: 22px 4px 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(245, 245, 247, 0.98)),
+    var(--app-bg);
+}
+
+.dataset-page::before {
+  display: none;
+}
+
+.dataset-page__eyebrow {
+  color: var(--blue);
+  letter-spacing: 0.04em;
+}
+
+.dataset-page__header h2 {
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.dataset-table-card {
+  border-color: var(--line);
+  box-shadow: var(--shadow-sm);
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: saturate(180%) blur(22px);
+}
+
+.dataset-table-card :deep(.ant-card-head) {
+  background: rgba(255, 255, 255, 0.68);
+  border-bottom-color: var(--line);
+}
+
+.icon-button {
+  border-radius: 9px;
+}
+
+.dataset-page {
+  min-height: 100%;
+  align-content: start;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--bio-line);
+  color: var(--bio-text);
+}
+
+.dataset-page__header {
+  min-height: 54px;
+  margin-bottom: 14px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--bio-line);
+}
+
+.dataset-page__eyebrow {
+  color: var(--bio-blue);
+  letter-spacing: 0.04em;
+}
+
+.dataset-page__header h2 {
+  color: var(--bio-text);
+  font-size: 1.32rem;
+  font-weight: 760;
+}
+
+.dataset-table-card {
+  border-radius: 9px;
+  border-color: var(--bio-line);
+  background: var(--bio-panel);
+  box-shadow: none;
+  backdrop-filter: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dataset-table-card :deep(.ant-card-body) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.dataset-table-card :deep(.ant-card-head) {
+  min-height: 54px;
+  background: #ffffff;
+  border-bottom-color: var(--bio-line);
+}
+
+.dataset-table-card :deep(.ant-card-head-title) {
+  color: var(--bio-text);
+  font-weight: 760;
+}
+
+.dataset-table :deep(.ant-table-thead > tr > th) {
+  color: var(--bio-text);
+  background: var(--bio-panel-muted) !important;
+  border-bottom-color: var(--bio-line);
+}
+
+.dataset-table :deep(.ant-table-tbody > tr > td) {
+  border-bottom-color: var(--bio-line);
+}
+
+.status-badge {
+  border-radius: 6px;
+  font-weight: 760;
+}
+
+.icon-button {
+  border-radius: 7px;
+  border-color: var(--bio-line);
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.icon-button:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+@media (max-width: 720px) {
+  .dataset-page {
+    padding: 12px;
+  }
+}
+
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-title { display: flex; align-items: center; gap: 14px; }
+.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
+.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
+.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
+.page-meta { color: #64748b; font-size: 0.92rem; font-weight: 600; max-width: 480px; }
 </style>

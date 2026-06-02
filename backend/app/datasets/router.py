@@ -1,5 +1,6 @@
 """数据集管理路由。
 
+POST   /api/datasets/upload-file       上传 .h5ad 文件到服务器，返回保存路径（不注册）
 POST   /api/datasets/register          注册已存在的 .h5ad
 GET    /api/datasets                   列表
 GET    /api/datasets/{id}              详情
@@ -9,12 +10,15 @@ GET    /api/datasets/{id}/stats        obs 字段取值分布
 GET    /api/datasets/{id}/cells        分页细胞列表
 POST   /api/datasets/{id}/cells/filter 按 obs 条件过滤细胞
 """
+import time
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.auth.models import User
+from app.core.config import settings
 from app.core.dependencies import get_current_user, get_db, require_researcher
 from app.datasets import service
 from app.datasets.schemas import (
@@ -29,6 +33,53 @@ from app.datasets.schemas import (
 )
 
 router = APIRouter()
+
+_MAX_UPLOAD_BYTES = 4 * 1024 * 1024 * 1024  # 4 GB
+
+
+@router.post("/upload-file")
+async def upload_file(
+    file: UploadFile = File(..., description=".h5ad 文件"),
+    _: User = Depends(require_researcher),
+) -> dict:
+    """将 .h5ad 文件保存到服务器 uploads 目录，返回绝对路径供后续注册使用。"""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in {".h5ad", ".h5"}:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="仅支持 .h5ad 文件")
+
+    upload_dir = Path(settings.UPLOAD_DIR)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    stem = Path(file.filename or f"upload_{int(time.time())}").stem
+    save_path = upload_dir / f"{stem}_{int(time.time())}{suffix}"
+
+    size = 0
+    with save_path.open("wb") as f:
+        while chunk := await file.read(1024 * 1024):  # 1 MB chunks
+            size += len(chunk)
+            if size > _MAX_UPLOAD_BYTES:
+                f.close()
+                save_path.unlink(missing_ok=True)
+                raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="文件超过 4 GB 上限")
+            f.write(chunk)
+
+    # 读取 obsm 可用 keys，失败时静默降级
+    embedding_keys: list[str] = []
+    try:
+        import anndata as ad
+        adata = ad.read_h5ad(save_path, backed="r")
+        embedding_keys = list(adata.obsm.keys())
+        if adata.isbacked:
+            adata.file.close()
+    except Exception:
+        pass
+
+    return {
+        "path": str(save_path.resolve()),
+        "filename": file.filename,
+        "size_bytes": size,
+        "embedding_keys": embedding_keys,
+    }
 
 
 @router.post("/register", response_model=DatasetResponse)
@@ -71,6 +122,7 @@ def dataset_stats(dataset_id: int, db: Session = Depends(get_db), _: User = Depe
         dataset_id=ds.id,
         obs_columns=list(counts.keys()),
         value_counts=counts,
+        numeric_summary=service.numeric_summary(ds),
     )
 
 

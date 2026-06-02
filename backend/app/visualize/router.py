@@ -37,10 +37,11 @@ def get_embedding(
     mode: str = Query(default="2d", description="2d 或 3d"),
     color_by: str = Query(default="cell_type", description="用于着色的 obs 字段名"),
     max_points: int = Query(default=50_000, ge=100, le=200_000, description="返回点数上限，超出时分层降采样"),
+    embedding_key: str | None = Query(default=None, description="可选 obsm key，如 X_umap；为空则使用当前检索 embedding"),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> EmbeddingResponse:
-    return service.get_embedding(db, dataset_id, mode, color_by, max_points)
+    return service.get_embedding(db, dataset_id, mode, color_by, max_points, embedding_key)
 
 
 @router.post("/{dataset_id}/locate", response_model=LocateResponse)

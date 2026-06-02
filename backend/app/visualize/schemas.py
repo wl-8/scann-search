@@ -56,6 +56,7 @@ class LocateResponse(BaseModel):
 class ModesResponse(BaseModel):
     dataset_id: int
     embedding_key: str
+    embedding_options: list[str] = Field(default_factory=list)
     vector_dim: int
     available_modes: list[str]    # ["2d"] 或 ["2d", "3d"]
     color_options: list[str]

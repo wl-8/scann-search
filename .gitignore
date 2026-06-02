@@ -33,6 +33,8 @@ backend/data/
 *.sqlite
 *.sqlite3
 
+数据说明.md
+
 # Data and generated artifacts
 data/uploads/
 data/indexes/
@@ -48,9 +50,9 @@ data/indexes/
 *.faiss
 *.index
 
-# Keep data documentation trackable
-!data/
-!data/**/*.md
+# Keep root-level data documentation trackable (anchored with / to avoid matching backend/data/)
+!/data/
+!/data/**/*.md
 
 # Frontend dependencies and build output
 node_modules/

@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     INDEX_DIR: str = "data/indexes"
     ADMIN_USERNAME: str = "admin"
     ADMIN_EMAIL: str = "admin@scann.local"
+    AUTO_BOOTSTRAP_DATA: bool = True
+    BOOTSTRAP_DATASET_NAME: str = "liver"
+    BOOTSTRAP_DATASET_PATH: str = "data/liver.h5ad"
+    BOOTSTRAP_EMBEDDING_KEY: str = "X_pca"
+    BOOTSTRAP_INDEX_ALGORITHM: str = "hnsw"
 
 
 settings = Settings()

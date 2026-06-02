@@ -1,8 +1,8 @@
 <template>
-	<a-card class="search-card" :bordered="false">
+	<a-card class="search-card workbench-panel" :bordered="false">
 		<div class="search-card__head">
 			<div>
-				<div class="search-card__kicker">Search Console</div>
+				<div class="search-card__kicker workbench-page__eyebrow">Search Console</div>
 				<h3>检索控制台</h3>
 			</div>
 			<p>在这里配置查询类型、索引参数和过滤条件。</p>
@@ -34,7 +34,7 @@
 								<a-input v-model:value="state.query" class="control-input" placeholder="例如: cell_12345" />
 							</template>
 							<template v-else>
-								<a-input-textarea v-model:value="state.query" class="control-input control-input--textarea" :auto-size="{ minRows: 4, maxRows: 6 }" placeholder="例如: 0.12, -0.03, ..." />
+								<a-textarea v-model:value="state.query" class="control-input control-input--textarea" :auto-size="{ minRows: 4, maxRows: 6 }" placeholder="例如: 0.12, -0.03, ..." />
 							</template>
 						</a-form-item>
 					</a-col>
@@ -46,13 +46,40 @@
 				<a-row :gutter="16">
 					<a-col :span="12">
 						<a-form-item label="过滤字段">
-							<a-input v-model:value="state.filterColumn" class="control-input" placeholder="例如: cell_type / disease" />
+							<a-select
+								v-if="columnOptions.length"
+								v-model:value="state.filterColumn"
+								:options="columnOptions"
+								placeholder="选择 obs 字段"
+								allow-clear
+								class="control-input"
+								@change="state.filterValue = undefined"
+							/>
+							<a-input
+								v-else
+								v-model:value="state.filterColumn"
+								class="control-input"
+								placeholder="例如: cell_type / disease"
+							/>
 						</a-form-item>
 					</a-col>
 
 					<a-col :span="12">
 						<a-form-item label="过滤值">
-							<a-input v-model:value="state.filterValue" class="control-input" placeholder="例如: T-cell / normal" />
+							<a-select
+								v-if="valueOptions.length"
+								v-model:value="state.filterValue"
+								:options="valueOptions"
+								placeholder="选择值"
+								allow-clear
+								class="control-input"
+							/>
+							<a-input
+								v-else
+								v-model:value="state.filterValue"
+								class="control-input"
+								placeholder="例如: T-cell / normal"
+							/>
 						</a-form-item>
 					</a-col>
 
@@ -78,18 +105,21 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, toRefs, ref, watch } from "vue"
+import { computed, reactive, toRefs, ref, watch } from "vue"
 import { message } from "ant-design-vue"
 import type { SearchPayload } from "@/api/search"
 
-const props = withDefaults(defineProps<{ modelValue: SearchPayload & { filters: { cell_type: string } } }>(), {
+const props = withDefaults(defineProps<{
+	modelValue: SearchPayload & { filters: { cell_type: string } }
+	obsStats?: { obs_columns: string[]; value_counts: Record<string, Record<string, number>> } | null
+}>(), {
 	modelValue: () => ({
 		queryType: "id",
 		query: "",
 		k: 10,
 		oversample: 10,
-		filterColumn: "",
-		filterValue: "",
+		filterColumn: undefined,
+		filterValue: undefined,
 		filters: { cell_type: "" },
 	}),
 })
@@ -124,6 +154,16 @@ const rules = {
 	],
 }
 
+const columnOptions = computed(() =>
+	(props.obsStats?.obs_columns ?? []).map((c) => ({ label: c, value: c }))
+)
+
+const valueOptions = computed(() => {
+	const col = state.filterColumn
+	if (!col || !props.obsStats?.value_counts?.[col]) return []
+	return Object.keys(props.obsStats.value_counts[col]).map((v) => ({ label: v, value: v }))
+})
+
 watch(
 	() => props.modelValue,
 	(v) => {
@@ -152,19 +192,18 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 
 <style scoped>
 .search-card {
-	border-radius: 18px;
-	background: #ffffff;
-	box-shadow:
-		0 24px 54px rgba(15, 23, 42, 0.06),
-		0 8px 16px rgba(15, 23, 42, 0.04);
-	border: 1px solid rgba(148, 163, 184, 0.14);
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.76);
+	box-shadow: var(--shadow-sm);
+	border: 1px solid var(--line);
+	backdrop-filter: saturate(180%) blur(22px);
 	overflow: hidden;
 }
 
 .search-card__head {
 	padding: 18px 18px 14px;
-	border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-	background: linear-gradient(180deg, #fbfdff 0%, #f8fafc 100%);
+	border-bottom: 1px solid var(--line);
+	background: rgba(255, 255, 255, 0.58);
 }
 
 .search-card__kicker {
@@ -172,19 +211,19 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 	font-weight: 800;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: #007bff;
+	color: var(--blue);
 }
 
 .search-card__head h3 {
 	margin: 6px 0 0;
 	font-size: 1.05rem;
 	font-weight: 800;
-	color: #0f172a;
+	color: var(--text);
 }
 
 .search-card__head p {
 	margin: 8px 0 0;
-	color: #64748b;
+	color: var(--text-muted);
 	line-height: 1.6;
 }
 
@@ -199,7 +238,7 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .form-section + .form-section {
 	margin-top: 8px;
 	padding-top: 18px;
-	border-top: 1px solid rgba(226, 232, 240, 0.95);
+	border-top: 1px solid var(--line);
 }
 
 .form-section__title {
@@ -208,7 +247,7 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 	font-weight: 800;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: #64748b;
+	color: var(--text-muted);
 }
 
 .radio-group {
@@ -216,8 +255,8 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 	gap: 14px;
 	padding: 8px 12px;
 	border-radius: 12px;
-	background: #f8fafc;
-	border: 1px solid rgba(148, 163, 184, 0.16);
+	background: rgba(120, 120, 128, 0.1);
+	border: 1px solid var(--line);
 }
 
 .control-input,
@@ -231,7 +270,7 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .search-form :deep(.ant-select-selector),
 .search-form :deep(.ant-input-textarea) {
 	border-radius: 12px !important;
-	border-color: #dbe4ee !important;
+	border-color: rgba(0, 0, 0, 0.12) !important;
 	box-shadow: none !important;
 	transition:
 		border-color 0.2s ease,
@@ -243,13 +282,13 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .search-form :deep(.ant-input-number-input),
 .search-form :deep(.ant-select-selection-item),
 .search-form :deep(.ant-select-selection-placeholder) {
-	color: #0f172a;
+	color: var(--text);
 }
 
 .search-form :deep(.ant-input:hover),
 .search-form :deep(.ant-input-number:hover),
 .search-form :deep(.ant-select:not(.ant-select-disabled):hover .ant-select-selector) {
-	border-color: rgba(0, 123, 255, 0.36) !important;
+	border-color: rgba(0, 113, 227, 0.34) !important;
 }
 
 .search-form :deep(.ant-input:focus),
@@ -258,12 +297,12 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .search-form :deep(.ant-select-focused .ant-select-selector),
 .search-form :deep(.ant-input-affix-wrapper-focused),
 .search-form :deep(.ant-input-number-focused .ant-input-number-input) {
-	border-color: #007bff !important;
-	box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.12) !important;
+	border-color: var(--blue) !important;
+	box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12) !important;
 }
 
 .search-form :deep(.ant-radio-wrapper) {
-	color: #334155;
+	color: #424245;
 	font-weight: 600;
 }
 
@@ -274,9 +313,11 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .submit-button {
 	width: 100%;
 	height: 44px;
-	border-radius: 14px;
+	border-radius: 12px;
 	font-weight: 800;
-	box-shadow: 0 14px 26px rgba(0, 123, 255, 0.2);
+	background: #1d1d1f;
+	border-color: #1d1d1f;
+	box-shadow: 0 14px 26px rgba(0, 0, 0, 0.14);
 	transition:
 		transform 0.18s ease,
 		box-shadow 0.18s ease,
@@ -286,11 +327,118 @@ const { queryType, query, k, oversample, filterColumn, filterValue, filters } = 
 .submit-button:hover {
 	transform: translateY(-1px) scale(1.02);
 	filter: brightness(1.03);
-	box-shadow: 0 18px 30px rgba(0, 123, 255, 0.24);
+	background: #000;
+	border-color: #000;
+	box-shadow: 0 18px 30px rgba(0, 0, 0, 0.18);
 }
 
 .submit-button:active {
 	transform: translateY(1px) scale(0.99);
+}
+
+.search-card {
+	border-radius: 9px;
+	background: var(--bio-panel);
+	border: 1px solid var(--bio-line);
+	box-shadow: none;
+	backdrop-filter: none;
+}
+
+.search-card__head {
+	padding: 15px 16px 13px;
+	background: #ffffff;
+	border-bottom-color: var(--bio-line);
+}
+
+.search-card__kicker {
+	color: var(--bio-blue);
+	letter-spacing: 0.04em;
+}
+
+.search-card__head h3 {
+	color: var(--bio-text);
+	font-size: 1rem;
+}
+
+.search-card__head p {
+	color: var(--bio-muted);
+}
+
+.search-form {
+	padding: 16px;
+}
+
+.form-section {
+	padding: 12px 0 4px;
+}
+
+.form-section + .form-section {
+	border-top-color: var(--bio-line);
+}
+
+.form-section__title {
+	color: var(--bio-muted);
+	letter-spacing: 0.04em;
+}
+
+.radio-group {
+	border-radius: 8px;
+	background: var(--bio-panel-muted);
+	border-color: var(--bio-line);
+}
+
+.search-form :deep(.ant-input),
+.search-form :deep(.ant-input-number),
+.search-form :deep(.ant-select-selector),
+.search-form :deep(.ant-input-textarea) {
+	border-radius: 7px !important;
+	border-color: var(--bio-line) !important;
+}
+
+.search-form :deep(.ant-input),
+.search-form :deep(.ant-input-number-input),
+.search-form :deep(.ant-select-selection-item),
+.search-form :deep(.ant-select-selection-placeholder) {
+	color: var(--bio-text);
+}
+
+.search-form :deep(.ant-input:hover),
+.search-form :deep(.ant-input-number:hover),
+.search-form :deep(.ant-select:not(.ant-select-disabled):hover .ant-select-selector) {
+	border-color: rgba(20, 123, 209, 0.38) !important;
+}
+
+.search-form :deep(.ant-input:focus),
+.search-form :deep(.ant-input-focused),
+.search-form :deep(.ant-input-number-focused),
+.search-form :deep(.ant-select-focused .ant-select-selector),
+.search-form :deep(.ant-input-affix-wrapper-focused),
+.search-form :deep(.ant-input-number-focused .ant-input-number-input) {
+	border-color: var(--bio-blue) !important;
+	box-shadow: 0 0 0 2px rgba(20, 123, 209, 0.12) !important;
+}
+
+.search-form :deep(.ant-radio-wrapper) {
+	color: var(--bio-text);
+}
+
+.submit-button {
+	height: 38px;
+	border-radius: 7px;
+	background: var(--bio-blue);
+	border-color: var(--bio-blue);
+	box-shadow: none;
+}
+
+.submit-button:hover {
+	transform: none;
+	background: #0f6fbd;
+	border-color: #0f6fbd;
+	box-shadow: none;
+}
+
+.submit-button:active {
+	transform: none;
 }
 
 @media (max-width: 1100px) {

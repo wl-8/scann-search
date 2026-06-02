@@ -10,6 +10,7 @@ from app.auth.router import router as auth_router
 from app.benchmark.router import router as benchmark_router
 from app.datasets.router import router as datasets_router
 from app.db.init_db import init_db
+from app.db.bootstrap import bootstrap_default_dataset
 from app.export.router import router as export_router
 from app.index.router import router as index_router
 from app.search.router import router as search_router
@@ -22,6 +23,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     init_db()
+    bootstrap_default_dataset()
     yield
 
 
