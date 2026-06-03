@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+import threading
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +25,62 @@ from app.datasets.models import Dataset
 from app.datasets.schemas import DatasetRegisterRequest
 
 logger = logging.getLogger(__name__)
+
+
+# ---------- 数据集工件内存缓存 ----------
+# 检索热路径会反复读 vectors/obs/cell_ids；这里按 dataset_id 缓存，省掉每次查询的磁盘 IO，
+# 并预建 cell_id→row 字典把 find_cell_row 从 O(n) 降到 O(1)。
+# 用 (vectors 文件路径, mtime) 校验失效：switch_embedding 覆盖工件、或测试间复用 id，都会自动重载。
+# 注意：缓存数组按"只读共享"约定，调用方不得原地修改（需要改写的地方都先 copy）。
+_artifact_lock = threading.Lock()
+_artifact_cache: dict[int, "_Artifacts"] = {}
+
+
+@dataclass
+class _Artifacts:
+    source_key: tuple
+    vectors: np.ndarray
+    cell_ids: np.ndarray
+    obs: pd.DataFrame
+    row_index: dict[str, int]
+    value_counts_50: dict[str, dict[str, int]] | None = None
+
+
+def _source_key(ds: "Dataset") -> tuple:
+    try:
+        mtime = Path(ds.vectors_path).stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    return (ds.vectors_path, mtime)
+
+
+def _artifacts(ds: "Dataset") -> "_Artifacts":
+    """取（或加载并缓存）某数据集的工件。未就绪则报错。"""
+    if not (ds.vectors_path and ds.cell_ids_path and ds.obs_path):
+        raise DatasetNotReady(ds.id, ds.status)
+    key = _source_key(ds)
+    with _artifact_lock:
+        entry = _artifact_cache.get(ds.id)
+        if entry is not None and entry.source_key == key:
+            return entry
+    # 锁外加载（IO 可能较重），完成后再写回缓存
+    vectors = preprocessing.load_vectors(ds.vectors_path)
+    cell_ids = preprocessing.load_cell_ids(ds.cell_ids_path)
+    obs = preprocessing.load_obs(ds.obs_path)
+    row_index: dict[str, int] = {}
+    for i, cid in enumerate(cell_ids.tolist()):
+        row_index.setdefault(str(cid), i)  # 保留首个出现位置，与旧 np.where 行为一致
+    entry = _Artifacts(
+        source_key=key, vectors=vectors, cell_ids=cell_ids, obs=obs, row_index=row_index,
+    )
+    with _artifact_lock:
+        _artifact_cache[ds.id] = entry
+    return entry
+
+
+def _invalidate_artifacts(dataset_id: int) -> None:
+    with _artifact_lock:
+        _artifact_cache.pop(dataset_id, None)
 
 
 def _upload_root() -> Path:
@@ -125,6 +183,7 @@ def register(db: Session, req: DatasetRegisterRequest) -> Dataset:
         "dataset %s ready: n_cells=%d vector_dim=%d",
         ds.id, ds.n_cells, ds.vector_dim,
     )
+    _invalidate_artifacts(ds.id)  # 防止复用 id 时读到上个数据集的残留缓存
     return ds
 
 
@@ -187,6 +246,7 @@ def switch_embedding(db: Session, dataset_id: int, new_key: str) -> Dataset:
     ds.status = ds_const.STATUS_READY
     db.commit()
     db.refresh(ds)
+    _invalidate_artifacts(dataset_id)  # 工件已被覆盖，丢弃旧缓存
     logger.info("dataset %s embedding switched to %s (dim=%d)", dataset_id, new_key, ds.vector_dim)
     return ds
 
@@ -213,35 +273,30 @@ def delete(db: Session, dataset_id: int) -> None:
 
     ds.status = ds_const.STATUS_DELETED
     db.commit()
+    _invalidate_artifacts(dataset_id)
 
 
 # -------- 数据访问：供 search / index / benchmark / visualize 使用 --------
 
 def load_vectors(ds: Dataset) -> np.ndarray:
-    if not ds.vectors_path:
-        raise DatasetNotReady(ds.id, ds.status)
-    return preprocessing.load_vectors(ds.vectors_path)
+    """返回缓存的向量矩阵（只读共享，调用方需要改写时务必先 copy）。"""
+    return _artifacts(ds).vectors
 
 
 def load_cell_ids(ds: Dataset) -> np.ndarray:
-    if not ds.cell_ids_path:
-        raise DatasetNotReady(ds.id, ds.status)
-    return preprocessing.load_cell_ids(ds.cell_ids_path)
+    return _artifacts(ds).cell_ids
 
 
 def load_obs(ds: Dataset) -> pd.DataFrame:
-    if not ds.obs_path:
-        raise DatasetNotReady(ds.id, ds.status)
-    return preprocessing.load_obs(ds.obs_path)
+    return _artifacts(ds).obs
 
 
 def find_cell_row(ds: Dataset, cell_id: str) -> int:
-    """根据 cell_id（字符串）找出向量矩阵里的行号。"""
-    ids = load_cell_ids(ds)
-    matches = np.where(ids == cell_id)[0]
-    if matches.size == 0:
+    """根据 cell_id（字符串）找出向量矩阵里的行号（O(1) 走预建字典）。"""
+    row = _artifacts(ds).row_index.get(str(cell_id))
+    if row is None:
         raise ValueError(f"数据集 {ds.id} 中找不到 cell_id='{cell_id}'")
-    return int(matches[0])
+    return row
 
 
 def filter_cells(
@@ -304,8 +359,17 @@ def value_counts(ds: Dataset, max_unique_per_col: int = 50) -> dict[str, dict[st
     """统计 obs 各列的取值分布（用于前端筛选器）。
 
     跳过取值过多的列（例如 cell_id-like），避免响应体爆炸。
+    默认阈值 50 的结果会缓存（_auto_oversample 每次过滤检索都要用）。
     """
-    obs = load_obs(ds)
+    entry = _artifacts(ds)
+    if max_unique_per_col == 50:
+        if entry.value_counts_50 is None:
+            entry.value_counts_50 = _compute_value_counts(entry.obs, 50)
+        return entry.value_counts_50
+    return _compute_value_counts(entry.obs, max_unique_per_col)
+
+
+def _compute_value_counts(obs: pd.DataFrame, max_unique_per_col: int) -> dict[str, dict[str, int]]:
     out: dict[str, dict[str, int]] = {}
     for col in obs.columns:
         vc = obs[col].astype(str).value_counts()

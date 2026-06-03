@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.ann.base import BaseANNIndex
 from app.ann.factory import SUPPORTED_ALGORITHMS, create_index
+from app.ann.metrics import l2_normalize
 from app.core.config import settings
 from app.datasets import service as ds_service
 from app.index import constants as idx_const
@@ -69,13 +70,16 @@ def build(db: Session, req: IndexBuildRequest) -> Index:
     if req.algorithm not in SUPPORTED_ALGORITHMS:
         raise UnsupportedAlgorithm(req.algorithm, SUPPORTED_ALGORITHMS)
 
+    metric = (getattr(req, "metric", "l2") or "l2").lower()
     ds = ds_service.get_ready(db, req.dataset_id)
-    vectors = ds_service.load_vectors(ds)
+    vectors = ds_service.load_vectors(ds)  # 共享只读缓存，不可原地修改
+    # cosine：构建前对库向量做 L2 归一化（索引仍是 L2 空间）；检索时查询同样归一化。
+    build_vectors = l2_normalize(vectors) if metric == "cosine" else vectors
 
     obj = Index(
         dataset_id=ds.id,
         algorithm=req.algorithm,
-        params=req.params,
+        params={**(req.params or {}), "metric": metric},  # metric 持久化，检索据此决定是否归一化
         status=idx_const.STATUS_BUILDING,
         n_vectors=int(vectors.shape[0]),
         vector_dim=int(vectors.shape[1]),
@@ -90,7 +94,7 @@ def build(db: Session, req: IndexBuildRequest) -> Index:
         index = create_index(obj.algorithm, dim=obj.vector_dim, **obj.params)
         # 用向量矩阵的行号作为内部 id（与 cell_ids.npy 对齐）
         t0 = time.perf_counter()
-        index.build(vectors, ids=None)
+        index.build(build_vectors, ids=None)
         t1 = time.perf_counter()
 
         file_path = _index_path(obj.id, obj.algorithm)

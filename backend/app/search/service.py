@@ -15,6 +15,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.ann.hnsw import HNSWIndex
+from app.ann.metrics import l2_normalize
 from app.datasets import service as ds_service
 from app.index import service as idx_service
 from app.search import strategies as strat
@@ -44,7 +45,8 @@ def search_by_cell(db: Session, req: SearchByCellRequest, *, cache_for: int | No
     except ValueError as e:
         raise CellNotFound(req.cell_id, ds.id) from e
 
-    query_vec = _apply_metric(vectors[row], req.metric)
+    metric = _index_metric(idx_obj)
+    query_vec = _apply_metric(vectors[row], metric)
     oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
     result = _execute_search(
         db=db,
@@ -55,7 +57,7 @@ def search_by_cell(db: Session, req: SearchByCellRequest, *, cache_for: int | No
         filters=req.filters,
         oversample=oversample,
         exclude_row=row,
-        metric=req.metric,
+        metric=metric,
     )
     if cache_for is not None:
         from app.export.cache import search_cache
@@ -71,7 +73,8 @@ def search_by_vector(db: Session, req: SearchByVectorRequest, *, cache_for: int 
     if query_vec.shape[0] != ds.vector_dim:
         raise InvalidQueryVector(query_vec.shape[0], ds.vector_dim)
 
-    query_vec = _apply_metric(query_vec, req.metric)
+    metric = _index_metric(idx_obj)
+    query_vec = _apply_metric(query_vec, metric)
     oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
     result = _execute_search(
         db=db,
@@ -81,7 +84,7 @@ def search_by_vector(db: Session, req: SearchByVectorRequest, *, cache_for: int 
         k=req.k,
         filters=req.filters,
         oversample=oversample,
-        metric=req.metric,
+        metric=metric,
     )
     if cache_for is not None:
         from app.export.cache import search_cache
@@ -114,11 +117,21 @@ def _auto_oversample(ds, filters: SearchFilter | None, k: int) -> int:
 
 
 def _apply_metric(vec: np.ndarray, metric: str) -> np.ndarray:
-    """cosine 模式下对查询向量做 L2 归一化，使索引的 L2 距离等价于余弦距离。"""
-    if metric == "cosine":
-        norm = np.linalg.norm(vec)
-        return vec / norm if norm > 1e-8 else vec
-    return vec
+    """cosine 模式下对查询向量做 L2 归一化。
+
+    必须与索引构建时一致：cosine 索引在构建时已对库向量归一化，查询也归一化后，
+    L2 距离的排序才等价于余弦相似度。l2 模式原样返回。
+    """
+    return l2_normalize(vec) if metric == "cosine" else vec
+
+
+def _index_metric(index_obj) -> str:
+    """距离度量在索引【构建时】固定（存于 params['metric']，默认 l2）。
+
+    检索一律以索引为准，不再用请求里的 metric 决定——避免"L2 索引被当成余弦查"
+    这类静默错误。
+    """
+    return str((getattr(index_obj, "params", None) or {}).get("metric", "l2")).lower()
 
 
 # ---------- 核心 ----------
@@ -247,6 +260,7 @@ def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
     cell_ids_arr = ds_service.load_cell_ids(ds)
     instance = idx_service.load_index_instance(idx_obj)
 
+    metric = _index_metric(idx_obj)
     oversample = _auto_oversample(ds, req.filters, req.k)
     fetch_k = min(req.k * oversample, idx_obj.n_vectors)
 
@@ -260,7 +274,7 @@ def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
             row = ds_service.find_cell_row(ds, cell_id)
         except ValueError:
             continue
-        query_vec = _apply_metric(vectors[row], req.metric)
+        query_vec = _apply_metric(vectors[row], metric)
         rows, dists = instance.search(query_vec, k=fetch_k)
         for r, d in zip(rows, dists):
             if r == row:
@@ -300,7 +314,7 @@ def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
         index_id=idx_obj.id,
         dataset_id=idx_obj.dataset_id,
         algorithm=idx_obj.algorithm,
-        metric=req.metric,
+        metric=metric,
         aggregate=req.aggregate,
         n_queries=n_queries,
         k=req.k,
@@ -324,6 +338,7 @@ def compare_strategies(db: Session, req: CompareStrategiesRequest) -> CompareStr
     obs = ds_service.load_obs(ds)
     cell_ids = ds_service.load_cell_ids(ds)
     instance = idx_service.load_index_instance(idx_obj)
+    metric = _index_metric(idx_obj)
 
     # 解析查询向量 + 排除自身行
     exclude_row: int | None = None
@@ -337,7 +352,9 @@ def compare_strategies(db: Session, req: CompareStrategiesRequest) -> CompareStr
         query_vec = np.asarray(req.vector, dtype=np.float32)
         if query_vec.shape[0] != ds.vector_dim:
             raise InvalidQueryVector(query_vec.shape[0], ds.vector_dim)
-    query_vec = _apply_metric(query_vec, req.metric)
+    query_vec = _apply_metric(query_vec, metric)
+    # cosine 索引下，pre（ground truth）也要在归一化空间里算，才能与 post/hybrid 可比
+    pre_vectors = l2_normalize(vectors) if metric == "cosine" else vectors
 
     # 选择度（决定后面 post 策略会不会"召回不足"）
     n_total = int(vectors.shape[0])
@@ -350,7 +367,7 @@ def compare_strategies(db: Session, req: CompareStrategiesRequest) -> CompareStr
 
     # 跑 pre 先得到 ground truth（不算在它自己的 recall 里，永远是 1.0）
     pre_out = strat.pre_filter_search(
-        vectors=vectors,
+        vectors=pre_vectors,
         obs=obs,
         query_vec=query_vec,
         k=req.k,
@@ -403,7 +420,7 @@ def compare_strategies(db: Session, req: CompareStrategiesRequest) -> CompareStr
         index_id=idx_obj.id,
         dataset_id=ds.id,
         algorithm=idx_obj.algorithm,
-        metric=req.metric,
+        metric=metric,
         k=req.k,
         n_total_cells=n_total,
         n_matching_filter=allowed_count,

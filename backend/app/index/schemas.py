@@ -1,6 +1,6 @@
 """索引模块 Pydantic schema。"""
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,6 +9,14 @@ class IndexBuildRequest(BaseModel):
     dataset_id: int
     algorithm: str = Field(description="参见 app.index.constants（flat / hnsw / ...）")
     params: dict[str, Any] = Field(default_factory=dict, description="算法专属参数")
+    metric: Literal["l2", "cosine"] = Field(
+        default="l2",
+        description=(
+            "距离度量，构建时即固定：l2=欧氏距离；"
+            "cosine=余弦（构建时对库向量做 L2 归一化，检索时查询同样归一化）。"
+            "检索接口的 metric 字段不再覆盖此项。"
+        ),
+    )
 
 
 class IndexResponse(BaseModel):
