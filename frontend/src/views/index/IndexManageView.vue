@@ -18,6 +18,28 @@
         <div class="workbench-page__pill">选择数据集和算法，构建 ANN 索引</div>
       </div>
 
+      <div class="stat-bar">
+        <div class="stat-item">
+          <span class="stat-value">{{ indexes.length }}</span>
+          <span class="stat-label">总索引</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item stat-item--green">
+          <span class="stat-value">{{ indexes.filter(i => i.status === 'ready').length }}</span>
+          <span class="stat-label">就绪</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item stat-item--warn">
+          <span class="stat-value">{{ indexes.filter(i => i.status === 'building' || i.status === 'pending').length }}</span>
+          <span class="stat-label">构建中</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item stat-item--danger">
+          <span class="stat-value">{{ indexes.filter(i => i.status === 'error').length }}</span>
+          <span class="stat-label">失败</span>
+        </div>
+      </div>
+
       <a-row :gutter="16" class="index-grid" :class="{ 'index-grid--full': !auth.canResearch }">
         <a-col v-if="auth.canResearch" :xs="24" :md="8">
           <a-card class="workbench-panel" :bordered="false">
@@ -87,14 +109,14 @@ const datasetOptions = computed(() => datasets.value.map((d) => ({ label: d.name
 const algorithmOptions = computed(() => algorithms.value.map((a) => ({ label: a, value: a })))
 
 const baseColumns = [
-  { title: "ID", dataIndex: "id", key: "id" },
-  { title: "Dataset", dataIndex: "dataset_id", key: "dataset_id" },
-  { title: "Algorithm", dataIndex: "algorithm", key: "algorithm" },
-  { title: "Status", dataIndex: "status", key: "status" },
-  { title: "Vectors", dataIndex: "n_vectors", key: "n_vectors" },
+  { title: "编号", dataIndex: "id", key: "id" },
+  { title: "数据集", dataIndex: "dataset_id", key: "dataset_id" },
+  { title: "算法", dataIndex: "algorithm", key: "algorithm" },
+  { title: "状态", dataIndex: "status", key: "status" },
+  { title: "向量数", dataIndex: "n_vectors", key: "n_vectors" },
 ]
 const columns = computed(() => auth.canResearch
-  ? [...baseColumns, { title: "Action", key: "action", width: 80 }]
+  ? [...baseColumns, { title: "操作", key: "action", width: 80 }]
   : baseColumns
 )
 
@@ -169,89 +191,33 @@ onMounted(loadResources)
 </script>
 
 <style scoped>
+/* ── Page shell ────────────────────────────────────── */
 .index-page {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   padding: 18px;
-  min-height: 100%;
+  gap: 12px;
   background: #ffffff;
   border: 1px solid var(--bio-line);
 }
 
-.page-header {
-  min-height: 68px;
-  margin-bottom: 16px;
-  padding: 0 4px 14px;
-  border-bottom: 1px solid var(--bio-line);
-}
-
-.page-header h2 {
-  margin: 0;
-  color: var(--bio-navy);
-  font-size: 21px;
-  font-weight: 850;
-}
-
-.page-header p {
-  margin: 6px 0 0;
-  color: #52667c;
-  font-size: 13px;
-}
-
+/* ── Grid ────────────────────────────────────────────── */
 .index-grid {
-  display: grid !important;
-  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: stretch;
-}
-
-.index-grid--full {
-  grid-template-columns: 1fr !important;
-}
-
-.index-grid :deep(.ant-col) {
-  width: auto;
-  max-width: none;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-}
-
-.index-page :deep(.ant-card) {
-  border-radius: 9px;
-  border: 1px solid var(--bio-line);
-  background: var(--bio-panel);
-  box-shadow: none;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.index-page :deep(.ant-card-body) {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  display: grid !important;
+  grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
 }
+.index-grid--full { grid-template-columns: 1fr !important; }
+.index-grid :deep(.ant-col) { width: auto; max-width: none; flex: none; display: flex; flex-direction: column; }
 
-.index-page :deep(.ant-card-head) {
-  border-bottom-color: var(--bio-line);
-}
+/* ── Cards ───────────────────────────────────────────── */
+.index-page :deep(.workbench-panel.ant-card) { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.index-page :deep(.ant-card-body) { flex: 1; min-height: 0; overflow-y: auto; }
 
-.index-page :deep(.ant-card-head-title) {
-  color: var(--bio-navy);
-  font-weight: 850;
-}
-
-@media (max-width: 992px) {
-  .index-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.page-title { display: flex; align-items: center; gap: 14px; }
-.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
-.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
-.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
-.page-meta { color: #64748b; font-size: 0.92rem; font-weight: 600; max-width: 480px; }
+@media (max-width: 992px) { .index-grid { grid-template-columns: 1fr; } }
 </style>

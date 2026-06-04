@@ -158,22 +158,22 @@ const datasetOptions = computed(() => datasets.value.map((d: any) => ({ label: d
 const algorithmOptions = computed(() => algorithms.value.map((a) => ({ label: a, value: a })))
 
 const batchColumns = [
-  { title: "ID", dataIndex: "id", key: "id", width: 80 },
-  { title: "Label", dataIndex: "label", key: "label" },
-  { title: "Dataset", dataIndex: "dataset_id", key: "dataset_id" },
-  { title: "K", dataIndex: "k", key: "k", width: 70 },
-  { title: "Queries", dataIndex: "n_queries", key: "n_queries", width: 90 },
-  { title: "Created", dataIndex: "created_at", key: "created_at", width: 140 },
+  { title: "编号", dataIndex: "id", key: "id", width: 80 },
+  { title: "标签", dataIndex: "label", key: "label" },
+  { title: "数据集", dataIndex: "dataset_id", key: "dataset_id" },
+  { title: "K 值", dataIndex: "k", key: "k", width: 70 },
+  { title: "查询数", dataIndex: "n_queries", key: "n_queries", width: 90 },
+  { title: "创建时间", dataIndex: "created_at", key: "created_at", width: 140 },
   { title: "操作", key: "actions", width: 150 },
 ]
 
 const resultColumns = [
-  { title: "Algorithm", dataIndex: "algorithm", key: "algorithm" },
+  { title: "算法", dataIndex: "algorithm", key: "algorithm" },
   { title: "Recall@K", dataIndex: "recall_at_k", key: "recall_at_k", width: 110 },
-  { title: "Avg Latency", dataIndex: "avg_latency_ms", key: "avg_latency_ms", width: 120 },
+  { title: "平均延迟(ms)", dataIndex: "avg_latency_ms", key: "avg_latency_ms", width: 120 },
   { title: "P95", dataIndex: "p95_latency_ms", key: "p95_latency_ms", width: 90 },
   { title: "QPS", dataIndex: "qps", key: "qps", width: 90 },
-  { title: "Build (ms)", dataIndex: "build_time_ms", key: "build_time_ms", width: 110 },
+  { title: "构建(ms)", dataIndex: "build_time_ms", key: "build_time_ms", width: 110 },
 ]
 
 function datasetName(id: number) {
@@ -285,202 +285,56 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.benchmark-page {
-  position: relative;
-  min-height: 100%;
-  display: grid;
-  gap: 16px;
-  padding: 18px 0 8px;
-}
-
-.benchmark-page__header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.benchmark-page__eyebrow {
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #007bff;
-}
-
-.benchmark-page__header h2 {
-  margin: 6px 0 0;
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.benchmark-page__header p {
-  margin: 0;
-  max-width: 520px;
-  color: #64748b;
-  line-height: 1.6;
-}
-
-.panel-card {
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow:
-    0 24px 54px rgba(15, 23, 42, 0.06),
-    0 8px 16px rgba(15, 23, 42, 0.04);
-}
-
-.algo-section {
-  margin-bottom: 14px;
-}
-
-.algo-card-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.algo-section__title {
-  font-weight: 800;
-  margin-bottom: 8px;
-  color: #0f172a;
-}
-
-.algo-card {
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: #f8fafc;
-  margin-bottom: 10px;
-}
-
-.table-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.detail-card {
-  margin-top: 16px;
-}
-
-.detail-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-weight: 600;
-  color: #475569;
-  margin-bottom: 12px;
-}
-
-.control-number {
-  width: 100%;
-}
-
-.benchmark-grid {
-  flex: 1;
-  min-height: 0;
-  display: grid !important;
-  grid-template-columns: minmax(360px, 430px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: stretch;
-}
-
-.benchmark-grid :deep(.ant-col) {
-  width: auto;
-  max-width: none;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-}
-
-@media (max-width: 992px) {
-  .benchmark-page__header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .benchmark-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
+/* ── Page shell ────────────────────────────────────── */
 .benchmark-page {
   height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   padding: 18px;
+  gap: 12px;
   background: #ffffff;
   border: 1px solid var(--bio-line);
 }
 
-.benchmark-page__header {
-  min-height: 68px;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 0 4px 14px;
-  border-bottom: 1px solid var(--bio-line);
-}
+.workbench-page__title, .benchmark-page__header h2, .page-header h2 { margin: 3px 0 0; font-size: 1.3rem; font-weight: 800; color: var(--bio-navy); }
 
-.benchmark-page__eyebrow {
-  color: var(--bio-muted);
-  font-size: 12px;
-  letter-spacing: 0.06em;
+/* ── Grid ────────────────────────────────────────────── */
+.benchmark-grid {
+  flex: 1; min-height: 0;
+  display: grid !important;
+  grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+  gap: 14px; align-items: stretch;
 }
+.benchmark-grid :deep(.ant-col) { width: auto; max-width: none; flex: none; display: flex; flex-direction: column; }
 
-.benchmark-page__header h2 {
-  color: var(--bio-navy);
-  font-size: 21px;
-  font-weight: 850;
-}
+/* ── Cards ───────────────────────────────────────────── */
+.panel-card { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.panel-card :deep(.ant-card-body) { flex: 1; min-height: 0; overflow-y: auto; }
 
-.benchmark-page__header p {
-  color: #52667c;
-  font-size: 13px;
-}
+.detail-card { flex: 0 0 auto; margin-top: 14px; }
 
-.panel-card {
-  border-radius: 9px;
-  border: 1px solid var(--bio-line);
-  background: var(--bio-panel);
-  box-shadow: none;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.panel-card :deep(.ant-card-body) {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.algo-card {
-  border-radius: 9px;
-  border: 1px solid var(--bio-line);
-  background: var(--bio-panel-muted);
-  box-shadow: none;
-}
-
+/* ── Algo config ─────────────────────────────────────── */
+.algo-section { margin-bottom: 14px; }
 .algo-section__title {
-  color: var(--bio-navy);
+  font-size: 11px; font-weight: 700; color: var(--bio-muted);
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em;
 }
+.algo-card-list {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;
+  max-height: 280px; overflow-y: auto;
+}
+.algo-card { padding: 12px 14px; border-radius: 9px; background: var(--bio-panel-muted); border: 1px solid var(--bio-line); }
 
-.table-toolbar,
+/* ── Toolbar / meta ──────────────────────────────────── */
+.table-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
 .detail-meta {
-  color: #52667c;
+  display: flex; flex-wrap: wrap; gap: 12px;
+  padding: 8px 12px; border-radius: 9px;
+  background: var(--bio-panel-muted); border: 1px solid var(--bio-line);
+  font-weight: 600; color: var(--bio-muted); font-size: 13px; margin-bottom: 12px;
 }
+.control-number { width: 100%; }
 
-.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.page-title { display: flex; align-items: center; gap: 14px; }
-.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
-.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
-.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
-.page-meta { color: #64748b; font-size: 0.92rem; font-weight: 600; max-width: 480px; }
+@media (max-width: 992px) { .benchmark-grid { grid-template-columns: 1fr; } }
 </style>
