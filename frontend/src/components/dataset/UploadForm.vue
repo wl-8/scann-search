@@ -163,27 +163,22 @@ async function submitRegister() {
 
 <style scoped>
 .upload-card {
-	border-radius: 16px;
-	background: #fff;
-	border: 1px solid rgba(148, 163, 184, 0.14);
-	box-shadow:
-		0 24px 54px rgba(15, 23, 42, 0.06),
-		0 8px 16px rgba(15, 23, 42, 0.04);
+	flex: 1;
+	display: flex;
+	flex-direction: column;
 	overflow: hidden;
 }
 
-.upload-card :deep(.ant-card-head) {
-	border-bottom: 1px solid rgba(226, 232, 240, 0.95);
-	background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+.upload-card :deep(.ant-card-body) {
+	padding: 8px 16px 16px;
 }
 
-.upload-card :deep(.ant-card-head-title) {
-	font-weight: 800;
-	color: #0f172a;
+.upload-card :deep(.ant-form-item) {
+	margin-bottom: 12px;
 }
 
 .upload-card__body {
-	padding: 24px;
+	padding: 0;
 }
 
 .upload-dragger {
@@ -206,13 +201,13 @@ async function submitRegister() {
 }
 
 .upload-dragger__content {
-	min-height: 240px;
+	min-height: 110px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 10px;
-	padding: 24px 20px;
+	gap: 6px;
+	padding: 10px 20px;
 	text-align: center;
 }
 

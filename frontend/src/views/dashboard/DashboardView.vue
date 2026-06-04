@@ -34,6 +34,14 @@
           <span>Spot opacity</span>
           <input v-model.number="spotOpacity" type="range" min="35" max="100" />
         </label>
+
+        <button class="autocam-btn" :class="{ 'autocam-btn--active': autoCam }" type="button" @click="autoCam = !autoCam">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path v-if="autoCam" d="M5 3l14 9-14 9V3z"/>
+            <path v-else d="M6 4h4v16H6zM14 4h4v16h-4z"/>
+          </svg>
+          {{ autoCam ? 'Live' : 'Static' }}
+        </button>
       </div>
     </template>
 
@@ -184,7 +192,9 @@
           </div>
         </div>
 
+        <!-- 统一 canvas：2D/3D 使用相同 CSS 点阵，3D 额外加 CSS perspective + translateZ -->
         <div
+          ref="canvasEl"
           class="spatial-canvas"
           :style="{ cursor: canvasScale > 1 ? 'grab' : 'default' }"
           @mousedown="onCanvasMouseDown"
@@ -200,57 +210,49 @@
           </div>
           <div class="canvas-controls">
             <button class="canvas-control" type="button" aria-label="还原视图" @click.stop="fitCanvas">
-              <svg viewBox="0 0 24 24">
-                <path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
+              <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8" /><path d="M3 3v5h5" /></svg>
             </button>
             <button class="canvas-control" type="button" aria-label="缩小" @click.stop="zoomOut">
-              <svg viewBox="0 0 24 24">
-                <circle cx="10.5" cy="10.5" r="5.5" />
-                <path d="M15 15l5 5M8 10.5h5" />
-              </svg>
+              <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5" /><path d="M15 15l5 5M8 10.5h5" /></svg>
             </button>
             <button class="canvas-control" type="button" aria-label="放大" @click.stop="zoomIn">
-              <svg viewBox="0 0 24 24">
-                <circle cx="10.5" cy="10.5" r="5.5" />
-                <path d="M15 15l5 5M10.5 8v5M8 10.5h5" />
-              </svg>
+              <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5" /><path d="M15 15l5 5M10.5 8v5M8 10.5h5" /></svg>
             </button>
           </div>
 
-          <div class="canvas-content" :style="{ transform: `translate(${canvasPanX}px, ${canvasPanY}px) scale(${canvasScale})` }">
-          <div
-            v-for="spot in spots"
-            :key="spot.id"
-            class="spot"
-            :class="{ 'spot--dim': !spot.enabled }"
-            :style="{
-              left: `${spot.x}%`,
-              top: `${spot.y}%`,
-              width: `${spot.size}px`,
-              height: `${spot.size}px`,
-              background: spot.color,
-              opacity: spot.enabled ? spot.opacity : 0.08,
-            }"
-          ></div>
+          <div class="canvas-perspective">
+            <div
+              class="canvas-content"
+              :style="{ transform: `translate(${canvasPanX}px, ${canvasPanY}px) scale(${canvasScale})` }"
+            >
+              <div
+                v-for="spot in spots"
+                :key="spot.id"
+                class="spot"
+                :class="{ 'spot--dim': !spot.enabled }"
+                :style="{
+                  left: `${spot.x}%`,
+                  top: `${spot.y}%`,
+                  width: `${spot.size}px`,
+                  height: `${spot.size}px`,
+                  background: spot.color,
+                  opacity: spot.enabled ? spot.opacity : 0.08,
+                }"
+              ></div>
 
-          <div v-if="isOnline && !spots.length && !isDemoMode" class="canvas-empty">
-            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-              <circle cx="24" cy="20" r="8"/>
-              <path d="M8 40c0-8.84 7.16-16 16-16s16 7.16 16 16"/>
-              <path d="M32 12l8-8M36 12h4v-4"/>
-            </svg>
-            <span>No datasets available</span>
-            <button type="button" @click="go('/datasets')">Upload a dataset</button>
+              <div v-if="isOnline && !spots.length && !isDemoMode" class="canvas-empty">
+                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="24" cy="20" r="8"/>
+                  <path d="M8 40c0-8.84 7.16-16 16-16s16 7.16 16 16"/>
+                  <path d="M32 12l8-8M36 12h4v-4"/>
+                </svg>
+                <span>No datasets available</span>
+                <button type="button" @click="go('/datasets')">Upload a dataset</button>
+              </div>
+            </div>
           </div>
 
-          </div><!-- end canvas-content -->
-
-          <!-- TODO: 从后端获取物理分辨率动态计算比例尺，勿硬编码 -->
-          <div v-if="projectionType === 'spatial'" class="scale-bar">
-            <span>5 mm</span>
-          </div>
+          <div v-if="projectionType === 'spatial'" class="scale-bar"><span>5 mm</span></div>
         </div>
 
         <section class="de-output">
@@ -438,7 +440,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from "vue"
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue"
 import { useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
 import AppLayout from "@/components/layout/AppLayout.vue"
@@ -486,6 +488,7 @@ const colorByField = ref("—")
 const vectorDim = ref<number | string>("—")
 const projectionType = ref<"spatial" | "umap" | "pca">("umap")
 const spotOpacity = ref(78)
+const autoCam = ref(true)
 const realSpots = ref<Spot[]>([])
 
 // Real dataset selector
@@ -546,7 +549,7 @@ const activeTab = ref<"summary" | "distribution">("summary")
 const showDistribution = ref(false)
 
 // Canvas zoom & pan
-const canvasScale = ref(1)
+const canvasScale = ref(1.6)
 const canvasPanX = ref(0)
 const canvasPanY = ref(0)
 let isPanning = false
@@ -943,6 +946,59 @@ async function onEmbeddingChange() {
   await loadProjection(selectedDatasetId.value, selectedEmbeddingKey.value)
 }
 
+// ── Auto-camera (2D CSS canvas — 逐聚簇注视) ──────────────────────────────────
+const canvasEl = ref<HTMLElement | null>(null)
+let camRaf: number | null = null
+let camClusterIdx = 0
+let camHold = 0
+let camTargetX = 0
+let camTargetY = 0
+const CAM_HOLD_FRAMES = 220   // 约 3.5 秒停留在每个聚簇
+
+function clusterCentroids() {
+  const groups = new Map<string, { sx: number; sy: number; n: number }>()
+  for (const s of spots.value) {
+    if (!s.enabled) continue
+    const k = s.clusterName ?? '__all'
+    const g = groups.get(k) ?? { sx: 0, sy: 0, n: 0 }
+    g.sx += s.x; g.sy += s.y; g.n++
+    groups.set(k, g)
+  }
+  return Array.from(groups.values())
+    .filter(g => g.n > 10)
+    .map(g => ({ x: g.sx / g.n, y: g.sy / g.n }))
+}
+
+function startAutoCam() {
+  if (camRaf) cancelAnimationFrame(camRaf)
+  camHold = CAM_HOLD_FRAMES
+  const loop = () => {
+    camHold++
+    if (camHold >= CAM_HOLD_FRAMES) {
+      const cxs = clusterCentroids()
+      if (cxs.length) {
+        camClusterIdx = (camClusterIdx + 1) % cxs.length
+        const c = cxs[camClusterIdx]
+        const W = canvasEl.value?.clientWidth  ?? 700
+        const H = canvasEl.value?.clientHeight ?? 350
+        camTargetX = (50 - c.x) / 100 * W * 0.55
+        camTargetY = (50 - c.y) / 100 * H * 0.55
+      }
+      camHold = 0
+    }
+    canvasPanX.value += (camTargetX - canvasPanX.value) * 0.022
+    canvasPanY.value += (camTargetY - canvasPanY.value) * 0.022
+    camRaf = requestAnimationFrame(loop)
+  }
+  camRaf = requestAnimationFrame(loop)
+}
+
+function stopAutoCam() {
+  if (camRaf) { cancelAnimationFrame(camRaf); camRaf = null }
+  canvasPanX.value = 0
+  canvasPanY.value = 0
+}
+
 function embeddingLabel(key: string): string {
   if (key.toLowerCase().includes("umap")) return "UMAP"
   if (key.toLowerCase().includes("pca")) return "PCA"
@@ -994,15 +1050,11 @@ function resetDemoClusters() {
 function normalizeEmbeddingPoints(points: EmbeddingPoint[], colorBy: string): Spot[] {
   if (!points.length) return []
 
-  const xs = points.map((point) => point.x)
-  const ys = points.map((point) => point.y)
-  const minX = Math.min(...xs)
-  const maxX = Math.max(...xs)
-  const minY = Math.min(...ys)
-  const maxY = Math.max(...ys)
-  const rangeX = maxX - minX || 1
-  const rangeY = maxY - minY || 1
-  const clusterByName = new Map(clusters.map((cluster) => [cluster.name, cluster]))
+  const xs = points.map((p) => p.x)
+  const ys = points.map((p) => p.y)
+  const minX = Math.min(...xs), maxX = Math.max(...xs), rangeX = maxX - minX || 1
+  const minY = Math.min(...ys), maxY = Math.max(...ys), rangeY = maxY - minY || 1
+  const clusterByName = new Map(clusters.map((c) => [c.name, c]))
 
   return points.map((point, index) => {
     const clusterName = String(point.label ?? point.obs?.[colorBy] ?? "Unassigned")
@@ -1201,11 +1253,21 @@ function onCanvasWheel(e: WheelEvent) {
   }
 }
 
-onMounted(loadMetrics)
+onMounted(async () => {
+  await loadMetrics()
+  if (autoCam.value) startAutoCam()
+})
 
 onUnmounted(() => {
   if (metricsInterval) clearInterval(metricsInterval)
+  stopAutoCam()
 })
+
+watch(autoCam, (val) => {
+  if (val) startAutoCam()
+  else stopAutoCam()
+})
+
 </script>
 
 <style scoped>
@@ -1397,7 +1459,42 @@ onUnmounted(() => {
   accent-color: #147bd1;
 }
 
-.dashboard-toolbar-controls,
+.autocam-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 80px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid #dce5ee;
+  background: #f7fafc;
+  color: #8b98a8;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  align-self: stretch;
+}
+.autocam-btn svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+.autocam-btn--active {
+  background: #e8f4ff;
+  border-color: #147bd1;
+  color: #147bd1;
+}
+.autocam-btn--active:hover { background: #daeeff; }
+
+.canvas-perspective {
+  position: absolute;
+  inset: 0;
+}
+
+.dashboard-toolbar-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .dashboard-toolbar-actions {
   display: flex;
   align-items: center;

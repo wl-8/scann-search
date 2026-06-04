@@ -19,6 +19,28 @@
         <div class="workbench-page__pill">上传注册数据集，追踪处理状态</div>
       </div>
 
+      <div class="stat-bar">
+        <div class="stat-item">
+          <span class="stat-value">{{ datasets.length }}</span>
+          <span class="stat-label">数据集</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item stat-item--green">
+          <span class="stat-value">{{ datasets.filter(d => d.status === 'ready').length }}</span>
+          <span class="stat-label">就绪</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item stat-item--warn">
+          <span class="stat-value">{{ datasets.filter(d => d.status === 'processing' || d.status === 'uploading').length }}</span>
+          <span class="stat-label">处理中</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-value">{{ datasets.reduce((s, d) => s + (d.cells || 0), 0).toLocaleString() }}</span>
+          <span class="stat-label">总细胞</span>
+        </div>
+      </div>
+
       <a-row :gutter="16" class="dataset-grid" :class="{ 'dataset-grid--full': !auth.canResearch }">
         <a-col v-if="auth.canResearch" :xs="24" :lg="10">
           <UploadForm @uploaded="onUploaded" />
@@ -251,19 +273,19 @@ function barWidth(counts: Record<string, number>, val: number): number {
 }
 
 const columns = [
-  { title: "Name", dataIndex: "name", key: "name", width: 120 },
-  { title: "Cells", dataIndex: "cells", key: "cells", width: 90 },
-  { title: "Genes", dataIndex: "genes", key: "genes", width: 90 },
-  { title: "Status", dataIndex: "status", key: "status", width: 100 },
-  { title: "Source", dataIndex: "source", key: "source", ellipsis: true, minWidth: 160 },
-  { title: "Updated", dataIndex: "updatedAt", key: "updatedAt", width: 110 },
+  { title: "名称", dataIndex: "name", key: "name", width: 120 },
+  { title: "细胞数", dataIndex: "cells", key: "cells", width: 90 },
+  { title: "基因数", dataIndex: "genes", key: "genes", width: 90 },
+  { title: "状态", dataIndex: "status", key: "status", width: 100 },
+  { title: "来源", dataIndex: "source", key: "source", ellipsis: true, minWidth: 160 },
+  { title: "更新时间", dataIndex: "updatedAt", key: "updatedAt", width: 110 },
   { title: "操作", key: "action", width: 80 },
 ]
 
 const cellColumns = [
-  { title: "Cell ID", dataIndex: "cell_id", key: "cell_id" },
-  { title: "Row", dataIndex: "row_index", key: "row_index", width: 80 },
-  { title: "Cell Type", dataIndex: "cell_type", key: "cell_type", width: 120 },
+  { title: "细胞 ID", dataIndex: "cell_id", key: "cell_id" },
+  { title: "行号", dataIndex: "row_index", key: "row_index", width: 80 },
+  { title: "细胞类型", dataIndex: "cell_type", key: "cell_type", width: 120 },
 ]
 
 const cellsRows = computed(() =>
@@ -409,407 +431,78 @@ async function removeDataset(datasetId: number) {
 </script>
 
 <style scoped>
+/* ── Page shell ────────────────────────────────────── */
 .dataset-page {
-  position: relative;
-  isolation: isolate;
-  min-height: 100%;
-  display: grid;
-  gap: 18px;
-  padding: 20px 0 8px;
-  background:
-    radial-gradient(circle at 14% 12%, rgba(224, 242, 254, 0.9) 0, rgba(224, 242, 254, 0.62) 20%, rgba(224, 242, 254, 0.16) 38%, transparent 62%),
-    radial-gradient(circle at 86% 88%, rgba(243, 232, 255, 0.88) 0, rgba(243, 232, 255, 0.58) 20%, rgba(243, 232, 255, 0.16) 38%, transparent 62%),
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 52%, #f3f7fb 100%);
-}
-
-.dataset-page::before {
-  content: "";
-  position: absolute;
-  inset: -18%;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 18% 14%, rgba(224, 242, 254, 0.42) 0 11%, transparent 44%),
-    radial-gradient(circle at 82% 84%, rgba(243, 232, 255, 0.38) 0 12%, transparent 46%),
-    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.24) 0 9%, transparent 34%),
-    linear-gradient(135deg, rgba(0, 123, 255, 0.03), rgba(38, 166, 154, 0.015), rgba(243, 232, 255, 0.03));
-  filter: blur(32px);
-  opacity: 0.9;
-  animation: datasetGlowDrift 26s ease-in-out infinite alternate;
-}
-
-.dataset-page > * {
-  position: relative;
-  z-index: 1;
-}
-
-.dataset-page__header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 2px;
-}
-
-.dataset-page__eyebrow {
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #007bff;
-}
-
-.dataset-page__header h2 {
-  margin: 6px 0 0;
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.dataset-page__header p {
-  margin: 0;
-  max-width: 520px;
-  color: #64748b;
-  line-height: 1.6;
-}
-
-.dataset-grid {
-  display: grid !important;
-  grid-template-columns: minmax(420px, 520px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: stretch;
-}
-
-.dataset-grid--full {
-  grid-template-columns: 1fr !important;
-}
-
-.dataset-grid :deep(.ant-col) {
-  width: auto;
-  max-width: none;
-  flex: none;
+  height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-
-.dataset-table-card {
-  height: 100%;
-  min-height: 520px;
-  border-radius: 16px;
-  background: #fff;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow:
-    0 24px 54px rgba(15, 23, 42, 0.06),
-    0 8px 16px rgba(15, 23, 42, 0.04);
-}
-
-.dataset-table-card :deep(.ant-card-head) {
-  border-bottom: 1px solid rgba(226, 232, 240, 0.95);
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-}
-
-.dataset-table-card :deep(.ant-card-head-title) {
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.dataset-table :deep(.ant-table) {
-  background: transparent;
-}
-
-.dataset-table :deep(.ant-table-thead > tr > th) {
-  background: #f9fafb;
-  color: #334155;
-  font-weight: 800;
-  border-bottom: 1px solid rgba(226, 232, 240, 1);
-}
-
-.dataset-table :deep(.ant-table-thead > tr > th::before) {
-  display: none;
-}
-
-.dataset-table :deep(.ant-table-tbody > tr > td) {
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-  border-left: 0;
-  border-right: 0;
-  color: #334155;
-}
-
-.dataset-table :deep(.ant-table-tbody > tr:hover > td) {
-  background: #f8fafc !important;
-}
-
-.dataset-table :deep(.ant-table-container) {
-  border-color: rgba(226, 232, 240, 0.9);
-}
-
-.dataset-row {
-  transition: background-color 0.18s ease;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 84px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-}
-
-.status-badge--ready {
-  color: #166534;
-  background: #dcfce7;
-}
-
-.status-badge--indexed {
-  color: #1d4ed8;
-  background: #dbeafe;
-}
-
-.status-badge--processing {
-  color: #b45309;
-  background: #fef3c7;
-}
-
-.status-badge--default {
-  color: #475569;
-  background: #e2e8f0;
-}
-
-.icon-button {
-  width: 32px;
-  height: 32px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: #f8fafc;
-  color: #64748b;
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    background-color 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-.icon-button svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.icon-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
-}
-
-.icon-button--view:hover {
-  color: #007bff;
-  border-color: rgba(0, 123, 255, 0.24);
-  background: rgba(0, 123, 255, 0.08);
-}
-
-.icon-button--delete:hover {
-  color: #dc2626;
-  border-color: rgba(220, 38, 38, 0.24);
-  background: rgba(220, 38, 38, 0.08);
-}
-
-.pager {
-  display: flex;
-  justify-content: center;
-  margin-top: 12px;
-}
-
-.filter-summary {
-  display: flex;
-  gap: 12px;
-  margin: 12px 0;
-  font-weight: 600;
-  color: #475569;
-}
-
-.embedding-panel {
-  display: grid;
-  gap: 12px;
-  color: #334155;
-}
-
-.embedding-hint {
-  color: #94a3b8;
-  font-size: 0.86rem;
-}
-
-pre {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-@media (max-width: 992px) {
-  .dataset-page__header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .dataset-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .dataset-page {
-    padding-top: 12px;
-  }
-}
-
-@keyframes datasetGlowDrift {
-  from {
-    transform: translate3d(-1%, -0.8%, 0) scale(1);
-  }
-
-  to {
-    transform: translate3d(1%, 0.8%, 0) scale(1.02);
-  }
-}
-
-.dataset-page {
-  padding: 22px 4px 10px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(245, 245, 247, 0.98)),
-    var(--app-bg);
-}
-
-.dataset-page::before {
-  display: none;
-}
-
-.dataset-page__eyebrow {
-  color: var(--blue);
-  letter-spacing: 0.04em;
-}
-
-.dataset-page__header h2 {
-  font-weight: 760;
-  letter-spacing: 0;
-}
-
-.dataset-table-card {
-  border-color: var(--line);
-  box-shadow: var(--shadow-sm);
-  background: rgba(255, 255, 255, 0.76);
-  backdrop-filter: saturate(180%) blur(22px);
-}
-
-.dataset-table-card :deep(.ant-card-head) {
-  background: rgba(255, 255, 255, 0.68);
-  border-bottom-color: var(--line);
-}
-
-.icon-button {
-  border-radius: 9px;
-}
-
-.dataset-page {
-  min-height: 100%;
-  align-content: start;
   padding: 18px;
+  gap: 12px;
   background: #ffffff;
   border: 1px solid var(--bio-line);
-  color: var(--bio-text);
 }
 
-.dataset-page__header {
-  min-height: 54px;
-  margin-bottom: 14px;
-  padding: 0 0 12px;
-  border-bottom: 1px solid var(--bio-line);
-}
-
-.dataset-page__eyebrow {
-  color: var(--bio-blue);
-  letter-spacing: 0.04em;
-}
-
-.dataset-page__header h2 {
-  color: var(--bio-text);
-  font-size: 1.32rem;
-  font-weight: 760;
-}
-
-.dataset-table-card {
-  border-radius: 9px;
-  border-color: var(--bio-line);
-  background: var(--bio-panel);
-  box-shadow: none;
-  backdrop-filter: none;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.dataset-table-card :deep(.ant-card-body) {
+/* ── Grid ────────────────────────────────────────────── */
+.dataset-grid {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  display: grid !important;
+  grid-template-columns: minmax(400px, 500px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
 }
+.dataset-grid--full { grid-template-columns: 1fr !important; }
+.dataset-grid :deep(.ant-col) { width: auto; max-width: none; flex: none; display: flex; flex-direction: column; }
 
-.dataset-table-card :deep(.ant-card-head) {
-  min-height: 54px;
-  background: #ffffff;
-  border-bottom-color: var(--bio-line);
-}
+/* ── Table card ──────────────────────────────────────── */
+.dataset-table-card { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.dataset-table-card :deep(.ant-card-body) { flex: 1; min-height: 0; overflow-y: auto; padding: 0; }
 
-.dataset-table-card :deep(.ant-card-head-title) {
-  color: var(--bio-text);
-  font-weight: 760;
-}
-
+/* ── Table styles ────────────────────────────────────── */
+.dataset-table :deep(.ant-table) { background: transparent; }
 .dataset-table :deep(.ant-table-thead > tr > th) {
-  color: var(--bio-text);
   background: var(--bio-panel-muted) !important;
-  border-bottom-color: var(--bio-line);
+  color: var(--bio-navy); font-weight: 700; font-size: 12px;
+  letter-spacing: 0.02em; border-bottom: 1px solid var(--bio-line);
 }
-
+.dataset-table :deep(.ant-table-thead > tr > th::before) { display: none; }
 .dataset-table :deep(.ant-table-tbody > tr > td) {
-  border-bottom-color: var(--bio-line);
+  border-bottom: 1px solid var(--bio-line); color: var(--bio-text);
 }
+.dataset-table :deep(.ant-table-tbody > tr:hover > td) { background: #f0f5fb !important; }
 
+/* ── Status badges ───────────────────────────────────── */
 .status-badge {
-  border-radius: 6px;
-  font-weight: 760;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 68px; padding: 3px 10px;
+  border-radius: 4px; font-size: 12px; font-weight: 700;
 }
+.status-badge--ready    { color: #107c10; background: #dff6dd; }
+.status-badge--indexed  { color: #005a9e; background: #deecf9; }
+.status-badge--processing { color: #9a5f00; background: #fef7e6; }
+.status-badge--default  { color: #5a5a5a; background: #f0f0f0; }
 
+/* ── Icon buttons ────────────────────────────────────── */
 .icon-button {
-  border-radius: 7px;
-  border-color: var(--bio-line);
+  width: 30px; height: 30px;
+  display: inline-grid; place-items: center;
+  border-radius: 9px;
+  border: 1px solid var(--bio-line);
   background: #ffffff;
-  box-shadow: none;
+  color: var(--bio-muted);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
+.icon-button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-button--view:hover { background: #eef5fc; border-color: #0072d1; color: #0072d1; }
+.icon-button--delete:hover { background: #fde7e9; border-color: #a4262c; color: #a4262c; }
 
-.icon-button:hover {
-  transform: none;
-  box-shadow: none;
-}
+/* ── Misc ────────────────────────────────────────────── */
+.pager { display: flex; justify-content: center; padding: 14px 0; }
+.filter-summary { display: flex; gap: 12px; margin: 12px 0; font-weight: 600; color: var(--bio-muted); }
+.embedding-panel { display: grid; gap: 12px; color: var(--bio-text); }
+.embedding-hint { color: #9aabb8; font-size: 0.86rem; margin: 0; }
+pre { white-space: pre-wrap; word-break: break-word; margin: 0; }
 
-@media (max-width: 720px) {
-  .dataset-page {
-    padding: 12px;
-  }
-}
-
-.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.page-title { display: flex; align-items: center; gap: 14px; }
-.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
-.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
-.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
-.page-meta { color: #64748b; font-size: 0.92rem; font-weight: 600; max-width: 480px; }
+@media (max-width: 992px) { .dataset-grid { grid-template-columns: 1fr; } }
 </style>

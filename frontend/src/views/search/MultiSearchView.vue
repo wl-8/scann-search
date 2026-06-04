@@ -21,7 +21,6 @@
       </div>
 
       <a-card class="resource-card workbench-panel" :bordered="false">
-        <div class="resource-card__title workbench-section-title">后端资源</div>
         <a-form layout="vertical">
           <a-row :gutter="16">
             <a-col :xs="24" :md="8">
@@ -97,7 +96,7 @@
               </a-card>
             </a-col>
             <a-col :xs="24" :lg="14">
-              <a-card class="panel-card workbench-panel" :bordered="false">
+              <a-card class="panel-card result-card workbench-panel" :bordered="false">
                 <div class="panel-title workbench-section-title">批量检索结果</div>
                 <div v-if="batchResult" class="summary-bar">
                   <span>查询数：{{ batchResult.n_queries }}</span>
@@ -111,7 +110,7 @@
                   :loading="batchLoading"
                   :pagination="false"
                 />
-                <div v-if="!batchRows.length" class="empty-state">
+                <div v-if="!batchRows.length && !batchLoading" class="empty-state">
                   <a-empty description="尚无结果" />
                 </div>
               </a-card>
@@ -171,7 +170,7 @@
               </a-card>
             </a-col>
             <a-col :xs="24" :lg="14">
-              <a-card class="panel-card workbench-panel" :bordered="false">
+              <a-card class="panel-card result-card workbench-panel" :bordered="false">
                 <div class="panel-title workbench-section-title">策略对比结果</div>
                 <div v-if="compareResult" class="summary-bar">
                   <span>总细胞：{{ compareResult.n_total_cells }}</span>
@@ -185,6 +184,9 @@
                   :pagination="false"
                   :loading="compareLoading"
                 />
+                <div v-if="!compareResult" class="empty-state">
+                  <a-empty description="尚无策略结果" />
+                </div>
                 <div class="strategy-detail" v-if="selectedStrategyHits.length">
                   <div class="strategy-detail__head">
                     <span>命中详情</span>
@@ -197,9 +199,6 @@
                     size="small"
                     :pagination="false"
                   />
-                </div>
-                <div v-else class="empty-state">
-                  <a-empty description="尚无策略结果" />
                 </div>
               </a-card>
             </a-col>
@@ -290,12 +289,12 @@ const strategyOptions = [
 ]
 
 const batchColumns = [
-  { title: "Rank", dataIndex: "rank", key: "rank", width: 80 },
-  { title: "Cell ID", dataIndex: "cell_id", key: "cell_id" },
-  { title: "Avg Dist", dataIndex: "avg_distance", key: "avg_distance", width: 120 },
-  { title: "Hit Count", dataIndex: "hit_count", key: "hit_count", width: 110 },
-  { title: "Row", dataIndex: "row_index", key: "row_index", width: 90 },
-  { title: "Cell Type", dataIndex: "cell_type", key: "cell_type", width: 120 },
+  { title: "排名", dataIndex: "rank", key: "rank", width: 80 },
+  { title: "细胞 ID", dataIndex: "cell_id", key: "cell_id" },
+  { title: "平均距离", dataIndex: "avg_distance", key: "avg_distance", width: 120 },
+  { title: "命中数", dataIndex: "hit_count", key: "hit_count", width: 110 },
+  { title: "行号", dataIndex: "row_index", key: "row_index", width: 90 },
+  { title: "细胞类型", dataIndex: "cell_type", key: "cell_type", width: 120 },
 ]
 
 const strategyColumns = [
@@ -306,11 +305,11 @@ const strategyColumns = [
 ]
 
 const strategyHitColumns = [
-  { title: "Rank", dataIndex: "rank", key: "rank", width: 70 },
-  { title: "Cell ID", dataIndex: "cell_id", key: "cell_id" },
-  { title: "Distance", dataIndex: "distance", key: "distance", width: 120 },
-  { title: "Row", dataIndex: "row_index", key: "row_index", width: 90 },
-  { title: "Cell Type", dataIndex: "cell_type", key: "cell_type", width: 120 },
+  { title: "排名", dataIndex: "rank", key: "rank", width: 70 },
+  { title: "细胞 ID", dataIndex: "cell_id", key: "cell_id" },
+  { title: "距离", dataIndex: "distance", key: "distance", width: 120 },
+  { title: "行号", dataIndex: "row_index", key: "row_index", width: 90 },
+  { title: "细胞类型", dataIndex: "cell_type", key: "cell_type", width: 120 },
 ]
 
 const batchRows = computed(() =>
@@ -454,219 +453,62 @@ onMounted(loadResources)
 </script>
 
 <style scoped>
+/* ── Page shell ────────────────────────────────────── */
 .multi-search-page {
-  position: relative;
-  min-height: 100%;
-  display: grid;
-  gap: 16px;
-  padding: 12px 0 8px;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.page-crumb {
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #64748b;
-  text-transform: uppercase;
-}
-
-.page-header h2 {
-  margin: 4px 0 0;
-  font-size: 1.35rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.page-meta {
-  color: #64748b;
-  font-size: 0.92rem;
-  font-weight: 600;
-}
-
-.resource-card {
-  border-radius: 18px;
-  background: #fff;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow:
-    0 18px 42px rgba(15, 23, 42, 0.05),
-    0 5px 14px rgba(15, 23, 42, 0.04);
-}
-
-.resource-card__title {
-  margin-bottom: 12px;
-  font-size: 0.84rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #64748b;
-}
-
-.resource-actions {
-  display: flex;
-  align-items: flex-end;
-  padding-bottom: 24px;
-}
-
-.multi-tabs :deep(.ant-tabs-nav) {
-  margin-bottom: 12px;
-}
-
-.multi-tabs :deep(.ant-tabs-content),
-.multi-tabs :deep(.ant-tabs-tabpane) {
   height: 100%;
-}
-
-.multi-tabs :deep(.ant-tabs-tabpane > .ant-row) {
-  display: grid !important;
-  grid-template-columns: minmax(360px, 430px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: stretch;
-}
-
-.multi-tabs :deep(.ant-tabs-tabpane > .ant-row > .ant-col) {
-  width: auto;
-  max-width: none;
-  flex: none;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-
-.panel-card {
-  border-radius: 18px;
-  background: #fff;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow:
-    0 24px 54px rgba(15, 23, 42, 0.06),
-    0 8px 16px rgba(15, 23, 42, 0.04);
-}
-
-.panel-title {
-  font-weight: 800;
-  margin-bottom: 12px;
-  color: #0f172a;
-}
-
-.summary-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 12px;
-  font-weight: 600;
-  color: #475569;
-}
-
-.strategy-detail {
-  margin-top: 14px;
-}
-
-.strategy-detail__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.empty-state {
-  margin-top: 12px;
-}
-
-.control-number {
-  width: 100%;
-}
-
-@media (max-width: 992px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .multi-tabs :deep(.ant-tabs-tabpane > .ant-row) {
-    grid-template-columns: 1fr;
-  }
-}
-
-.multi-search-page {
-  min-height: 100%;
-  align-content: start;
   padding: 18px;
+  gap: 16px;
   background: #ffffff;
   border: 1px solid var(--bio-line);
 }
 
-.page-header {
-  min-height: 68px;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 0 4px 14px;
-  border-bottom: 1px solid var(--bio-line);
-}
+/* ── Resource card ───────────────────────────────────── */
+.resource-card { flex-shrink: 0; }
+.resource-actions { display: flex; align-items: flex-end; padding-bottom: 24px; }
 
-.page-crumb {
-  color: var(--bio-muted);
-  font-size: 12px;
-  font-weight: 850;
-  letter-spacing: 0.06em;
+/* ── Tabs ────────────────────────────────────────────── */
+.multi-tabs {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
 }
-
-.page-header h2 {
-  color: var(--bio-navy);
-  font-size: 21px;
-  font-weight: 850;
+.multi-tabs :deep(.ant-tabs-content-holder) { flex: 1; min-height: 0; }
+.multi-tabs :deep(.ant-tabs-content) { height: 100%; }
+.multi-tabs :deep(.ant-tabs-tabpane) { height: 100%; overflow: hidden; }
+.multi-tabs :deep(.ant-tabs-nav) { margin-bottom: 12px; border-bottom: 1px solid var(--bio-line); }
+.multi-tabs :deep(.ant-tabs-tabpane > .ant-row) {
+  display: grid !important;
+  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  height: 100%;
 }
-
-.page-meta {
-  padding: 7px 10px;
-  border-radius: 999px;
-  background: var(--bio-panel-muted);
-  color: #52667c;
-  font-size: 12px;
-  font-weight: 800;
+.multi-tabs :deep(.ant-tabs-tabpane > .ant-row > .ant-col) {
+  width: auto; max-width: none; flex: none; display: flex; flex-direction: column;
 }
+/* ── Panel cards ─────────────────────────────────────── */
+.panel-card { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.panel-card :deep(.ant-card-body) { flex: 1; min-height: 0; overflow-y: auto; }
+/* 结果面板：和左边等高，内部 padding 紧凑 */
+.result-card :deep(.ant-card-body) { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px; }
 
-.resource-card,
-.panel-card {
-  border-radius: 9px;
-  border: 1px solid var(--bio-line);
-  background: var(--bio-panel);
-  box-shadow: none;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+/* ── Result areas ────────────────────────────────────── */
+.summary-bar {
+  display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px;
+  padding: 8px 12px; border-radius: 9px; background: var(--bio-panel-muted);
+  border: 1px solid var(--bio-line); font-weight: 600; color: var(--bio-muted); font-size: 13px;
 }
-
-.resource-card :deep(.ant-card-body),
-.panel-card :deep(.ant-card-body) {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+.strategy-detail { margin-top: 14px; }
+.strategy-detail__head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px; font-weight: 700; color: var(--bio-navy); font-size: 13px;
 }
+.empty-state { margin-top: 12px; }
+.control-number { width: 100%; }
 
-.resource-card__title,
-.panel-title {
-  color: var(--bio-navy);
-  font-weight: 850;
+@media (max-width: 992px) {
+  .multi-tabs :deep(.ant-tabs-tabpane > .ant-row) { grid-template-columns: 1fr; }
 }
-
-.multi-tabs :deep(.ant-tabs-nav) {
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--bio-line);
-}
-
-.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.page-title { display: flex; align-items: center; gap: 14px; }
-.page-icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(0,123,255,0.1); color: #007bff; flex-shrink: 0; }
-.page-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.page-crumb { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: #007bff; text-transform: uppercase; }
-.page-header h2 { margin: 4px 0 0; font-size: 1.35rem; line-height: 1.2; font-weight: 800; color: #0f172a; }
-.page-meta { color: #64748b; font-size: 0.92rem; font-weight: 600; max-width: 480px; }
 </style>

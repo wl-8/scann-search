@@ -83,6 +83,7 @@
 
 		<div class="workbench-body">
 			<nav class="module-rail" aria-label="分析模块">
+				<div ref="indicatorRef" class="rail-indicator"></div>
 				<button
 					v-for="item in visibleModules"
 					:key="item.path"
@@ -104,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
+import { computed, nextTick, onMounted, ref, watch, watchEffect } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
 import request from "@/api/request"
@@ -201,6 +202,44 @@ const activeKey = computed(() => {
 })
 
 const activeModule = computed(() => visibleModules.value.find((item) => item.path === activeKey.value) ?? { title: "Home", mode: "Analysis", label: "Home" })
+const rawActiveIndex = computed(() => visibleModules.value.findIndex((item) => item.path === activeKey.value))
+const indicatorRef = ref<HTMLElement | null>(null)
+let indicatorShown = false
+
+watch(rawActiveIndex, (idx) => {
+  const el = indicatorRef.value
+  if (!el) return
+  if (idx < 0) {
+    el.style.opacity = '0'
+    indicatorShown = false
+    return
+  }
+  const y = idx * 72
+  if (!indicatorShown) {
+    // 首次出现：先关掉 transition、直接定位、再开 transition
+    el.style.transition = 'none'
+    el.style.transform = `translateY(${y}px)`
+    el.style.opacity = '1'
+    void el.offsetHeight        // 强制 reflow，锁住当前位置
+    el.style.transition = 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)'
+    indicatorShown = true
+  } else {
+    // 已可见：直接改 transform，transition 自动生效
+    el.style.transform = `translateY(${y}px)`
+  }
+}, { immediate: false, flush: 'post' })
+
+onMounted(() => {
+  const idx = rawActiveIndex.value
+  const el = indicatorRef.value
+  if (!el || idx < 0) return
+  el.style.transition = 'none'
+  el.style.transform = `translateY(${idx * 72}px)`
+  el.style.opacity = '1'
+  void el.offsetHeight
+  el.style.transition = 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)'
+  indicatorShown = true
+})
 const activeTitle = computed(() => activeModule.value.title)
 const activeMode = computed(() => activeModule.value.mode)
 
@@ -444,15 +483,43 @@ function go(path: string) {
 }
 
 .module-rail {
+	position: relative;
 	min-height: 0;
 	display: grid;
 	align-content: start;
-	overflow-y: auto;
+	overflow: visible;
 	border-right: 1px solid var(--bio-line);
 	background: #fbfcfd;
 }
 
+.rail-indicator {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 72px;
+	background: var(--bio-ice);
+	opacity: 0;
+	transform: translateY(0);
+	will-change: transform;
+	pointer-events: none;
+	z-index: 0;
+}
+
+.rail-indicator::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 12px;
+	bottom: 12px;
+	width: 3px;
+	background: #007bff;
+	border-radius: 0 3px 3px 0;
+}
+
 .rail-item {
+	position: relative;
+	z-index: 1;
 	min-height: 72px;
 	display: grid;
 	place-items: center;
@@ -466,7 +533,7 @@ function go(path: string) {
 }
 
 .rail-item--active {
-	background: var(--bio-ice);
+	background: transparent;
 	color: var(--bio-navy);
 }
 

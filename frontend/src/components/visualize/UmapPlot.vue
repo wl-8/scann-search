@@ -25,6 +25,8 @@ const props = defineProps<{
 	colorBy?: string
 	selectedId?: string | null
 	highlightPoints?: Array<{ id: string; umap_x: number; umap_y: number; umap_z?: number }>
+	autoRotate?: boolean
+	opacity?: number
 }>()
 
 const emit = defineEmits<{ (e: "point-click", point: Point): void }>()
@@ -60,18 +62,30 @@ function render() {
 			x: points.map((p) => p.umap_x),
 			y: points.map((p) => p.umap_y),
 			marker: {
-				size: dim === 3 ? 4 : 6,
+				size: dim === 3 ? 6 : 6,
 				color: colors,
-				opacity: 0.82,
-				line: { width: 1, color: "rgba(255,255,255,0.35)" },
+				opacity: props.opacity ?? 0.82,
+				line: { width: dim === 3 ? 1.5 : 1, color: "rgba(255,255,255,0.35)" },
 			},
 			text: points.map((p) => p.id),
 			hovertemplate: points.map((p, idx) => {
-				const extra = dim === 3 ? `<br>z: ${p.umap_z ?? 0}` : ""
-				return `${p.id}<br>${colorField}: ${categories[idx]}<br>x: ${p.umap_x}<br>y: ${p.umap_y}${extra}<extra></extra>`
+				const extra = dim === 3 ? `<br>z: ${(p.umap_z ?? 0).toFixed(3)}` : ""
+				return `<b>${p.id}</b><br>${colorField}: ${categories[idx]}<br>x: ${p.umap_x.toFixed(3)}<br>y: ${p.umap_y.toFixed(3)}${extra}<extra></extra>`
 			}),
 		}
-		if (dim === 3) mainTrace.z = points.map((p) => p.umap_z ?? 0)
+		if (dim === 3) {
+			// Z 归一化：让 Z 轴范围与 X/Y 一致，避免所有点挤在同一高度
+			const rawZ = points.map((p) => p.umap_z ?? 0)
+			const minZ = rawZ.reduce((a, b) => Math.min(a, b), Infinity)
+			const maxZ = rawZ.reduce((a, b) => Math.max(a, b), -Infinity)
+			const rangeZ = maxZ - minZ || 1
+			const xs = points.map((p) => p.umap_x)
+			const ys = points.map((p) => p.umap_y)
+			const minXY = [...xs, ...ys].reduce((a, b) => Math.min(a, b), Infinity)
+			const maxXY = [...xs, ...ys].reduce((a, b) => Math.max(a, b), -Infinity)
+			const rangeXY = maxXY - minXY || 1
+			mainTrace.z = rawZ.map((z) => minXY + ((z - minZ) / rangeZ) * rangeXY)
+		}
 
 		// highlight trace for located points
 		const extra = (props.highlightPoints ?? []).filter((p) => p && p.id)
@@ -112,18 +126,30 @@ function render() {
 			plot_bgcolor: "transparent",
 			showlegend: false,
 			dragmode: "pan",
+			hovermode: dim === 3 ? false : "closest",
 			xaxis: { gridcolor: "#eff4f8", zerolinecolor: "#dce5ee", tickfont: { color: "#8b98a8", size: 11 }, linecolor: "#dce5ee" },
 			yaxis: { gridcolor: "#eff4f8", zerolinecolor: "#dce5ee", tickfont: { color: "#8b98a8", size: 11 }, linecolor: "#dce5ee" },
 		}
 		if (dim === 3) {
+			layout.paper_bgcolor = "rgba(0,0,0,0)"
+			layout.margin = { l: 0, r: 0, t: 0, b: 0 }
 			layout.scene = {
-				xaxis: { title: "UMAP1", gridcolor: "#eff4f8", zerolinecolor: "#dce5ee" },
-				yaxis: { title: "UMAP2", gridcolor: "#eff4f8", zerolinecolor: "#dce5ee" },
-				zaxis: { title: "UMAP3", gridcolor: "#eff4f8", zerolinecolor: "#dce5ee" },
+				bgcolor: "rgba(0,0,0,0)",
+				xaxis: { visible: false },
+				yaxis: { visible: false },
+				zaxis: { visible: false },
+				aspectmode: "auto",
+				camera: { eye: { x: 1.5, y: 1.5, z: 1.0 } },
 			}
 		}
 
 		Plotly.react(plotEl.value, traces, layout as any, { responsive: true, displaylogo: false, scrollZoom: true })
+		// 切换维度后容器尺寸可能刚变化，延一帧 resize 让 Plotly 感知正确尺寸
+		requestAnimationFrame(() => {
+			if (plotEl.value) (Plotly as any).Plots?.resize?.(plotEl.value)
+		})
+		if (dim === 3 && props.autoRotate) startRotate()
+		else if (dim !== 3) stopRotate()
 
 		// 清除旧 click handler，避免 re-render 时重复绑定
 		;(plotEl.value as any).removeAllListeners?.("plotly_click")
@@ -224,9 +250,44 @@ function render() {
 	}
 }
 
+let rotateRaf: number | null = null
+let rotateAngle = 0
+
+function startRotate() {
+	if (rotateRaf) cancelAnimationFrame(rotateRaf)
+	const el = plotEl.value
+	if (!el) return
+	const loop = () => {
+		rotateAngle += 0.003
+		const r = 0.9                                        // 贴近点云边缘，有穿梭感
+		const z = 0.15 + Math.sin(rotateAngle * 0.4) * 0.25 // 上下缓慢起伏，像穿越其中
+		Plotly.relayout(el as any, {
+			'scene.camera.eye': {
+				x: r * Math.sin(rotateAngle),
+				y: r * Math.cos(rotateAngle),
+				z,
+			},
+		} as any).catch(() => {})
+		rotateRaf = requestAnimationFrame(loop)
+	}
+	rotateRaf = requestAnimationFrame(loop)
+}
+
+function stopRotate() {
+	if (rotateRaf) { cancelAnimationFrame(rotateRaf); rotateRaf = null }
+}
+
+watch(() => props.autoRotate, (val) => {
+	if (props.dimension === 3) {
+		if (val) startRotate()
+		else stopRotate()
+	}
+})
+
 onMounted(render)
-watch(() => [props.points, props.dimension, props.colorBy, props.selectedId, props.highlightPoints], render, { deep: true })
+watch(() => [props.points, props.dimension, props.colorBy, props.selectedId, props.highlightPoints, props.opacity], render, { deep: true })
 onBeforeUnmount(() => {
+	stopRotate()
 	if (plotEl.value) Plotly.purge(plotEl.value)
 })
 </script>
