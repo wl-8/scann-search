@@ -121,7 +121,7 @@ function onMenuClick({ key }: { key: string }) {
 	font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, sans-serif;
 }
 .brand__accent {
-	color: #0078D4;
+	color: #007bff;
 }
 .brand__muted {
 	color: #6B6B6B;
@@ -144,13 +144,13 @@ function onMenuClick({ key }: { key: string }) {
 }
 .sider :deep(.ant-menu-item:hover) {
 	background: #F0F7FF;
-	color: #0078D4;
+	color: #007bff;
 }
 .sider :deep(.ant-menu-item-selected) {
 	margin: 2px 8px;
 	width: calc(100% - 16px);
-	background: rgba(0, 120, 212, 0.1);
-	color: #0078D4;
+	background: rgba(0, 123, 255, 0.1);
+	color: #007bff;
 	font-weight: 600;
 }
 .sider :deep(.ant-menu-item-selected::after) {
@@ -166,7 +166,7 @@ function onMenuClick({ key }: { key: string }) {
 }
 .sider :deep(.ant-layout-sider-trigger:hover) {
 	background: #F3F2F1;
-	color: #0078D4;
+	color: #007bff;
 }
 .main-layout {
 	position: relative;
@@ -199,7 +199,7 @@ function onMenuClick({ key }: { key: string }) {
 	font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, sans-serif;
 }
 .title__accent {
-	color: #0078D4;
+	color: #007bff;
 }
 .title__muted {
 	color: #1F1F1F;
@@ -227,8 +227,8 @@ function onMenuClick({ key }: { key: string }) {
 	align-items: center;
 	justify-content: center;
 	border-radius: 4px;
-	background: rgba(0, 120, 212, 0.1);
-	color: #0078D4;
+	background: rgba(0, 123, 255, 0.1);
+	color: #007bff;
 	font-size: 0.78rem;
 	font-weight: 600;
 }

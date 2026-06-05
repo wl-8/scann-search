@@ -56,6 +56,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue"
+import { message } from "ant-design-vue"
 import { useAuthStore } from "@/stores/auth"
 import { register } from "@/api/auth"
 
@@ -73,7 +74,7 @@ async function onLogin() {
     await auth.login(username.value, password.value)
   } catch (err: any) {
     const detail = err?.response?.data?.detail ?? err?.message ?? "用户名或密码错误"
-    alert(`登录失败：${detail}`)
+    message.error(`登录失败：${detail}`)
   }
 }
 
@@ -84,25 +85,25 @@ async function onRegister() {
   const confirm = registerPasswordConfirm.value
 
   if (!uname || !email || !pwd) {
-    alert("请填写完整的注册信息")
+    message.warning("请填写完整的注册信息")
     return
   }
   if (!/^[a-zA-Z0-9_]{3,32}$/.test(uname)) {
-    alert("用户名只能包含字母、数字、下划线，长度 3-32")
+    message.warning("用户名只能包含字母、数字、下划线，长度 3-32")
     return
   }
   if (pwd.length < 8 || !/[A-Z]/.test(pwd) || !/[0-9]/.test(pwd)) {
-    alert("密码至少 8 位，需包含大写字母和数字")
+    message.warning("密码至少 8 位，需包含大写字母和数字")
     return
   }
   if (pwd !== confirm) {
-    alert("两次输入的密码不一致")
+    message.warning("两次输入的密码不一致")
     return
   }
 
   try {
     const res = await register({ username: uname, email, password: pwd }) as any
-    alert(res?.message ?? "注册成功，请等待管理员审核")
+    message.success(res?.message ?? "注册成功，请等待管理员审核")
     registerUsername.value = ""
     registerEmail.value = ""
     registerPassword.value = ""
@@ -110,7 +111,7 @@ async function onRegister() {
     mode.value = "login"
   } catch (err: any) {
     const detail = err?.response?.data?.detail ?? err?.message ?? "注册失败"
-    alert(`注册失败：${detail}`)
+    message.error(`注册失败：${detail}`)
   }
 }
 </script>

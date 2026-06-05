@@ -1,4 +1,6 @@
-/* 全局样式 */
+/* 全局样式 - 引入主题文件 */
+@import './theme.css';
+
 html, body, #app {
 	height: 100%;
 	margin: 0;
