@@ -10,9 +10,9 @@
           <div class="brand-copy">
             <h1>单细胞 ANN 检索系统</h1>
             <p>现代化检索与数据浏览控制面板</p>
-            <div class="system-status" aria-label="系统状态：连接正常">
+            <div class="system-status" :aria-label="systemStatusLabel">
               <span class="status-dot" aria-hidden="true"></span>
-              <span>系统在线（连接正常）</span>
+              <span>{{ systemStatusLabel }}</span>
             </div>
           </div>
         </div>
@@ -39,7 +39,7 @@
       <section class="banner-card reveal reveal-2">
         <div class="banner-copy">
           <span class="banner-tag">Dashboard Overview</span>
-          <p>这是项目的首页仪表盘入口。你可以进入搜索、数据集管理和可视化页面进行演示。</p>
+          <p>这是项目的首页仪表盘入口。当前统计来自 FastAPI 后端与本地注册数据，可进入搜索、数据集管理和可视化页面操作真实资源。</p>
         </div>
       </section>
 
@@ -67,10 +67,10 @@
             </div>
             <span class="metric-label">数据集</span>
           </div>
-          <div class="metric-value">3</div>
+          <div class="metric-value">{{ dashboardLoading ? "..." : datasetCount }}</div>
           <div class="metric-trend metric-trend--up">
-            <span class="metric-trend__icon" aria-hidden="true">↗</span>
-            <span>+20% 较上周</span>
+            <span class="metric-trend__icon" aria-hidden="true">•</span>
+            <span>{{ readyDatasetCount }} 个 ready</span>
           </div>
         </a-card>
 
@@ -84,10 +84,10 @@
             </div>
             <span class="metric-label">索引数量</span>
           </div>
-          <div class="metric-value">5</div>
+          <div class="metric-value">{{ dashboardLoading ? "..." : indexCount }}</div>
           <div class="metric-trend metric-trend--up">
-            <span class="metric-trend__icon" aria-hidden="true">↗</span>
-            <span>+12% 较上周</span>
+            <span class="metric-trend__icon" aria-hidden="true">•</span>
+            <span>{{ readyIndexCount }} 个 ready</span>
           </div>
         </a-card>
 
@@ -99,12 +99,12 @@
                 <path d="M12 8v4l3 2"></path>
               </svg>
             </div>
-            <span class="metric-label">最近检索</span>
+            <span class="metric-label">细胞总数</span>
           </div>
-          <div class="metric-value">18</div>
-          <div class="metric-trend metric-trend--down">
-            <span class="metric-trend__icon" aria-hidden="true">↘</span>
-            <span>-3% 较上周</span>
+          <div class="metric-value">{{ dashboardLoading ? "..." : formatNumber(totalCells) }}</div>
+          <div class="metric-trend metric-trend--up">
+            <span class="metric-trend__icon" aria-hidden="true">•</span>
+            <span>{{ formatNumber(totalGenes) }} genes</span>
           </div>
         </a-card>
       </section>
@@ -147,7 +147,7 @@
                   <path d="M20 6L9 17l-5-5"></path>
                 </svg>
               </span>
-              <span>当前前端已支持 mock 数据联调，后端未准备好时仍可演示完整流程。</span>
+              <span>{{ dashboardError || "已连接真实后端资源，当前数据来自本地注册的数据集与已构建索引。" }}</span>
             </li>
             <li>
               <span class="list-icon" aria-hidden="true">
@@ -155,7 +155,7 @@
                   <path d="M20 6L9 17l-5-5"></path>
                 </svg>
               </span>
-              <span>若要退出，可使用页面中的登出入口（后续可加到顶部导航）。</span>
+              <span>可在搜索页选择 ready 索引，使用自动填入的真实 cell id 发起 ANN 检索。</span>
             </li>
           </ul>
         </a-card>
@@ -165,11 +165,26 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref } from "vue"
 import { useAuthStore } from "@/stores/auth"
 import { useRouter } from "vue-router"
+import { listDatasets, listIndexes } from "@/api/search"
+import type { DatasetItem, IndexItem } from "@/api/search"
 
 const router = useRouter()
 const auth = useAuthStore()
+const dashboardLoading = ref(false)
+const dashboardError = ref("")
+const datasets = ref<DatasetItem[]>([])
+const indexes = ref<IndexItem[]>([])
+
+const datasetCount = computed(() => datasets.value.length)
+const readyDatasetCount = computed(() => datasets.value.filter((item) => item.status === "ready").length)
+const indexCount = computed(() => indexes.value.length)
+const readyIndexCount = computed(() => indexes.value.filter((item) => item.status === "ready").length)
+const totalCells = computed(() => datasets.value.reduce((sum, item) => sum + (item.n_cells ?? 0), 0))
+const totalGenes = computed(() => datasets.value.reduce((sum, item) => sum + (item.n_genes ?? 0), 0))
+const systemStatusLabel = computed(() => dashboardError.value ? "后端资源加载失败" : "系统在线（真实后端已连接）")
 
 function go(path: string) {
   router.push(path)
@@ -180,6 +195,26 @@ function onMenuClick({ key }: { key: string }) {
     auth.logout()
   }
 }
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("zh-CN").format(value)
+}
+
+async function loadDashboardResources() {
+  dashboardLoading.value = true
+  dashboardError.value = ""
+  try {
+    const [datasetList, indexList] = await Promise.all([listDatasets(), listIndexes()])
+    datasets.value = datasetList
+    indexes.value = indexList
+  } catch (err: any) {
+    dashboardError.value = err?.response?.data?.detail ?? err?.message ?? "无法读取后端数据集和索引"
+  } finally {
+    dashboardLoading.value = false
+  }
+}
+
+onMounted(loadDashboardResources)
 </script>
 
 <style scoped>

@@ -15,5 +15,26 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str = "admin"
     ADMIN_EMAIL: str = "admin@scann.local"
 
+    # RAG / LLM provider settings. All providers use OpenAI-compatible
+    # /chat/completions semantics; request payloads can still override them.
+    OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
+    DEEPSEEK_MODEL: str = "deepseek-chat"
+    DASHSCOPE_API_KEY: str = ""
+    DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    DASHSCOPE_MODEL: str = "qwen-plus"
+    MOONSHOT_API_KEY: str = ""
+    MOONSHOT_BASE_URL: str = "https://api.moonshot.cn/v1"
+    MOONSHOT_MODEL: str = "moonshot-v1-8k"
+    ZHIPUAI_API_KEY: str = ""
+    ZHIPUAI_BASE_URL: str = "https://open.bigmodel.cn/api/paas/v4"
+    ZHIPUAI_MODEL: str = "glm-4-flash"
+    SILICONFLOW_API_KEY: str = ""
+    SILICONFLOW_BASE_URL: str = "https://api.siliconflow.cn/v1"
+    SILICONFLOW_MODEL: str = "Qwen/Qwen2.5-7B-Instruct"
+
 
 settings = Settings()

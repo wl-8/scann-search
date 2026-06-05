@@ -7,7 +7,6 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from "vue"
-import Plotly from "plotly.js-dist-min"
 
 type Point = {
 	id: string
@@ -29,6 +28,16 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: "point-click", point: Point): void }>()
 
 const plotEl = ref<HTMLDivElement | null>(null)
+let plotlyModule: any = null
+let plotlyPromise: Promise<any> | null = null
+let renderVersion = 0
+
+function loadPlotly() {
+	if (!plotlyPromise) {
+		plotlyPromise = import("plotly.js-dist-min").then((mod) => mod.default ?? mod)
+	}
+	return plotlyPromise
+}
 
 function categoryColorMap(values: string[]) {
 	const palette = ["#2563eb", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6", "#14b8a6"]
@@ -36,9 +45,14 @@ function categoryColorMap(values: string[]) {
 	return new Map(unique.map((v, i) => [v, palette[i % palette.length]]))
 }
 
-function render() {
+async function render() {
 	if (!plotEl.value) return
+	const version = ++renderVersion
 	try {
+		const Plotly = plotlyModule ?? await loadPlotly()
+		plotlyModule = Plotly
+		if (version !== renderVersion || !plotEl.value) return
+
 		const points = props.points || []
 		const dim = props.dimension ?? 2
 		const colorField = (props.colorBy ?? "cell_type") as keyof Point
@@ -72,7 +86,7 @@ function render() {
 		const highlight = props.selectedId ? points.find((p) => p.id === props.selectedId) ?? null : null
 		const highlightTrace: any = highlight
 			? {
-				type: dim === 3 ? "scatter3d" : "scattergl",
+				type: dim === 3 ? "scatter3d" : useWebGL2D ? "scattergl" : "scatter",
 				mode: "markers",
 				x: [highlight.umap_x],
 				y: [highlight.umap_y],
@@ -80,20 +94,28 @@ function render() {
 				text: [highlight.id],
 			}
 			: null
+		if (dim === 3 && highlightTrace) highlightTrace.z = [highlight?.umap_z ?? 0]
 
 		const traces = highlightTrace ? [mainTrace, highlightTrace] : [mainTrace]
 
-		const layout = {
+		const layout: any = {
 			margin: { l: 0, r: 0, t: 8, b: 0 },
 			height: 520,
 			paper_bgcolor: "#fff",
 			plot_bgcolor: "#fff",
 			showlegend: false,
-			scene: dim === 3 ? { xaxis: { title: "UMAP1" }, yaxis: { title: "UMAP2" }, zaxis: { title: "UMAP3" } } : undefined,
+		}
+		if (dim === 3) {
+			layout.scene = {
+				xaxis: { title: "UMAP1" },
+				yaxis: { title: "UMAP2" },
+				zaxis: { title: "UMAP3" },
+				camera: { eye: { x: 1.5, y: 1.5, z: 1.2 } },
+			}
 		}
 
 		// use react for faster updates
-		Plotly.react(plotEl.value, traces, layout as any, { responsive: true, displaylogo: false })
+		Plotly.react(plotEl.value, traces, layout, { responsive: true, displaylogo: false })
 
 		// remove old click handlers to avoid dupes
 		try {
@@ -113,7 +135,8 @@ function render() {
 onMounted(render)
 watch(() => [props.points, props.dimension, props.colorBy, props.selectedId], render, { deep: true })
 onBeforeUnmount(() => {
-	if (plotEl.value) Plotly.purge(plotEl.value)
+	renderVersion++
+	if (plotEl.value && plotlyModule) plotlyModule.purge(plotEl.value)
 })
 </script>
 

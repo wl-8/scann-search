@@ -29,14 +29,20 @@
                 </template>
                 <template v-if="column.key === 'action'">
                   <a-space :size="8">
-                    <a-button class="icon-button icon-button--view" size="small" @click="viewDetail(record)">
+                    <a-button
+                      class="icon-button icon-button--view"
+                      size="small"
+                      aria-label="查看详情"
+                      title="查看详情"
+                      @click="viewDetail(record)"
+                    >
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z" />
                         <circle cx="12" cy="12" r="2.75" />
                       </svg>
                     </a-button>
                     <a-popconfirm title="确定删除该数据集？" @confirm="removeDataset(record.id)">
-                      <a-button class="icon-button icon-button--delete" size="small">
+                      <a-button class="icon-button icon-button--delete" size="small" aria-label="删除数据集" title="删除数据集">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M3 6h18" />
                           <path d="M8 6V4.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5V6" />
@@ -53,8 +59,61 @@
         </a-col>
       </a-row>
 
-      <a-modal v-model:open="detailOpen" title="数据集详情" :footer="null">
-        <pre>{{ JSON.stringify(activeDataset, null, 2) }}</pre>
+      <a-modal v-model:open="detailOpen" title="数据集详情" :footer="null" width="980px">
+        <template v-if="activeDataset">
+          <a-descriptions bordered size="small" :column="2">
+            <a-descriptions-item label="ID">{{ activeDataset.id }}</a-descriptions-item>
+            <a-descriptions-item label="Name">{{ activeDataset.name }}</a-descriptions-item>
+            <a-descriptions-item label="Cells">{{ activeDataset.cells }}</a-descriptions-item>
+            <a-descriptions-item label="Genes">{{ activeDataset.genes }}</a-descriptions-item>
+            <a-descriptions-item label="Embedding">{{ activeDataset.embeddingKey }}</a-descriptions-item>
+            <a-descriptions-item label="Status">{{ activeDataset.status }}</a-descriptions-item>
+            <a-descriptions-item label="Source" :span="2">{{ activeDataset.source }}</a-descriptions-item>
+          </a-descriptions>
+
+          <a-divider />
+
+          <a-form layout="inline" class="detail-toolbar">
+            <a-form-item label="切换 Embedding">
+              <a-input v-model:value="embeddingInput" placeholder="X_pca / X_umap" style="width: 180px" />
+            </a-form-item>
+            <a-form-item>
+              <a-button :loading="embeddingLoading" @click="changeEmbedding">应用</a-button>
+            </a-form-item>
+          </a-form>
+
+          <a-divider />
+
+          <a-form layout="inline" class="detail-toolbar">
+            <a-form-item label="过滤字段">
+              <a-input v-model:value="filterColumn" placeholder="cell_type" style="width: 160px" />
+            </a-form-item>
+            <a-form-item label="过滤值">
+              <a-input v-model:value="filterValue" placeholder="hepatocyte" style="width: 180px" />
+            </a-form-item>
+            <a-form-item>
+              <a-space>
+                <a-button :loading="cellsLoading" @click="loadCellsPage">浏览细胞</a-button>
+                <a-button type="primary" :loading="cellsLoading" @click="applyCellFilter">过滤细胞</a-button>
+              </a-space>
+            </a-form-item>
+          </a-form>
+
+          <a-table
+            style="margin-top: 12px"
+            :columns="cellColumns"
+            :data-source="cells"
+            :loading="cellsLoading"
+            row-key="cell_id"
+            :pagination="{ current: cellPage, pageSize: cellPageSize, total: cellTotal, showSizeChanger: false }"
+            @change="onCellTableChange"
+            size="small"
+          >
+            <template #expandedRowRender="{ record }">
+              <pre class="details-pre">{{ JSON.stringify(record.obs, null, 2) }}</pre>
+            </template>
+          </a-table>
+        </template>
       </a-modal>
     </div>
   </AppLayout>
@@ -64,20 +123,22 @@
 import { ref } from "vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import UploadForm from "@/components/dataset/UploadForm.vue"
+import { message } from "ant-design-vue"
 
 type DatasetItem = {
+  id: number
   name: string
   cells: number
   genes: number
   status: string
   source: string
+  embeddingKey: string
   updatedAt: string
 }
 
 const datasets = ref<DatasetItem[]>([])
 import { listDatasets } from "@/api/search"
-import { deleteDataset } from "@/api/datasets"
-import { ref as refR } from "vue"
+import { deleteDataset, filterCells, listCells, switchEmbedding } from "@/api/datasets"
 
 async function loadDatasets() {
   try {
@@ -89,13 +150,12 @@ async function loadDatasets() {
       genes: d.n_genes,
       status: d.status,
       source: d.source_path ?? "server",
+      embeddingKey: d.embedding_key,
       updatedAt: new Date(d.created_at).toISOString().slice(0, 10),
     }))
   } catch (e) {
-    // fallback to demo
-    datasets.value = [
-      { name: "PBMC-3k", cells: 3200, genes: 18987, status: "Ready", source: "demo", updatedAt: "2026-05-25" },
-    ]
+    datasets.value = []
+    message.error("数据集加载失败，请确认后端服务和登录状态")
   }
 }
 
@@ -103,6 +163,15 @@ loadDatasets()
 
 const detailOpen = ref(false)
 const activeDataset = ref<DatasetItem | null>(null)
+const embeddingInput = ref("")
+const embeddingLoading = ref(false)
+const cellsLoading = ref(false)
+const cells = ref<any[]>([])
+const cellTotal = ref(0)
+const cellPage = ref(1)
+const cellPageSize = ref(20)
+const filterColumn = ref("")
+const filterValue = ref("")
 
 const columns = [
   { title: "Name", dataIndex: "name", key: "name" },
@@ -111,7 +180,14 @@ const columns = [
   { title: "Status", dataIndex: "status", key: "status" },
   { title: "Source", dataIndex: "source", key: "source" },
   { title: "Updated", dataIndex: "updatedAt", key: "updatedAt" },
-  { title: "Action", key: "action", slots: { customRender: "action" } },
+  { title: "Action", key: "action" },
+]
+
+const cellColumns = [
+  { title: "Cell ID", dataIndex: "cell_id", key: "cell_id" },
+  { title: "Row", dataIndex: "row_index", key: "row_index", width: 90 },
+  { title: "cell_type", key: "cell_type", customRender: ({ record }: any) => record.obs?.cell_type ?? "-" },
+  { title: "disease", key: "disease", customRender: ({ record }: any) => record.obs?.disease ?? record.obs?.Treatment ?? "-" },
 ]
 
 function statusClass(status: string) {
@@ -129,7 +205,12 @@ function onUploaded(file: { name: string; size: number }) {
 
 function viewDetail(record: DatasetItem) {
   activeDataset.value = record
+  embeddingInput.value = record.embeddingKey
+  cellPage.value = 1
+  filterColumn.value = ""
+  filterValue.value = ""
   detailOpen.value = true
+  loadCellsPage()
 }
 
 async function removeDataset(datasetId: number) {
@@ -138,8 +219,64 @@ async function removeDataset(datasetId: number) {
     // refresh list from backend
     await loadDatasets()
   } catch (e) {
-    // optimistic fallback: remove locally
-    datasets.value = datasets.value.filter((item: any) => item.id !== datasetId)
+    message.error("删除数据集失败")
+  }
+}
+
+async function changeEmbedding() {
+  if (!activeDataset.value) return
+  embeddingLoading.value = true
+  try {
+    await switchEmbedding(activeDataset.value.id, embeddingInput.value)
+    message.success("Embedding 已切换，相关旧索引已级联删除，请重新构建索引")
+    await loadDatasets()
+    detailOpen.value = false
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "切换 embedding 失败")
+  } finally {
+    embeddingLoading.value = false
+  }
+}
+
+async function loadCellsPage() {
+  if (!activeDataset.value) return
+  cellsLoading.value = true
+  try {
+    const res: any = await listCells(activeDataset.value.id, (cellPage.value - 1) * cellPageSize.value, cellPageSize.value)
+    cells.value = res.items
+    cellTotal.value = res.total
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "细胞列表加载失败")
+  } finally {
+    cellsLoading.value = false
+  }
+}
+
+async function applyCellFilter() {
+  if (!activeDataset.value) return
+  if (!filterColumn.value.trim() || !filterValue.value.trim()) return message.warning("请填写过滤字段和过滤值")
+  cellsLoading.value = true
+  try {
+    const res: any = await filterCells(activeDataset.value.id, {
+      filters: { equals: { [filterColumn.value.trim()]: [filterValue.value.trim()] } },
+      offset: (cellPage.value - 1) * cellPageSize.value,
+      limit: cellPageSize.value,
+    })
+    cells.value = res.items
+    cellTotal.value = res.total_matched
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "细胞过滤失败")
+  } finally {
+    cellsLoading.value = false
+  }
+}
+
+function onCellTableChange(pagination: any) {
+  cellPage.value = pagination.current ?? 1
+  if (filterColumn.value.trim() && filterValue.value.trim()) {
+    applyCellFilter()
+  } else {
+    loadCellsPage()
   }
 }
 </script>

@@ -1,53 +1,82 @@
 <template>
   <AppLayout>
-    <div class="visualize-page">
-      <a-card class="control-panel" :bordered="false">
-        <div class="control-panel__inner">
-          <div class="control-panel__header">
-            <div>
-              <div class="control-panel__eyebrow">UMAP Control Bar</div>
-              <h2>单细胞数据 UMAP 可视化</h2>
-            </div>
-            <p>选择维度、着色方式与 Top-K，然后刷新图谱查看分布。</p>
+    <section class="visual-workbench">
+      <header class="viz-header">
+        <div class="viz-header__main">
+          <div>
+            <div class="viz-header__path">Visual analytics / UMAP</div>
+            <h2>单细胞数据 UMAP 可视化</h2>
           </div>
-
-          <a-row :gutter="16" align="middle" class="control-row">
-          <a-col :xs="24" :md="6">
-            <a-select v-model:value="dimension" class="control-select">
-              <a-select-option :value="2">2D</a-select-option>
-              <a-select-option :value="3">3D</a-select-option>
-            </a-select>
-          </a-col>
-          <a-col :xs="24" :md="6">
-            <a-select v-model:value="colorBy" class="control-select">
-              <a-select-option value="cell_type">按 cell_type</a-select-option>
-              <a-select-option value="dataset">按 dataset</a-select-option>
-              <a-select-option value="disease">按 disease</a-select-option>
-            </a-select>
-          </a-col>
-          <a-col :xs="24" :md="6">
-            <a-input-number v-model:value="topK" :min="1" :max="50" class="control-number" />
-          </a-col>
-          <a-col :xs="24" :md="6">
-            <a-button type="primary" block class="refresh-button" :loading="loading" @click="loadPoints">刷新图谱</a-button>
-          </a-col>
-          </a-row>
+          <div class="viz-header__chips">
+            <span class="status-chip status-chip--ready">
+              <span class="status-dot" aria-hidden="true"></span>
+              {{ activeIndex ? `索引 #${activeIndex.id} ready` : "未选择 ready 索引" }}
+            </span>
+            <span class="status-chip">{{ activeDataset?.embedding_key ?? "X_pca" }}</span>
+          </div>
         </div>
-      </a-card>
 
-      <a-row :gutter="16" class="visualize-layout">
-        <a-col :xs="24" :lg="16">
-          <a-card class="chart-card" :bordered="false">
-            <template #title>
-              <div class="card-title card-title--accent">
-                <span class="card-title__bar" aria-hidden="true"></span>
-                <span>UMAP 可视化</span>
+        <div class="metric-strip">
+          <article v-for="metric in summaryCards" :key="metric.label" class="metric-card">
+            <span class="metric-card__label">{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+            <span>{{ metric.meta }}</span>
+          </article>
+        </div>
+      </header>
+
+      <div class="workbench-grid">
+        <main class="map-column">
+          <section class="toolbar-panel" aria-label="UMAP 控制">
+            <div class="toolbar-grid">
+              <label class="field field--wide">
+                <span>数据集</span>
+                <a-select v-model:value="selectedDatasetId" :options="datasetOptions" @change="onDatasetChange" />
+              </label>
+              <label class="field">
+                <span>视图</span>
+                <a-segmented v-model:value="dimension" :options="dimensionOptions" />
+              </label>
+              <label class="field">
+                <span>着色</span>
+                <a-select v-model:value="colorBy">
+                  <a-select-option value="cell_type">cell_type</a-select-option>
+                  <a-select-option value="dataset">dataset</a-select-option>
+                  <a-select-option value="disease">disease</a-select-option>
+                </a-select>
+              </label>
+              <label class="field">
+                <span>Top-K</span>
+                <a-input-number v-model:value="topK" :min="1" :max="50" />
+              </label>
+              <a-button type="primary" class="toolbar-action" :loading="loading" @click="loadPoints">刷新图谱</a-button>
+            </div>
+
+            <div class="locate-strip">
+              <div class="locate-strip__copy">
+                <strong>细胞定位</strong>
+                <span>输入一个或多个 cell_id，在图谱中高亮并打开检查器。</span>
               </div>
-            </template>
-            <div class="chart-card__body">
-              <div class="chart-skeleton" aria-hidden="true">
-                <span v-for="n in 42" :key="n" class="chart-skeleton__dot" :style="{ '--delay': `${n * 0.03}s` }"></span>
+              <a-input v-model:value="locateInput" class="locate-input" placeholder="AAACCTGAGCAGGTCA-1_2" />
+              <a-button class="locate-button" :loading="locateLoading" @click="locate">高亮定位</a-button>
+            </div>
+          </section>
+
+          <section class="map-panel">
+            <div class="map-panel__head">
+              <div>
+                <h3>UMAP embedding</h3>
+                <p>{{ pointCountLabel }} points · {{ dimension }}D · colored by {{ colorBy }}</p>
               </div>
+              <div class="map-panel__tools">
+                <span>{{ activeDataset?.name ?? "dataset" }}</span>
+                <span>{{ loading ? "loading" : "live" }}</span>
+              </div>
+            </div>
+
+            <div class="map-stage">
+              <div class="map-grid" aria-hidden="true"></div>
+              <div v-if="loading" class="plot-loading">正在刷新 embedding...</div>
               <UmapPlot
                 :points="points"
                 :dimension="dimension"
@@ -55,91 +84,106 @@
                 :selectedId="selectedPoint?.id ?? null"
                 @point-click="onPointClick"
               />
+              <div v-if="legendRows.length" class="map-legend">
+                <div class="map-legend__title">Legend</div>
+                <div v-for="item in legendRows" :key="item.name" class="legend-row">
+                  <span class="legend-row__swatch" :style="{ background: item.color }"></span>
+                  <span>{{ item.name }}</span>
+                  <strong>{{ item.count }}</strong>
+                </div>
+              </div>
             </div>
-          </a-card>
-        </a-col>
+          </section>
+        </main>
 
-        <a-col :xs="24" :lg="8">
-          <div class="sidebar-stack">
-            <a-card class="info-card" :bordered="false">
-              <template #title>
-                <div class="card-title"><span>选中细胞</span></div>
-              </template>
-              <div v-if="selectedPoint" class="selected-panel">
-                <p><strong>ID：</strong>{{ selectedPoint.id }}</p>
-                <p><strong>cell_type：</strong>{{ selectedPoint.cell_type }}</p>
-                <p><strong>dataset：</strong>{{ selectedPoint.dataset }}</p>
-                <p><strong>metadata：</strong></p>
-                <pre>{{ JSON.stringify(selectedPoint.metadata, null, 2) }}</pre>
+        <aside class="inspector-column">
+          <section class="inspector-card selected-card">
+            <div class="panel-heading">
+              <div>
+                <span>Selected cell</span>
+                <h3>选中细胞</h3>
               </div>
-              <div v-else class="empty-waiting">
-                <div class="empty-waiting__box">
-                  <div class="empty-waiting__icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M4 18h16" />
-                      <path d="M6 18V7" />
-                      <path d="M10 18V11" />
-                      <path d="M14 18V5" />
-                      <path d="M18 18V9" />
-                    </svg>
-                  </div>
-                  <p>点击左侧散点图中的任一点查看详情，并自动发起相似性查询。</p>
+              <span class="mini-chip">{{ selectedPoint ? "active" : "idle" }}</span>
+            </div>
+
+            <div v-if="selectedPoint" class="selected-cell">
+              <div class="selected-cell__id">{{ selectedPoint.id }}</div>
+              <div class="selected-cell__type">{{ selectedCellType }}</div>
+              <div class="metadata-grid">
+                <div v-for="item in selectedMetadataRows" :key="item.key" class="metadata-row">
+                  <span>{{ item.key }}</span>
+                  <strong>{{ item.value }}</strong>
                 </div>
               </div>
-            </a-card>
+            </div>
+            <div v-else class="empty-inspector">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 18h16" />
+                <path d="M7 15V8" />
+                <path d="M12 15V5" />
+                <path d="M17 15v-9" />
+              </svg>
+              <p>点击散点或使用高亮定位打开细胞详情。</p>
+            </div>
+          </section>
 
-            <a-card class="info-card" :bordered="false">
-              <template #title>
-                <div class="card-title"><span>相似细胞结果</span></div>
-              </template>
-              <a-table
-                class="neighbor-table"
-                :columns="neighborColumns"
-                :data-source="neighbors"
-                :pagination="false"
-                size="small"
-                row-key="rank"
-                :loading="neighborLoading"
-              />
-            </a-card>
+          <section class="inspector-card">
+            <div class="panel-heading">
+              <div>
+                <span>Nearest neighbors</span>
+                <h3>相似细胞结果</h3>
+              </div>
+              <span class="mini-chip">{{ neighbors.length }} hits</span>
+            </div>
+            <a-table
+              class="neighbor-table"
+              :columns="neighborColumns"
+              :data-source="neighbors"
+              :pagination="false"
+              size="small"
+              row-key="rank"
+              :loading="neighborLoading"
+            />
+          </section>
 
-            <a-card class="info-card" :bordered="false">
-              <template #title>
-                <div class="card-title"><span>数据分布统计</span></div>
-              </template>
-              <div v-if="facets" class="facets-visual">
-                <div v-for="(vals, key) in facets" :key="key" class="facet-block">
-                  <strong>{{ key }}</strong>
-                  <div class="facet-list">
-                    <div v-for="(count, name) in vals" :key="name" class="facet-row">
-                      <span class="facet-row__name">{{ name }}</span>
-                      <span class="facet-row__value">{{ count }}</span>
-                    </div>
-                  </div>
+          <section class="inspector-card">
+            <div class="panel-heading">
+              <div>
+                <span>Distribution</span>
+                <h3>数据分布统计</h3>
+              </div>
+              <span class="mini-chip">{{ colorBy }}</span>
+            </div>
+            <div v-if="distributionRows.length" class="distribution-list">
+              <div v-for="item in distributionRows" :key="item.name" class="distribution-row">
+                <div class="distribution-row__top">
+                  <span>
+                    <i :style="{ background: item.color }" aria-hidden="true"></i>
+                    {{ item.name }}
+                  </span>
+                  <strong>{{ item.count }}</strong>
+                </div>
+                <div class="distribution-bar">
+                  <span :style="{ width: `${item.percent}%`, background: item.color }"></span>
                 </div>
               </div>
-              <div v-else class="stats-empty">
-                <div class="stats-skeleton" aria-hidden="true">
-                  <span class="stats-skeleton__bar stats-skeleton__bar--1"></span>
-                  <span class="stats-skeleton__bar stats-skeleton__bar--2"></span>
-                  <span class="stats-skeleton__bar stats-skeleton__bar--3"></span>
-                </div>
-                <div class="stats-empty__text">暂无数据</div>
-              </div>
-            </a-card>
-          </div>
-        </a-col>
-      </a-row>
-    </div>
+            </div>
+            <div v-else class="empty-mini">暂无分布数据</div>
+          </section>
+        </aside>
+      </div>
+    </section>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
+import { message } from "ant-design-vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
 import UmapPlot from "@/components/visualize/UmapPlot.vue"
-import { browseSearch, listDatasets } from "@/api/search"
+import { browseSearch, getDatasetCells, listDatasets, listIndexes } from "@/api/search"
 import { useSearch } from "@/composables/useSearch"
+import { locateCells } from "@/api/visualize"
 
 type Point = {
   id: string
@@ -151,53 +195,123 @@ type Point = {
   metadata?: Record<string, any>
 }
 
+const palette = ["#2563eb", "#14b8a6", "#f97316", "#8b5cf6", "#0ea5e9", "#22c55e", "#e11d48", "#64748b"]
 const dimension = ref<2 | 3>(2)
 const colorBy = ref("cell_type")
 const topK = ref(10)
 const points = ref<Point[]>([])
 const selectedPoint = ref<Point | null>(null)
 const neighbors = ref<any[]>([])
-const facets = ref<any>(null)
 const loading = ref(false)
 const neighborLoading = ref(false)
+const locateLoading = ref(false)
+const locateInput = ref("")
+const datasets = ref<any[]>([])
+const indexes = ref<any[]>([])
+const selectedDatasetId = ref<number>()
+const selectedIndexId = ref<number>()
+
+const dimensionOptions = [
+  { label: "2D", value: 2 },
+  { label: "3D", value: 3 },
+]
+
+const datasetOptions = computed(() =>
+  datasets.value.map((item) => ({
+    value: item.id,
+    label: `${item.name} (#${item.id})`,
+  }))
+)
+const activeDataset = computed(() => datasets.value.find((item) => item.id === selectedDatasetId.value))
+const activeIndex = computed(() => indexes.value.find((item) => item.id === selectedIndexId.value))
+const pointCountLabel = computed(() => formatNumber(points.value.length))
+const selectedCellType = computed(() => selectedPoint.value?.cell_type || String(selectedPoint.value?.metadata?.cell_type ?? "unknown"))
+
+const summaryCards = computed(() => [
+  { label: "Cells", value: formatNumber(activeDataset.value?.n_cells), meta: "loaded dataset" },
+  { label: "Genes", value: formatNumber(activeDataset.value?.n_genes), meta: "feature space" },
+  { label: "Vectors", value: formatNumber(activeIndex.value?.n_vectors), meta: activeIndex.value?.algorithm ?? "index" },
+  { label: "Rendered", value: formatNumber(points.value.length), meta: `${dimension.value}D canvas` },
+])
+
+const distributionRows = computed(() => {
+  const counts = new Map<string, number>()
+  for (const point of points.value) {
+    const raw = (point as any)[colorBy.value] ?? point.metadata?.[colorBy.value] ?? "unknown"
+    const name = String(raw || "unknown")
+    counts.set(name, (counts.get(name) ?? 0) + 1)
+  }
+  const total = Math.max(points.value.length, 1)
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([name, count], index) => ({
+      name,
+      count,
+      percent: Math.max(4, Math.round((count / total) * 100)),
+      color: palette[index % palette.length],
+    }))
+})
+const legendRows = computed(() => distributionRows.value.slice(0, 5))
+const selectedMetadataRows = computed(() => {
+  const metadata = selectedPoint.value?.metadata ?? {}
+  const preferred = ["row_index", "cell_type", "author_cell_type", "disease", "sex", "tissue", "Treatment", "Phase"]
+  const rows: Array<{ key: string; value: string }> = []
+  for (const key of preferred) {
+    const value = metadata[key]
+    if (value !== undefined && value !== null && value !== "") rows.push({ key, value: String(value) })
+  }
+  for (const [key, value] of Object.entries(metadata)) {
+    if (rows.length >= 8) break
+    if (!preferred.includes(key) && value !== undefined && value !== null && value !== "") rows.push({ key, value: String(value) })
+  }
+  return rows
+})
 
 const neighborColumns = [
-  { title: "Rank", dataIndex: "rank", key: "rank", width: 70 },
-  { title: "ID", dataIndex: "id", key: "id" },
-  { title: "Score", dataIndex: "score", key: "score", width: 100 },
-  { title: "Type", dataIndex: "cell_type", key: "cell_type", width: 100 },
+  { title: "Rank", dataIndex: "rank", key: "rank", width: 64 },
+  { title: "Cell ID", dataIndex: "id", key: "id" },
+  { title: "Distance", dataIndex: "distance", key: "distance", width: 96 },
+  { title: "Type", dataIndex: "cell_type", key: "cell_type", width: 96 },
 ]
 
 const { search } = useSearch()
 
+function formatNumber(value?: number | null) {
+  if (value === undefined || value === null || Number.isNaN(Number(value))) return "-"
+  return new Intl.NumberFormat("en-US").format(Number(value))
+}
+
 async function loadPoints() {
   loading.value = true
   try {
-    // choose first ready dataset if none selected
-    const datasets = await listDatasets()
-    const ds = datasets[0]
-    if (!ds) {
+    if (!selectedDatasetId.value) {
       points.value = []
-      facets.value = null
       return
     }
-    const res = await browseSearch({ datasetId: ds.id, pageSize: 5000, queryType: dimension.value === 3 ? "vector" : "id", colorBy: colorBy.value })
-    // backend visualize embedding returns { points: [{cell_id,x,y,z,label,obs}], n_returned }
+    const res = await browseSearch({
+      datasetId: selectedDatasetId.value,
+      pageSize: 5000,
+      queryType: dimension.value === 3 ? "vector" : "id",
+      colorBy: colorBy.value,
+    })
     const pts = res.points ?? []
     points.value = pts.map((item: any, idx: number) => ({
       id: item.cell_id,
       cell_type: item.obs?.cell_type ?? item.label,
-      dataset: `dataset_${res.dataset_id}`,
+      dataset: activeDataset.value?.name ?? `dataset_${res.dataset_id}`,
       umap_x: item.x,
       umap_y: item.y,
       umap_z: item.z ?? idx / 10,
       metadata: item.obs ?? {},
     }))
-    facets.value = res.color_options ? { [res.color_by ?? "color_by"]: res.color_options } : null
+    if (selectedPoint.value && !points.value.some((point) => point.id === selectedPoint.value?.id)) {
+      selectedPoint.value = null
+      neighbors.value = []
+    }
   } catch (error) {
     console.error("Failed to load visualize points:", error)
     points.value = []
-    facets.value = null
   } finally {
     loading.value = false
   }
@@ -207,297 +321,527 @@ async function onPointClick(point: Point) {
   selectedPoint.value = point
   neighborLoading.value = true
   try {
-    const res = await search({ queryType: "id", query: point.id, k: topK.value, page: 1, pageSize: topK.value })
+    if (!selectedIndexId.value) throw new Error("当前数据集没有 ready 索引")
+    const res = await search({ queryType: "id", query: point.id, k: topK.value, indexId: selectedIndexId.value, page: 1, pageSize: topK.value })
     neighbors.value = res.results
-  } catch (e) {
+  } catch (e: any) {
     neighbors.value = []
+    message.error(e?.response?.data?.detail ?? e?.message ?? "相似细胞查询失败")
   } finally {
     neighborLoading.value = false
   }
 }
 
-onMounted(loadPoints)
+async function loadResources() {
+  datasets.value = await listDatasets()
+  selectedDatasetId.value = selectedDatasetId.value ?? datasets.value[0]?.id
+  await onDatasetChange(selectedDatasetId.value)
+}
+
+async function onDatasetChange(datasetId?: number) {
+  if (!datasetId) return
+  indexes.value = await listIndexes(datasetId)
+  selectedIndexId.value = indexes.value.find((item) => item.status === "ready")?.id
+  const page = await getDatasetCells(datasetId, 0, 1)
+  locateInput.value = page.items[0]?.cell_id ?? ""
+  selectedPoint.value = null
+  neighbors.value = []
+  await loadPoints()
+}
+
+async function locate() {
+  if (!selectedDatasetId.value) return
+  const ids = locateInput.value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
+  if (!ids.length) return message.warning("请输入 cell_id")
+  locateLoading.value = true
+  try {
+    const res = await locateCells(selectedDatasetId.value, ids, dimension.value === 3 ? "3d" : "2d")
+    const first = res.points[0]
+    if (!first) return message.warning("未找到匹配细胞")
+    const existing = points.value.find((item) => item.id === first.cell_id)
+    let point = existing
+    if (!point) {
+      let metadata: Record<string, any> = { row_index: first.row_index }
+      try {
+        const page = await getDatasetCells(selectedDatasetId.value, first.row_index, 1)
+        const cell = page.items?.find((item: any) => item.cell_id === first.cell_id) ?? page.items?.[0]
+        if (cell?.obs) metadata = { row_index: first.row_index, ...cell.obs }
+      } catch {
+        // Detail enrichment is best-effort; location itself already succeeded.
+      }
+      point = {
+        id: first.cell_id,
+        cell_type: metadata.cell_type,
+        dataset: activeDataset.value?.name,
+        umap_x: first.x,
+        umap_y: first.y,
+        umap_z: first.z ?? undefined,
+        metadata,
+      }
+    }
+    await onPointClick(point)
+    message.success(`定位到 ${res.points.length} 个细胞`)
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "定位失败")
+  } finally {
+    locateLoading.value = false
+  }
+}
+
+onMounted(loadResources)
 </script>
 
 <style scoped>
-.visualize-page {
-  position: relative;
-  isolation: isolate;
+.visual-workbench {
   min-height: 100%;
   display: grid;
   gap: 16px;
-  padding: 18px 0 8px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 14% 12%, rgba(224, 242, 254, 0.9) 0, rgba(224, 242, 254, 0.62) 20%, rgba(224, 242, 254, 0.16) 38%, transparent 62%),
-    radial-gradient(circle at 86% 88%, rgba(243, 232, 255, 0.88) 0, rgba(243, 232, 255, 0.58) 20%, rgba(243, 232, 255, 0.16) 38%, transparent 62%),
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 52%, #f3f7fb 100%);
+  color: #0f172a;
 }
 
-.visualize-page::before {
-  content: "";
-  position: absolute;
-  inset: -18%;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(circle at 18% 14%, rgba(224, 242, 254, 0.42) 0 11%, transparent 44%),
-    radial-gradient(circle at 82% 84%, rgba(243, 232, 255, 0.38) 0 12%, transparent 46%),
-    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.24) 0 9%, transparent 34%),
-    linear-gradient(135deg, rgba(0, 123, 255, 0.03), rgba(38, 166, 154, 0.015), rgba(243, 232, 255, 0.03));
-  filter: blur(32px);
-  opacity: 0.9;
-  animation: visualizeGlowDrift 26s ease-in-out infinite alternate;
+.viz-header {
+  display: grid;
+  gap: 14px;
 }
 
-.visualize-page > * {
-  position: relative;
-  z-index: 1;
-}
-
-.control-panel,
-.chart-card,
-.info-card {
-  border-radius: 16px;
-  background: #fff;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow:
-    0 24px 54px rgba(15, 23, 42, 0.06),
-    0 8px 16px rgba(15, 23, 42, 0.04);
-}
-
-.control-panel__inner {
-  padding: 18px 20px 16px;
-}
-
-.control-panel__header {
+.viz-header__main {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
+  gap: 20px;
+  padding: 2px 2px 0;
 }
 
-.control-panel__eyebrow {
+.viz-header__path {
+  margin-bottom: 4px;
+  color: #64748b;
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #007bff;
 }
 
-.control-panel__header h2 {
-  margin: 6px 0 0;
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.control-panel__header p {
+.viz-header h2 {
   margin: 0;
-  color: #64748b;
-  line-height: 1.6;
-  max-width: 520px;
+  color: #0f172a;
+  font-size: 1.55rem;
+  font-weight: 850;
+  line-height: 1.2;
+  letter-spacing: 0;
 }
 
-.control-row {
-  padding: 12px;
-  border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid rgba(226, 232, 240, 0.95);
+.viz-header__chips,
+.map-panel__tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.control-select,
-.control-number {
-  width: 100%;
-}
-
-.control-row :deep(.ant-select-selector),
-.control-row :deep(.ant-input-number),
-.control-row :deep(.ant-input-number-input-wrap),
-.control-row :deep(.ant-select-selection-search-input) {
-  border-radius: 12px !important;
-}
-
-.control-row :deep(.ant-select-selector),
-.control-row :deep(.ant-input-number) {
-  background: #fff !important;
-  border: 1px solid #d8e3ee !important;
-  box-shadow: none !important;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-}
-
-.control-row :deep(.ant-select-focused .ant-select-selector),
-.control-row :deep(.ant-input-number-focused) {
-  border-color: #007bff !important;
-  box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.12) !important;
-}
-
-.refresh-button {
-  width: 100%;
-  height: 40px;
-  border-radius: 12px;
-  font-weight: 800;
-  box-shadow: 0 14px 26px rgba(0, 123, 255, 0.18);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
-}
-
-.refresh-button:hover {
-  transform: translateY(-1px) scale(1.02);
-  filter: brightness(1.03);
-  box-shadow: 0 18px 30px rgba(0, 123, 255, 0.24);
-}
-
-.visualize-layout {
-  align-items: stretch;
-}
-
-.chart-card {
-  height: 100%;
-  overflow: hidden;
-}
-
-.chart-card :deep(.ant-card-head),
-.info-card :deep(.ant-card-head) {
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-}
-
-.chart-card :deep(.ant-card-head-title),
-.info-card :deep(.ant-card-head-title) {
-  padding: 16px 0;
-}
-
-.card-title {
+.status-chip,
+.map-panel__tools span,
+.mini-chip {
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.98rem;
-  font-weight: 800;
-  color: #0f172a;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #dfe7ef;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 780;
 }
 
-.card-title--accent {
-  position: relative;
+.status-chip--ready {
+  color: #0f766e;
+  background: #f0fdfa;
+  border-color: #b2f5ea;
 }
 
-.card-title__bar {
-  width: 4px;
-  height: 18px;
-  border-radius: 999px;
-  background: #007bff;
-}
-
-.chart-card__body {
-  position: relative;
-  min-height: 520px;
-  padding: 18px;
-  overflow: hidden;
-}
-
-.chart-skeleton {
-  position: absolute;
-  inset: 18px;
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(6, 1fr);
-  gap: 14px;
-  pointer-events: none;
-  opacity: 0.65;
-  background:
-    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
-  background-size: 100% 20%, 14.285% 100%;
-  border-radius: 14px;
-}
-
-.chart-skeleton__dot {
-  align-self: end;
-  justify-self: center;
-  width: 7px;
-  height: 7px;
+.status-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: rgba(0, 123, 255, 0.14);
-  opacity: 0.85;
-  animation: pulseDot 4.5s ease-in-out infinite;
-  animation-delay: var(--delay);
+  background: #14b8a6;
+  box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.14);
 }
 
-.chart-card :deep(.plot-wrap) {
-  position: relative;
-  z-index: 1;
-  min-height: 520px;
+.metric-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.chart-card :deep(.js-plotly-plot .plotly),
-.chart-card :deep(.js-plotly-plot .svg-container) {
-  background: transparent !important;
+.metric-card {
+  min-height: 86px;
+  padding: 14px 16px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
 }
 
-.sidebar-stack {
+.metric-card__label {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-card strong {
+  color: #0f172a;
+  font-size: 1.34rem;
+  line-height: 1;
+}
+
+.metric-card span:last-child {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.workbench-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(360px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.map-column,
+.inspector-column {
+  min-width: 0;
   display: grid;
   gap: 16px;
 }
 
-.info-card {
+.toolbar-panel,
+.map-panel,
+.inspector-card {
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e1e8f0;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);
+}
+
+.toolbar-panel {
+  padding: 14px;
+}
+
+.toolbar-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.35fr) 132px minmax(150px, 0.8fr) 104px 128px;
+  gap: 10px;
+  align-items: end;
+}
+
+.field {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.field :deep(.ant-select),
+.field :deep(.ant-input-number),
+.locate-input {
+  width: 100%;
+}
+
+.field :deep(.ant-select-selector),
+.field :deep(.ant-input-number),
+.locate-input :deep(.ant-input),
+.locate-strip :deep(.ant-input) {
+  border-radius: 8px !important;
+  border-color: #dbe4ee !important;
+  box-shadow: none !important;
+}
+
+.field :deep(.ant-segmented) {
+  width: 100%;
+  padding: 3px;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+
+.field :deep(.ant-segmented-item) {
+  min-height: 28px;
+  border-radius: 6px;
+  font-weight: 750;
+}
+
+.toolbar-action,
+.locate-button {
+  height: 36px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.toolbar-action {
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
+}
+
+.locate-strip {
+  margin-top: 12px;
+  padding-top: 12px;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1fr) 112px;
+  gap: 10px;
+  align-items: center;
+  border-top: 1px solid #eef2f7;
+}
+
+.locate-strip__copy {
+  display: grid;
+  gap: 2px;
+}
+
+.locate-strip__copy strong {
+  font-size: 0.82rem;
+  color: #0f172a;
+}
+
+.locate-strip__copy span {
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.map-panel {
   overflow: hidden;
 }
 
-.info-card :deep(.ant-card-body) {
-  padding: 20px;
+.map-panel__head {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e7edf4;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
 }
 
-.selected-panel {
-  padding: 18px;
-  border-radius: 14px;
-  background: #f8fafc;
-  border: 1px dashed rgba(148, 163, 184, 0.35);
-  color: #334155;
-  min-height: 220px;
-}
-
-.selected-panel p {
-  margin: 0 0 10px;
-}
-
-.selected-panel pre {
-  white-space: pre-wrap;
-  word-break: break-word;
+.map-panel__head h3,
+.panel-heading h3 {
   margin: 0;
-  color: #475569;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 850;
 }
 
-.empty-waiting {
+.map-panel__head p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.map-stage {
+  position: relative;
+  min-height: 620px;
+  padding: 10px;
+  background: #fbfdff;
+}
+
+.map-grid {
+  position: absolute;
+  inset: 10px;
+  pointer-events: none;
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.2));
+}
+
+.plot-loading {
+  position: absolute;
+  z-index: 3;
+  top: 18px;
+  left: 18px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e8f0;
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.map-stage :deep(.plot-shell) {
+  position: relative;
+  z-index: 1;
+  min-height: 620px;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.map-stage :deep(.plot-wrap) {
+  min-height: 620px;
+}
+
+.map-legend {
+  position: absolute;
+  z-index: 2;
+  right: 20px;
+  top: 20px;
+  width: min(230px, calc(100% - 40px));
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.94);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.map-legend__title {
+  margin-bottom: 8px;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.legend-row {
   display: grid;
-  place-items: center;
-  min-height: 220px;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
-.empty-waiting__box {
-  width: 100%;
-  padding: 18px;
+.legend-row span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-row__swatch,
+.distribution-row__top i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.inspector-card {
+  padding: 14px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-heading span:first-child {
+  display: block;
+  margin-bottom: 3px;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mini-chip {
+  min-height: 24px;
+  padding-inline: 8px;
+  background: #f8fafc;
+  font-size: 0.72rem;
+}
+
+.selected-cell {
   display: grid;
   gap: 12px;
-  place-items: center;
-  text-align: center;
-  border-radius: 14px;
-  background: #fafcff;
-  border: 1px dashed rgba(148, 163, 184, 0.35);
 }
 
-.empty-waiting__icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
+.selected-cell__id {
+  padding: 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  font-weight: 800;
+  word-break: break-word;
+}
+
+.selected-cell__type {
+  width: fit-content;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: #0f766e;
+  background: #f0fdfa;
+  border: 1px solid #b2f5ea;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.metadata-grid {
+  display: grid;
+  gap: 7px;
+}
+
+.metadata-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.7fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.metadata-row span {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.metadata-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #334155;
+  font-size: 0.78rem;
+}
+
+.empty-inspector,
+.empty-mini {
+  min-height: 160px;
   display: grid;
   place-items: center;
+  gap: 10px;
+  padding: 18px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
   color: #94a3b8;
-  background: rgba(148, 163, 184, 0.08);
+  text-align: center;
+  line-height: 1.65;
 }
 
-.empty-waiting__icon svg {
-  width: 24px;
-  height: 24px;
+.empty-inspector svg {
+  width: 34px;
+  height: 34px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
@@ -505,10 +849,8 @@ onMounted(loadPoints)
   stroke-linejoin: round;
 }
 
-.empty-waiting__box p {
+.empty-inspector p {
   margin: 0;
-  color: #94a3b8;
-  line-height: 1.7;
 }
 
 .neighbor-table :deep(.ant-table) {
@@ -516,10 +858,11 @@ onMounted(loadPoints)
 }
 
 .neighbor-table :deep(.ant-table-thead > tr > th) {
-  background: #f9fafb;
-  color: #334155;
-  font-weight: 800;
-  border-bottom: 1px solid rgba(226, 232, 240, 1);
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 850;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .neighbor-table :deep(.ant-table-thead > tr > th::before) {
@@ -527,9 +870,9 @@ onMounted(loadPoints)
 }
 
 .neighbor-table :deep(.ant-table-tbody > tr > td) {
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-  border-left: 0;
-  border-right: 0;
+  border-bottom: 1px solid #eef2f7;
+  color: #334155;
+  font-size: 0.76rem;
 }
 
 .neighbor-table :deep(.ant-table-tbody > tr:hover > td) {
@@ -537,132 +880,110 @@ onMounted(loadPoints)
 }
 
 .neighbor-table :deep(.ant-empty-image) {
+  height: 38px;
+  margin-bottom: 4px;
   opacity: 0.45;
 }
 
 .neighbor-table :deep(.ant-empty-description) {
   color: #94a3b8;
+  font-size: 0.78rem;
 }
 
-.facets-visual {
+.distribution-list {
   display: grid;
-  gap: 16px;
+  gap: 10px;
 }
 
-.facet-block {
-  padding: 16px;
-  border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid rgba(226, 232, 240, 0.95);
-}
-
-.facet-block strong {
-  display: inline-block;
-  margin-bottom: 12px;
-  color: #334155;
-}
-
-.facet-list {
+.distribution-row {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
-.facet-row {
+.distribution-row__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #475569;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 780;
 }
 
-.facet-row__name {
+.distribution-row__top span {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.facet-row__value {
-  font-weight: 700;
-  color: #0f172a;
+.distribution-bar {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eef2f7;
 }
 
-.stats-empty {
-  min-height: 220px;
-  display: grid;
-  place-items: center;
-  gap: 14px;
+.distribution-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
 }
 
-.stats-skeleton {
-  width: 100%;
-  height: 120px;
-  display: flex;
-  align-items: end;
-  justify-content: center;
-  gap: 14px;
-  padding: 0 26px;
+@media (max-width: 1280px) {
+  .workbench-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inspector-column {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
-.stats-skeleton__bar {
-  width: 22%;
-  border-radius: 10px 10px 4px 4px;
-  background: rgba(148, 163, 184, 0.2);
+@media (max-width: 980px) {
+  .metric-strip,
+  .inspector-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .toolbar-grid,
+  .locate-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .toolbar-action,
+  .locate-button,
+  .locate-strip__copy {
+    grid-column: 1 / -1;
+  }
 }
 
-.stats-skeleton__bar--1 { height: 34%; }
-.stats-skeleton__bar--2 { height: 62%; }
-.stats-skeleton__bar--3 { height: 46%; }
-
-.stats-empty__text {
-  color: #94a3b8;
-  font-weight: 600;
-}
-
-@keyframes pulseDot {
-  0%, 100% { transform: translateY(0); opacity: 0.65; }
-  50% { transform: translateY(-4px); opacity: 1; }
-}
-
-@media (max-width: 992px) {
-  .control-panel__header {
+@media (max-width: 680px) {
+  .viz-header__main {
     align-items: flex-start;
     flex-direction: column;
   }
-}
 
-@media (max-width: 720px) {
-  .visualize-page {
-    padding-top: 12px;
+  .metric-strip,
+  .inspector-column,
+  .toolbar-grid,
+  .locate-strip {
+    grid-template-columns: 1fr;
   }
 
-  .control-panel__inner,
-  .chart-card__body,
-  .info-card :deep(.ant-card-body) {
-    padding: 14px;
+  .map-stage,
+  .map-stage :deep(.plot-shell),
+  .map-stage :deep(.plot-wrap) {
+    min-height: 460px;
   }
 
-  .chart-card__body {
-    min-height: 420px;
-  }
-
-  .chart-card :deep(.plot-wrap) {
-    min-height: 420px;
-  }
-}
-
-pre {
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 0;
-}
-
-@keyframes visualizeGlowDrift {
-  from {
-    transform: translate3d(-1%, -0.8%, 0) scale(1);
-  }
-
-  to {
-    transform: translate3d(1%, 0.8%, 0) scale(1.02);
+  .map-legend {
+    position: static;
+    width: auto;
+    margin: 10px;
   }
 }
 </style>

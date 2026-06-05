@@ -5,6 +5,7 @@
     "moduleResolution": "bundler",
     "strict": true,
     "skipLibCheck": true,
+    "noEmit": true,
     "jsx": "preserve",
     "types": ["vite/client"],
     "paths": { "@/*": ["./src/*"] }

@@ -24,11 +24,10 @@ describe('useSearch composable', () => {
     expect(res.total).toBe(1)
   })
 
-  it('falls back to mock when backend fails', async () => {
-    ;(searchApi.search as any).mockRejectedValueOnce(new Error('network'))
+  it('surfaces backend failures instead of returning mock data', async () => {
+    const error = new Error('network')
+    ;(searchApi.search as any).mockRejectedValueOnce(error)
     const { search } = useSearch()
-    const res = await search({ k: 3 })
-    expect(res.results.length).toBeGreaterThanOrEqual(1)
-    expect(res.total).toBeDefined()
+    await expect(search({ k: 3 })).rejects.toThrow('network')
   })
 })

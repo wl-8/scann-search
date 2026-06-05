@@ -71,6 +71,105 @@ class SearchResponse(BaseModel):
     hits: list[SearchHit]
 
 
+# ---------- 多数据集查询 ----------
+
+class MultiDatasetSearchRequest(BaseModel):
+    """跨多个索引/数据集做一次联合 Top-K 检索。
+
+    cell_id 查询需要先从 source_index_id 所在数据集中解析查询向量；
+    不传 source_index_id 时，会按 index_ids 顺序使用第一个包含该 cell_id 的数据集。
+    """
+    index_ids: Annotated[list[int], Field(min_length=1, max_length=20)]
+    source_index_id: int | None = None
+    cell_id: str | None = None
+    vector: list[float] | None = None
+    k: int = Field(default=DEFAULT_K, ge=1, le=MAX_K)
+    filters: SearchFilter | None = None
+    oversample: int | None = Field(default=None, ge=1, le=500)
+    metric: Literal["l2", "cosine"] = "l2"
+
+    @model_validator(mode="after")
+    def _check_query_source(self) -> "MultiDatasetSearchRequest":
+        if not self.cell_id and not self.vector:
+            raise ValueError("必须提供 cell_id 或 vector")
+        if self.cell_id and self.vector:
+            raise ValueError("cell_id 和 vector 只能提供一个")
+        if self.vector is not None and not self.vector:
+            raise ValueError("vector 不能为空")
+        return self
+
+
+class MultiDatasetHit(SearchHit):
+    index_id: int
+    dataset_id: int
+    algorithm: str
+
+
+class SkippedIndex(BaseModel):
+    index_id: int
+    dataset_id: int | None = None
+    reason: str
+
+
+class MultiDatasetSearchResponse(BaseModel):
+    index_ids: list[int]
+    dataset_ids: list[int]
+    metric: str
+    k: int
+    n_returned: int
+    total_latency_ms: float
+    filter_applied: bool
+    hits: list[MultiDatasetHit]
+    skipped: list[SkippedIndex] = Field(default_factory=list)
+
+
+# ---------- 严格联合索引查询 ----------
+
+class CombinedIndexSearchRequest(BaseModel):
+    """Query one physical combined index built from multiple datasets."""
+
+    combined_index_id: int
+    source_dataset_id: int | None = Field(
+        default=None,
+        description="cell_id 查询时指定来源数据集；不传则按联合索引 dataset_ids 顺序查找",
+    )
+    cell_id: str | None = None
+    vector: list[float] | None = None
+    k: int = Field(default=DEFAULT_K, ge=1, le=MAX_K)
+    filters: SearchFilter | None = None
+    oversample: int | None = Field(default=None, ge=1, le=500)
+    metric: Literal["l2", "cosine"] = "l2"
+
+    @model_validator(mode="after")
+    def _check_query_source(self) -> "CombinedIndexSearchRequest":
+        if not self.cell_id and not self.vector:
+            raise ValueError("必须提供 cell_id 或 vector")
+        if self.cell_id and self.vector:
+            raise ValueError("cell_id 和 vector 只能提供一个")
+        if self.vector is not None and not self.vector:
+            raise ValueError("vector 不能为空")
+        return self
+
+
+class CombinedIndexHit(SearchHit):
+    combined_index_id: int
+    dataset_id: int
+    global_row_index: int
+    algorithm: str
+
+
+class CombinedIndexSearchResponse(BaseModel):
+    combined_index_id: int
+    dataset_ids: list[int]
+    algorithm: str
+    metric: str
+    k: int
+    n_returned: int
+    latency_ms: float
+    filter_applied: bool
+    hits: list[CombinedIndexHit]
+
+
 # ---------- 批量查询 ----------
 
 class BatchSearchRequest(BaseModel):

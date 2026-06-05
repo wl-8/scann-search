@@ -45,6 +45,30 @@
           </a-form>
         </a-card>
         <SearchForm v-model:modelValue="formData" @submit="onSearch" />
+        <a-card class="resource-card" :bordered="false">
+          <div class="resource-card__title">批量与策略对比</div>
+          <a-tabs v-model:activeKey="advancedTab">
+            <a-tab-pane key="batch" tab="批量检索">
+              <a-form layout="vertical">
+                <a-form-item label="Cell IDs（逗号或换行分隔）">
+                  <a-textarea v-model:value="batchCellIds" :auto-size="{ minRows: 3, maxRows: 6 }" />
+                </a-form-item>
+                <a-form-item label="聚合策略">
+                  <a-select v-model:value="batchAggregate">
+                    <a-select-option value="ranked">ranked</a-select-option>
+                    <a-select-option value="union">union</a-select-option>
+                    <a-select-option value="intersection">intersection</a-select-option>
+                  </a-select>
+                </a-form-item>
+                <a-button block :loading="advancedLoading" @click="runBatchSearch">运行批量检索</a-button>
+              </a-form>
+            </a-tab-pane>
+            <a-tab-pane key="compare" tab="过滤策略对比">
+              <a-alert type="info" show-icon message="使用检索控制台中的查询内容、过滤字段和过滤值，对比 post / pre / hybrid 策略。" style="margin-bottom: 12px" />
+              <a-button block type="primary" :loading="advancedLoading" @click="runCompareStrategies">运行策略对比</a-button>
+            </a-tab-pane>
+          </a-tabs>
+        </a-card>
       </div>
 
       <div class="search-column search-column--results">
@@ -94,6 +118,17 @@
             </div>
           </div>
         </a-card>
+
+        <a-card v-if="batchResults.length || compareResults.length" class="results-card" :bordered="false" style="margin-top: 16px">
+          <a-tabs>
+            <a-tab-pane key="batch" tab="批量检索结果">
+              <a-table :columns="batchColumns" :data-source="batchResults" row-key="rank" :pagination="false" size="small" />
+            </a-tab-pane>
+            <a-tab-pane key="compare" tab="策略对比结果">
+              <a-table :columns="compareColumns" :data-source="compareResults" row-key="strategy" :pagination="false" size="small" />
+            </a-tab-pane>
+          </a-tabs>
+        </a-card>
       </div>
     </div>
   </div>
@@ -103,7 +138,7 @@
 import { computed, onMounted, ref } from "vue"
 import { message } from "ant-design-vue"
 import SearchForm from "@/components/search/SearchForm.vue"
-import { listDatasets, listIndexes } from "@/api/search"
+import { batchSearch, compareStrategies, getDatasetCells, listDatasets, listIndexes } from "@/api/search"
 import { useSearch } from "@/composables/useSearch"
 import type { DatasetItem, IndexItem, SearchPayload } from "@/api/search"
 
@@ -115,6 +150,12 @@ const datasets = ref<DatasetItem[]>([])
 const indexes = ref<IndexItem[]>([])
 const selectedDatasetId = ref<number | undefined>()
 const selectedIndexId = ref<number | undefined>()
+const advancedTab = ref("batch")
+const advancedLoading = ref(false)
+const batchCellIds = ref("")
+const batchAggregate = ref<"ranked" | "union" | "intersection">("ranked")
+const batchResults = ref<any[]>([])
+const compareResults = ref<any[]>([])
 
 const formData = ref<SearchPayload & { filters: { cell_type: string } }>({
   queryType: "id",
@@ -132,6 +173,21 @@ const columns = [
   { title: "Distance", dataIndex: "distance", key: "distance", width: 120 },
   { title: "Cell Type", dataIndex: "cell_type", key: "cell_type", width: 140 },
   { title: "Row", dataIndex: "row_index", key: "row_index", width: 100 },
+]
+
+const batchColumns = [
+  { title: "Rank", dataIndex: "rank", key: "rank", width: 70 },
+  { title: "Cell ID", dataIndex: "cell_id", key: "cell_id" },
+  { title: "Hit Count", dataIndex: "hit_count", key: "hit_count", width: 100 },
+  { title: "Avg Distance", dataIndex: "avg_distance", key: "avg_distance", width: 130 },
+  { title: "cell_type", key: "cell_type", customRender: ({ record }: any) => record.obs?.cell_type ?? "-" },
+]
+
+const compareColumns = [
+  { title: "Strategy", dataIndex: "strategy", key: "strategy" },
+  { title: "Returned", dataIndex: "n_returned", key: "n_returned" },
+  { title: "Latency ms", dataIndex: "latency_ms", key: "latency_ms" },
+  { title: "Recall@K", dataIndex: "recall_at_k", key: "recall_at_k" },
 ]
 
 const readyDatasets = computed(() => datasets.value.filter((item) => item.status === "ready"))
@@ -154,13 +210,17 @@ async function onSearch(payload: any) {
     message.warning("请先选择索引")
     return
   }
-  const res = await search({
-    ...payload,
-    datasetId: selectedDatasetId.value,
-    indexId: selectedIndexId.value,
-  })
-  results.value = res.results
-  lastElapsed.value = res.elapsed
+  try {
+    const res = await search({
+      ...payload,
+      datasetId: selectedDatasetId.value,
+      indexId: selectedIndexId.value,
+    })
+    results.value = res.results
+    lastElapsed.value = res.elapsed
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "真实后端检索失败")
+  }
 }
 
 async function loadResources() {
@@ -171,6 +231,8 @@ async function loadResources() {
     selectedDatasetId.value = initialDatasetId
     indexes.value = await listIndexes(initialDatasetId)
     selectedIndexId.value = readyIndexes.value[0]?.id
+    await loadSampleCell(initialDatasetId)
+    await loadSampleBatchCells(initialDatasetId)
   } catch (err) {
     message.warning("后端资源加载失败，请确认 FastAPI 服务已启动")
   } finally {
@@ -181,6 +243,75 @@ async function loadResources() {
 async function onDatasetChange(datasetId: number) {
   indexes.value = await listIndexes(datasetId)
   selectedIndexId.value = readyIndexes.value[0]?.id
+  await loadSampleCell(datasetId)
+  await loadSampleBatchCells(datasetId)
+}
+
+async function loadSampleCell(datasetId?: number) {
+  if (!datasetId || formData.value.queryType !== "id") return
+  try {
+    const page = await getDatasetCells(datasetId, 0, 1)
+    const cellId = page.items[0]?.cell_id
+    if (cellId) {
+      formData.value = { ...formData.value, query: cellId }
+    }
+  } catch (err) {
+    message.warning("无法加载真实示例细胞 ID")
+  }
+}
+
+async function loadSampleBatchCells(datasetId?: number) {
+  if (!datasetId) return
+  try {
+    const page = await getDatasetCells(datasetId, 0, 3)
+    batchCellIds.value = page.items.map((item) => item.cell_id).join("\n")
+    if (!formData.value.filterColumn && !formData.value.filterValue) {
+      const firstType = page.items[0]?.obs?.cell_type
+      if (firstType) {
+        formData.value = { ...formData.value, filterColumn: "cell_type", filterValue: String(firstType) }
+      }
+    }
+  } catch (err) {
+    // sample IDs are a convenience; leave manual entry available.
+  }
+}
+
+async function runBatchSearch() {
+  if (!selectedIndexId.value) return message.warning("请先选择索引")
+  advancedLoading.value = true
+  try {
+    const res = await batchSearch({
+      indexId: selectedIndexId.value,
+      query: batchCellIds.value,
+      k: formData.value.k,
+      filterColumn: formData.value.filterColumn,
+      filterValue: formData.value.filterValue,
+      aggregate: batchAggregate.value,
+    })
+    batchResults.value = res.hits ?? []
+    message.success(`批量检索返回 ${res.n_returned ?? batchResults.value.length} 条`)
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "批量检索失败")
+  } finally {
+    advancedLoading.value = false
+  }
+}
+
+async function runCompareStrategies() {
+  if (!selectedIndexId.value) return message.warning("请先选择索引")
+  advancedLoading.value = true
+  try {
+    const res = await compareStrategies({
+      ...formData.value,
+      indexId: selectedIndexId.value,
+    })
+    compareResults.value = res.results ?? []
+    message.success("策略对比完成")
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "策略对比失败")
+  } finally {
+    advancedLoading.value = false
+  }
 }
 
 onMounted(loadResources)

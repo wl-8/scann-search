@@ -19,7 +19,7 @@
    - 后端当前仅返回 `access_token`（无 refresh token），因此未实现刷新 token 流程；如后端新增 refresh 接口，可在 `src/api/request.ts` 中扩展重试逻辑。
 
 3. 搜索与索引联调（高） — 已实现
-   - 核对并对接后端检索端点：使用 `/search/by-cell`、`/search/by-vector`、`/search/batch` 等（见 `src/api/search.ts` 的 `search` / `conditionalSearch` / `multiDatasetSearch`）。
+   - 核对并对接后端检索端点：使用 `/search/by-cell`、`/search/by-vector`、`/search/batch` 等（见 `src/api/search.ts` / `src/api/search.js` 的 `search` / `conditionalSearch` / `multiDatasetSearch`）。
    - `browseSearch` 现在优先调用 `/visualize/{dataset_id}/embedding`（见 `src/api/search.ts` 与 `src/views/visualize/VisualizeView.vue`），并将 embedding points 映射到前端格式。
    - 修正并增强 `useSearch`（`src/composables/useSearch.ts`）以兼容后端返回的多种形状（`hits`、`items`、`points`），改进错误回退与字段映射。
    - 索引列表查询与构建接口已使用后端 `/index` 路由；如需触发构建（研究者权限），前端可调用 `/index/build`。
@@ -53,6 +53,8 @@
    - 已整理常见后端错误与前端容错策略说明，便于测试同学排查。
 
 ## 推荐的下一步（立刻可做）
+- 继续补齐多数据集检索前端 UI：支持多选索引、选择 source index，并展示 `skipped[]` 维度不一致提示。
+
 - 在 `frontend` 目录本地运行：
 
 ```bash

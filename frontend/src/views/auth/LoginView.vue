@@ -3,8 +3,13 @@
     <div class="login-card">
       <div class="login-card__header">
         <p class="login-card__eyebrow">Welcome back</p>
-        <h2>登录</h2>
-        <p class="login-card__subtitle">使用你的账号继续访问系统。</p>
+        <h2>{{ mode === "login" ? "登录" : "注册" }}</h2>
+        <p class="login-card__subtitle">{{ mode === "login" ? "使用你的账号继续访问系统。" : "提交账号后等待管理员审核。" }}</p>
+      </div>
+
+      <div class="mode-switch" role="tablist" aria-label="认证方式">
+        <button type="button" :class="{ active: mode === 'login' }" @click="mode = 'login'">登录</button>
+        <button type="button" :class="{ active: mode === 'register' }" @click="mode = 'register'">注册</button>
       </div>
 
       <form class="login-form" @submit.prevent="onSubmit">
@@ -13,12 +18,17 @@
           <input v-model="username" placeholder="输入用户名" />
         </div>
 
+        <div v-if="mode === 'register'" class="field">
+          <label>邮箱</label>
+          <input v-model="email" type="email" placeholder="输入邮箱" />
+        </div>
+
         <div class="field">
           <label>密码</label>
           <input v-model="password" type="password" placeholder="输入密码" />
         </div>
 
-        <button type="submit" class="login-button">登录（任意输入均可）</button>
+        <button type="submit" class="login-button" :disabled="loading">{{ loading ? "处理中..." : mode === "login" ? "登录" : "提交注册" }}</button>
       </form>
     </div>
   </div>
@@ -26,18 +36,32 @@
 
 <script setup lang="ts">
 import { ref } from "vue"
+import { message } from "ant-design-vue"
 import { useAuthStore } from "@/stores/auth"
+import * as authApi from "@/api/auth"
 
+const mode = ref<"login" | "register">("login")
 const username = ref("")
+const email = ref("")
 const password = ref("")
+const loading = ref(false)
 const auth = useAuthStore()
 
 async function onSubmit() {
+  loading.value = true
   try {
+    if (mode.value === "register") {
+      await authApi.register({ username: username.value, email: email.value, password: password.value })
+      message.success("注册成功，请等待管理员审核")
+      mode.value = "login"
+      password.value = ""
+      return
+    }
     await auth.login(username.value, password.value)
-  } catch (err) {
-    // 简易错误提示
-    alert("登录失败（这里只是本地演示）")
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "操作失败")
+  } finally {
+    loading.value = false
   }
 }
 </script>
@@ -68,6 +92,32 @@ async function onSubmit() {
 
 .login-card__header {
   margin-bottom: 28px;
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.mode-switch button {
+  height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(226, 232, 240, 0.86);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mode-switch button.active {
+  background: rgba(96, 165, 250, 0.22);
+  color: #fff;
 }
 
 .login-card__eyebrow {
@@ -160,6 +210,12 @@ async function onSubmit() {
 .login-button:active {
   transform: translateY(1px) scale(0.985);
   box-shadow: 0 10px 20px rgba(37, 99, 235, 0.24);
+}
+
+.login-button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+  opacity: 0.72;
 }
 
 @media (max-width: 640px) {

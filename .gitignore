@@ -1,5 +1,6 @@
 # Python environments and caches
 .venv/
+.venv*/
 venv/
 env/
 __pycache__/
@@ -49,8 +50,8 @@ data/indexes/
 *.index
 
 # Keep data documentation trackable
-!data/
-!data/**/*.md
+!/data/
+!/data/**/*.md
 
 # Frontend dependencies and build output
 node_modules/

@@ -34,7 +34,7 @@
 								<a-input v-model:value="state.query" class="control-input" placeholder="例如: cell_12345" />
 							</template>
 							<template v-else>
-								<a-input-textarea v-model:value="state.query" class="control-input control-input--textarea" :auto-size="{ minRows: 4, maxRows: 6 }" placeholder="例如: 0.12, -0.03, ..." />
+								<a-textarea v-model:value="state.query" class="control-input control-input--textarea" :auto-size="{ minRows: 4, maxRows: 6 }" placeholder="例如: 0.12, -0.03, ..." />
 							</template>
 						</a-form-item>
 					</a-col>
