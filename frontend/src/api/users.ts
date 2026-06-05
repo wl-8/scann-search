@@ -10,11 +10,21 @@ export type UserItem = {
   login_fail_count: number
 }
 
-export function listUsers() {
-  return request.get("/users") as Promise<{ total: number; items: UserItem[] }>
+export type UserResponse = UserItem
+export type UserListResponse = {
+  total: number
+  items: UserResponse[]
 }
 
-export function setUserRole(userId: number, role: "user" | "researcher") {
+export function listUsers() {
+  return request.get("/users") as Promise<UserListResponse>
+}
+
+export function listPendingUsers() {
+  return request.get("/users", { params: { review_status: "pending" } }) as Promise<UserListResponse>
+}
+
+export function setUserRole(userId: number, role: string) {
   return request.put(`/users/${userId}/role`, null, { params: { role } }) as Promise<UserItem>
 }
 
@@ -36,4 +46,15 @@ export function unbanUser(userId: number) {
 
 export function deleteUser(userId: number) {
   return request.delete(`/users/${userId}`)
+}
+
+export default {
+  listUsers,
+  listPendingUsers,
+  setUserRole,
+  approveUser,
+  rejectUser,
+  banUser,
+  unbanUser,
+  deleteUser,
 }

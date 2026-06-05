@@ -1,17 +1,27 @@
 <template>
   <AppLayout>
-    <div class="rag-page">
-      <section class="rag-hero">
-        <div>
-          <div class="rag-hero__label">RAG Assistant</div>
-          <h1>自然语言查询单细胞数据库</h1>
-          <p>先从本地数据集中检索证据，再用 OpenAI-compatible LLM 生成分析回答。</p>
+    <div class="rag-page workbench-page workbench-page--grid">
+      <section class="page-header workbench-page__header">
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M5 5h14v10H8l-3 3V5z" />
+              <path d="M9 9h6M9 12h4" />
+              <circle cx="18" cy="18" r="3" />
+              <path d="M20.2 20.2 22 22" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">RAG Assistant</div>
+            <h2 class="workbench-page__title">自然语言查询单细胞数据库</h2>
+            <p class="workbench-page__meta">先从本地数据集中检索证据，再用 OpenAI-compatible LLM 生成分析回答。</p>
+          </div>
         </div>
         <a-button :loading="loading" @click="loadDatasets">刷新数据集</a-button>
       </section>
 
       <section class="rag-layout">
-        <a-card :bordered="false" class="query-panel">
+        <a-card :bordered="false" class="query-panel workbench-panel">
           <template #title>问题与模型</template>
           <a-form layout="vertical">
             <a-form-item label="数据集">
@@ -54,7 +64,7 @@
         </a-card>
 
         <div class="answer-stack">
-          <a-card :bordered="false" class="answer-card">
+          <a-card :bordered="false" class="answer-card workbench-panel">
             <template #title>回答</template>
             <a-empty v-if="!result" description="输入问题后显示回答" />
             <template v-else>
@@ -74,11 +84,11 @@
             </template>
           </a-card>
 
-          <a-card v-if="result" :bordered="false" title="解析条件">
+          <a-card v-if="result" :bordered="false" title="解析条件" class="workbench-panel">
             <div class="filter-json">{{ JSON.stringify(result.interpreted_filters, null, 2) }}</div>
           </a-card>
 
-          <a-card v-if="result" :bordered="false" title="检索证据">
+          <a-card v-if="result" :bordered="false" title="检索证据" class="workbench-panel">
             <div class="evidence-list">
               <div v-for="item in result.evidence" :key="item.dataset_id" class="evidence-block">
                 <div class="evidence-block__head">
@@ -217,54 +227,10 @@ onMounted(loadDatasets)
 </script>
 
 <style scoped>
-.rag-page {
-  min-height: 100%;
-  padding: 20px;
-  display: grid;
-  gap: 16px;
-  background: #f3f6fa;
-}
-
-.rag-hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 22px;
-  border-radius: 8px;
-  color: #fff;
-  background: linear-gradient(135deg, #111827, #2563eb 56%, #0f766e);
-}
-
-.rag-hero__label {
-  color: #bfdbfe;
-  font-size: 0.78rem;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.rag-hero h1 {
-  margin: 6px 0;
-  color: #fff;
-  font-size: 1.75rem;
-}
-
-.rag-hero p {
-  margin: 0;
-  color: rgba(239, 246, 255, 0.86);
-}
-
 .rag-layout {
   display: grid;
   grid-template-columns: minmax(330px, 0.8fr) minmax(0, 1.5fr);
   gap: 16px;
-}
-
-.rag-page :deep(.ant-card) {
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
 .query-panel :deep(.ant-input-number) {
@@ -299,10 +265,10 @@ onMounted(loadDatasets)
 
 .filter-json {
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 9px;
   color: #1e293b;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bio-panel-muted);
+  border: 1px solid var(--bio-line);
   white-space: pre-wrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.82rem;
@@ -317,9 +283,9 @@ onMounted(loadDatasets)
   display: grid;
   gap: 12px;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 9px;
   background: #fff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--bio-line);
 }
 
 .evidence-block__head {
@@ -345,9 +311,9 @@ onMounted(loadDatasets)
 
 .distribution {
   padding: 10px;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: var(--bio-panel-muted);
+  border: 1px solid var(--bio-line);
 }
 
 .distribution > span {
@@ -378,11 +344,6 @@ onMounted(loadDatasets)
 }
 
 @media (max-width: 720px) {
-  .rag-page {
-    padding: 12px;
-  }
-
-  .rag-hero,
   .evidence-block__head {
     align-items: stretch;
     flex-direction: column;

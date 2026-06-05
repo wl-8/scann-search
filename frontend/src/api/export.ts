@@ -11,22 +11,43 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
+export function exportSearchCsv() {
+  return request.get("/export/search", { responseType: "blob" }) as Promise<Blob>
+}
+
+export function exportFilterCsv() {
+  return request.get("/export/filter", { responseType: "blob" }) as Promise<Blob>
+}
+
+export function exportBenchmarkCsv(batchIds: number[]) {
+  const params = new URLSearchParams()
+  batchIds.forEach((id) => params.append("batch_ids", String(id)))
+  return request.get("/export/benchmark", {
+    params,
+    responseType: "blob",
+  }) as Promise<Blob>
+}
+
 export async function exportSearch() {
-  const blob = await request.get("/export/search", { responseType: "blob" }) as Blob
+  const blob = await exportSearchCsv()
   downloadBlob(blob, "search.csv")
 }
 
 export async function exportFilter() {
-  const blob = await request.get("/export/filter", { responseType: "blob" }) as Blob
+  const blob = await exportFilterCsv()
   downloadBlob(blob, "filter.csv")
 }
 
 export async function exportBenchmark(batchIds: number[]) {
-  const params = new URLSearchParams()
-  batchIds.forEach((id) => params.append("batch_ids", String(id)))
-  const blob = await request.get("/export/benchmark", {
-    params,
-    responseType: "blob",
-  }) as Blob
+  const blob = await exportBenchmarkCsv(batchIds)
   downloadBlob(blob, `benchmark_${batchIds.join("_")}.csv`)
+}
+
+export default {
+  exportSearchCsv,
+  exportFilterCsv,
+  exportBenchmarkCsv,
+  exportSearch,
+  exportFilter,
+  exportBenchmark,
 }

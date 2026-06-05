@@ -1,186 +1,118 @@
 <template>
   <AppLayout>
-    <div class="bench-page">
-      <section class="bench-hero">
-        <div>
-          <div class="bench-hero__label">ANN Benchmark</div>
-          <h1>算法精度 / 延迟 / 内存对比</h1>
-          <p>统一抽样查询，FlatL2 作为 ground truth，直接比较所有已实现 ANN 算法。</p>
+    <div class="benchmark-page workbench-page workbench-page--grid">
+      <div class="page-header workbench-page__header">
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z" />
+              <path d="M12 7v5l3 3" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">Performance Lab</div>
+            <h2 class="workbench-page__title">算法性能评测</h2>
+          </div>
         </div>
-        <div class="bench-hero__actions">
-          <a-button :loading="loading" @click="loadPageData">刷新</a-button>
-          <a-button type="primary" :loading="running" @click="run">运行评测</a-button>
-        </div>
-      </section>
+        <div class="workbench-page__pill">评测 ANN 算法的召回率与延迟</div>
+      </div>
 
-      <section class="bench-grid">
-        <a-card :bordered="false" class="control-panel">
-          <template #title>实验配置</template>
-          <a-form layout="vertical">
-            <a-form-item label="数据集">
-              <a-select v-model:value="datasetId" :options="datasetOptions" @change="loadBatches" />
-            </a-form-item>
-            <a-form-item label="批次标签">
-              <a-input v-model:value="label" placeholder="例如 hnsw-ivfpq-sweep" />
-            </a-form-item>
-            <a-row :gutter="10">
-              <a-col :span="8">
-                <a-form-item label="Top-K">
-                  <a-input-number v-model:value="k" :min="1" :max="100" />
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item label="查询数">
-                  <a-input-number v-model:value="nQueries" :min="1" :max="10000" />
-                </a-form-item>
-              </a-col>
-              <a-col :span="8">
-                <a-form-item label="Seed">
-                  <a-input-number v-model:value="seed" :min="1" />
-                </a-form-item>
-              </a-col>
-            </a-row>
+      <a-row :gutter="16" class="benchmark-grid">
+        <a-col v-if="auth.canResearch" :xs="24" :lg="8">
+          <a-card class="panel-card workbench-panel" :bordered="false" title="运行评测">
+            <a-form layout="vertical">
+              <a-form-item label="数据集">
+                <a-select v-model:value="runDatasetId" :options="datasetOptions" placeholder="选择数据集" />
+              </a-form-item>
+              <a-form-item label="标签（可选）">
+                <a-input v-model:value="runLabel" placeholder="例如: run-A" />
+              </a-form-item>
+              <a-row :gutter="12">
+                <a-col :span="12">
+                  <a-form-item label="Top-K">
+                    <a-input-number v-model:value="runK" :min="1" :max="100" class="control-number" />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                  <a-form-item label="查询数量">
+                    <a-input-number v-model:value="runQueries" :min="1" :max="10000" class="control-number" />
+                  </a-form-item>
+                </a-col>
+              </a-row>
+              <a-form-item label="随机种子">
+                <a-input-number v-model:value="runSeed" :min="1" :max="9999" class="control-number" />
+              </a-form-item>
 
-            <div class="algorithm-toolbar">
-              <span>算法</span>
-              <a-space>
-                <a-button size="small" @click="selectAllAlgorithms">全选</a-button>
-                <a-button size="small" @click="selectRecommendedAlgorithms">推荐组合</a-button>
-              </a-space>
-            </div>
-            <div class="algorithm-list">
-              <label
-                v-for="option in algorithmOptions"
-                :key="option.value"
-                class="algo-option"
-                :class="{ 'algo-option--active': algorithms.includes(option.value) }"
-              >
-                <input v-model="algorithms" type="checkbox" :value="option.value" />
-                <span>
-                  <strong>{{ option.label }}</strong>
-                  <small>{{ option.caption }}</small>
-                </span>
-              </label>
-            </div>
-
-            <div class="params-preview">
-              <div v-for="algo in algorithms" :key="algo" class="param-row">
-                <span>{{ algo }}</span>
-                <code>{{ JSON.stringify(defaultParams[algo] ?? {}) }}</code>
-              </div>
-            </div>
-          </a-form>
-        </a-card>
-
-        <div class="result-panel">
-          <a-card v-if="detail && recommendation" :bordered="false" class="recommend-card">
-            <div class="recommend-card__main">
-              <span class="recommend-card__label">自动推荐</span>
-              <strong>{{ recommendation.algorithm }}</strong>
-              <span>综合分 {{ pct(recommendation.score) }}</span>
-            </div>
-            <div class="recommend-card__metrics">
-              <div>
-                <small>Recall@K</small>
-                <b>{{ pct(recommendation.result.recall_at_k) }}</b>
-              </div>
-              <div>
-                <small>Avg</small>
-                <b>{{ ms(recommendation.result.avg_latency_ms) }}</b>
-              </div>
-              <div>
-                <small>P95</small>
-                <b>{{ ms(recommendation.result.p95_latency_ms) }}</b>
-              </div>
-              <div>
-                <small>Index</small>
-                <b>{{ bytes(recommendation.result.index_size_bytes) }}</b>
-              </div>
-            </div>
-          </a-card>
-
-          <a-card :bordered="false" class="comparison-card">
-            <template #title>指标对比</template>
-            <a-empty v-if="!sortedResults.length" description="运行或选择批次后显示结果" />
-            <div v-else class="metric-list">
-              <div v-for="item in sortedResults" :key="item.id" class="metric-row">
-                <div class="metric-row__head">
-                  <strong>{{ item.algorithm }}</strong>
-                  <span>{{ ms(item.avg_latency_ms) }} avg · {{ bytes(item.index_size_bytes) }}</span>
-                </div>
-                <div class="metric-bars">
-                  <div class="metric-bar">
-                    <span>Recall</span>
-                    <a-progress :percent="Math.round(item.recall_at_k * 100)" size="small" :show-info="false" />
-                    <b>{{ pct(item.recall_at_k) }}</b>
-                  </div>
-                  <div class="metric-bar">
-                    <span>Speed</span>
-                    <a-progress :percent="Math.round(speedScore(item) * 100)" size="small" :show-info="false" status="active" />
-                    <b>{{ Math.round(item.qps) }} qps</b>
-                  </div>
-                  <div class="metric-bar">
-                    <span>Memory</span>
-                    <a-progress :percent="Math.round(memoryScore(item) * 100)" size="small" :show-info="false" />
-                    <b>{{ bytes(item.index_size_bytes) }}</b>
+              <div class="algo-section">
+                <div class="algo-section__title">算法组合</div>
+                <div class="algo-card-list">
+                  <div v-for="(cfg, idx) in algoConfigs" :key="idx" class="algo-card">
+                    <a-form-item label="算法">
+                      <a-select v-model:value="cfg.algorithm" :options="algorithmOptions" />
+                    </a-form-item>
+                    <a-form-item label="参数 JSON">
+                      <a-input v-model:value="cfg.paramsText" placeholder='{ "M": 16 }' />
+                    </a-form-item>
+                    <a-button type="primary" danger size="small" @click="removeAlgo(idx)" :disabled="algoConfigs.length <= 1">删除</a-button>
                   </div>
                 </div>
+                <a-button type="dashed" block @click="addAlgo">添加算法</a-button>
               </div>
-            </div>
+
+              <a-button type="primary" block :loading="runLoading" @click="runBenchmark">开始评测</a-button>
+            </a-form>
           </a-card>
-        </div>
-      </section>
+        </a-col>
 
-      <section class="tables-grid">
-        <a-card :bordered="false" title="批次列表">
-          <a-table
-            :columns="batchColumns"
-            :data-source="batches"
-            row-key="id"
-            :loading="loading"
-            :pagination="{ pageSize: 6 }"
-            :scroll="{ x: 760 }"
-          >
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'created_at'">
-                {{ shortDate(record.created_at) }}
+        <a-col :xs="24" :lg="16">
+          <a-card class="panel-card workbench-panel" :bordered="false" title="评测批次">
+            <div class="table-toolbar workbench-table-toolbar">
+              <a-select v-model:value="filterDatasetId" :options="datasetOptions" allow-clear placeholder="按数据集过滤" style="min-width: 200px" />
+              <a-input v-model:value="filterLabel" placeholder="标签关键词" style="min-width: 200px" />
+              <a-button type="primary" @click="loadBatches" :loading="listLoading">查询</a-button>
+            </div>
+            <a-table
+              :columns="batchColumns"
+              :data-source="batches"
+              row-key="id"
+              :loading="listLoading"
+              :pagination="false"
+              :customRow="rowClick"
+            >
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'dataset_id'">
+                  {{ datasetName(record.dataset_id) }}
+                </template>
+                <template v-if="column.key === 'actions'">
+                  <a-space>
+                    <a-button size="small" @click.stop="selectBatch(record.id)">详情</a-button>
+                    <a-popconfirm v-if="auth.canResearch" title="确定删除该批次？" @confirm="deleteBatch(record.id)">
+                      <a-button size="small" type="primary" danger>删除</a-button>
+                    </a-popconfirm>
+                  </a-space>
+                </template>
               </template>
-              <template v-else-if="column.key === 'action'">
-                <a-space>
-                  <a-button size="small" @click="loadDetail(record.id)">详情</a-button>
-                  <a-popconfirm title="确定删除该批次？" @confirm="remove(record.id)">
-                    <a-button danger size="small">删除</a-button>
-                  </a-popconfirm>
-                </a-space>
-              </template>
-            </template>
-          </a-table>
-        </a-card>
+            </a-table>
+          </a-card>
 
-        <a-card :bordered="false" title="评测结果">
-          <a-table
-            :columns="resultColumns"
-            :data-source="sortedResults"
-            row-key="id"
-            :pagination="{ pageSize: 8 }"
-            :scroll="{ x: 1120 }"
-          >
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'algorithm'">
-                <a-tag color="blue">{{ record.algorithm }}</a-tag>
-              </template>
-              <template v-else-if="column.key === 'recall_at_k'">{{ pct(record.recall_at_k) }}</template>
-              <template v-else-if="column.key === 'avg_latency_ms'">{{ ms(record.avg_latency_ms) }}</template>
-              <template v-else-if="column.key === 'p95_latency_ms'">{{ ms(record.p95_latency_ms) }}</template>
-              <template v-else-if="column.key === 'p99_latency_ms'">{{ ms(record.p99_latency_ms) }}</template>
-              <template v-else-if="column.key === 'qps'">{{ Math.round(record.qps) }}</template>
-              <template v-else-if="column.key === 'build_time_ms'">{{ ms(record.build_time_ms) }}</template>
-              <template v-else-if="column.key === 'index_size_bytes'">{{ bytes(record.index_size_bytes) }}</template>
-              <template v-else-if="column.key === 'params'"><code>{{ JSON.stringify(record.params ?? {}) }}</code></template>
-            </template>
-          </a-table>
-        </a-card>
-      </section>
+          <a-card v-if="selectedBatch" class="panel-card detail-card workbench-panel" :bordered="false" title="批次详情">
+            <div class="detail-meta">
+              <span>批次 #{{ selectedBatch.id }}</span>
+              <span>数据集：{{ datasetName(selectedBatch.dataset_id) }}</span>
+              <span>k={{ selectedBatch.k }}, n={{ selectedBatch.n_queries }}</span>
+            </div>
+            <BenchmarkChart :results="selectedBatch.results" :k="selectedBatch.k" />
+            <a-table
+              class="result-table"
+              :columns="resultColumns"
+              :data-source="selectedBatch.results"
+              row-key="id"
+              :pagination="false"
+              size="small"
+            />
+          </a-card>
+        </a-col>
+      </a-row>
     </div>
   </AppLayout>
 </template>
@@ -189,495 +121,220 @@
 import { computed, onMounted, ref } from "vue"
 import { message } from "ant-design-vue"
 import AppLayout from "@/components/layout/AppLayout.vue"
+import { useAuthStore } from "@/stores/auth"
+const auth = useAuthStore()
+import BenchmarkChart from "@/components/benchmark/BenchmarkChart.vue"
 import { listDatasets } from "@/api/search"
-import { deleteBenchmarkBatch, getBenchmarkBatch, listBenchmarkBatches, runBenchmark, type BenchmarkBatch, type BenchmarkResult } from "@/api/benchmark"
 import { getAlgorithms } from "@/api/indexes"
+import {
+  deleteBenchmarkBatch,
+  getBenchmarkBatch,
+  listBenchmarkBatches,
+  runBenchmark as runBenchmarkApi,
+  type BenchmarkBatchDetail,
+  type BenchmarkBatchItem,
+} from "@/api/benchmark"
+import { showErrMsg } from "@/utils/error"
 
-type Recommendation = {
-  algorithm: string
-  score: number
-  result: BenchmarkResult
-}
-
-const loading = ref(false)
-const running = ref(false)
 const datasets = ref<any[]>([])
-const batches = ref<BenchmarkBatch[]>([])
-const detail = ref<BenchmarkBatch | null>(null)
-const supportedAlgorithms = ref<string[]>([])
-const datasetId = ref<number>()
-const label = ref("")
-const algorithms = ref<string[]>(["hnsw", "ivf", "ivf_pq", "pq"])
-const k = ref(10)
-const nQueries = ref(30)
-const seed = ref(42)
+const algorithms = ref<string[]>([])
+const runDatasetId = ref<number | undefined>()
+const runLabel = ref("")
+const runK = ref(10)
+const runQueries = ref(100)
+const runSeed = ref(42)
+const algoConfigs = ref<Array<{ algorithm: string; paramsText: string }>>([
+  { algorithm: "", paramsText: "{}" },
+])
+const runLoading = ref(false)
 
-const defaultParams: Record<string, Record<string, any>> = {
-  flat: {},
-  hnsw: { M: 16, ef_construction: 200, ef_search: 64 },
-  lsh: { nbits: 64 },
-  ivf: { nlist: 100, nprobe: 10 },
-  pq: { m: 6, nbits: 8 },
-  opq: { m: 6, nbits: 8, niter: 5 },
-  ivf_pq: { nlist: 100, nprobe: 10, m: 6, nbits: 8 },
-  ivf_hnsw: { nlist: 100, nprobe: 10, M: 32 },
-}
+const batches = ref<BenchmarkBatchItem[]>([])
+const listLoading = ref(false)
+const filterDatasetId = ref<number | undefined>()
+const filterLabel = ref("")
+const selectedBatch = ref<BenchmarkBatchDetail | null>(null)
 
-const algorithmCaptions: Record<string, string> = {
-  flat: "精确基线，召回最高但耗时/内存高",
-  hnsw: "图索引，通常延迟低、召回稳定",
-  lsh: "哈希索引，构建快，精度依赖位数",
-  ivf: "倒排分桶，速度和召回由 nprobe 控制",
-  pq: "乘积量化，显著降低索引体积",
-  opq: "优化量化，压缩前做旋转优化",
-  ivf_pq: "倒排 + PQ，兼顾速度和内存",
-  ivf_hnsw: "HNSW coarse quantizer 的 IVF",
-}
-
-const datasetOptions = computed(() => datasets.value.map((item) => ({ value: item.id, label: `${item.name} (#${item.id})` })))
-const allAlgorithmValues = computed(() => supportedAlgorithms.value.length ? [...supportedAlgorithms.value] : Object.keys(defaultParams))
-const algorithmOptions = computed(() =>
-  allAlgorithmValues.value.map((value) => ({ value, label: value, caption: algorithmCaptions[value] ?? "自定义 ANN 算法" }))
-)
-const sortedResults = computed(() => [...(detail.value?.results ?? [])].sort((a, b) => scoreResult(b) - scoreResult(a)))
-const recommendation = computed<Recommendation | null>(() => {
-  const best = sortedResults.value[0]
-  if (!best) return null
-  return { algorithm: best.algorithm, score: scoreResult(best), result: best }
-})
-const minAvgLatency = computed(() => Math.min(...(detail.value?.results ?? []).map((item) => item.avg_latency_ms).filter(Boolean), Infinity))
-const minSize = computed(() => Math.min(...(detail.value?.results ?? []).map((item) => item.index_size_bytes).filter(Boolean), Infinity))
+const datasetOptions = computed(() => datasets.value.map((d: any) => ({ label: d.name, value: d.id })))
+const algorithmOptions = computed(() => algorithms.value.map((a) => ({ label: a, value: a })))
 
 const batchColumns = [
-  { title: "ID", dataIndex: "id", key: "id", width: 70 },
-  { title: "Label", dataIndex: "label", key: "label" },
-  { title: "Dataset", dataIndex: "dataset_id", key: "dataset_id", width: 100 },
-  { title: "K", dataIndex: "k", key: "k", width: 70 },
-  { title: "Queries", dataIndex: "n_queries", key: "n_queries", width: 90 },
-  { title: "Created", dataIndex: "created_at", key: "created_at", width: 170 },
-  { title: "Action", key: "action", width: 150 },
+  { title: "编号", dataIndex: "id", key: "id", width: 80 },
+  { title: "标签", dataIndex: "label", key: "label" },
+  { title: "数据集", dataIndex: "dataset_id", key: "dataset_id" },
+  { title: "K 值", dataIndex: "k", key: "k", width: 70 },
+  { title: "查询数", dataIndex: "n_queries", key: "n_queries", width: 90 },
+  { title: "创建时间", dataIndex: "created_at", key: "created_at", width: 140 },
+  { title: "操作", key: "actions", width: 150 },
 ]
 
 const resultColumns = [
-  { title: "Algorithm", dataIndex: "algorithm", key: "algorithm", width: 120 },
+  { title: "算法", dataIndex: "algorithm", key: "algorithm" },
   { title: "Recall@K", dataIndex: "recall_at_k", key: "recall_at_k", width: 110 },
-  { title: "Avg", dataIndex: "avg_latency_ms", key: "avg_latency_ms", width: 95 },
-  { title: "P95", dataIndex: "p95_latency_ms", key: "p95_latency_ms", width: 95 },
-  { title: "P99", dataIndex: "p99_latency_ms", key: "p99_latency_ms", width: 95 },
+  { title: "平均延迟(ms)", dataIndex: "avg_latency_ms", key: "avg_latency_ms", width: 120 },
+  { title: "P95", dataIndex: "p95_latency_ms", key: "p95_latency_ms", width: 90 },
   { title: "QPS", dataIndex: "qps", key: "qps", width: 90 },
-  { title: "Build", dataIndex: "build_time_ms", key: "build_time_ms", width: 110 },
-  { title: "Index Size", dataIndex: "index_size_bytes", key: "index_size_bytes", width: 120 },
-  { title: "Params", dataIndex: "params", key: "params" },
+  { title: "构建(ms)", dataIndex: "build_time_ms", key: "build_time_ms", width: 110 },
 ]
 
-async function loadPageData() {
-  loading.value = true
-  try {
-    const [datasetRows, algos] = await Promise.all([listDatasets(), getAlgorithms()])
-    datasets.value = datasetRows
-    supportedAlgorithms.value = algos
-    datasetId.value = datasetId.value ?? datasets.value[0]?.id
-    await loadBatches()
-  } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "加载 benchmark 数据失败")
-  } finally {
-    loading.value = false
+function datasetName(id: number) {
+  return datasets.value.find((d: any) => d.id === id)?.name ?? `#${id}`
+}
+
+function rowClick(record: any) {
+  return {
+    onClick: () => selectBatch(record.id),
   }
 }
 
-async function loadBatches() {
-  batches.value = await listBenchmarkBatches(datasetId.value)
+function addAlgo() {
+  algoConfigs.value.push({ algorithm: algorithms.value[0] ?? "flat", paramsText: "{}" })
 }
 
-async function run() {
-  if (!datasetId.value) return message.warning("请先选择数据集")
-  if (!algorithms.value.length) return message.warning("请至少选择一个算法")
-  running.value = true
+function removeAlgo(idx: number) {
+  if (algoConfigs.value.length <= 1) return
+  algoConfigs.value.splice(idx, 1)
+}
+
+async function loadResources(silent = false) {
   try {
-    detail.value = await runBenchmark({
-      dataset_id: datasetId.value,
-      label: label.value,
-      algorithms: algorithms.value.map((algorithm) => ({ algorithm, params: defaultParams[algorithm] ?? {} })),
-      k: k.value,
-      n_queries: nQueries.value,
-      seed: seed.value,
+    const [ds, algos] = await Promise.all([listDatasets(), getAlgorithms()])
+    datasets.value = ds
+    algorithms.value = algos
+    if (algos.length > 0 && !algoConfigs.value[0].algorithm) {
+      algoConfigs.value[0].algorithm = algos[0]
+    }
+  } catch (err: any) {
+    if (!silent) showErrMsg(err, "加载资源失败")
+    throw err
+  }
+}
+
+async function loadBatches(silent = false) {
+  listLoading.value = true
+  try {
+    batches.value = await listBenchmarkBatches({
+      dataset_id: filterDatasetId.value,
+      label: filterLabel.value || undefined,
     })
-    await loadBatches()
-    message.success("benchmark 完成")
   } catch (err: any) {
-    message.error(err?.response?.data?.detail ?? err?.message ?? "benchmark 运行失败")
+    if (!silent) showErrMsg(err, "加载批次失败")
+    throw err
   } finally {
-    running.value = false
+    listLoading.value = false
   }
 }
 
-async function loadDetail(id: number) {
-  detail.value = await getBenchmarkBatch(id)
+async function selectBatch(batchId: number) {
+  try {
+    selectedBatch.value = await getBenchmarkBatch(batchId)
+  } catch (err: any) {
+    showErrMsg(err, "获取批次详情失败")
+  }
 }
 
-async function remove(id: number) {
-  await deleteBenchmarkBatch(id)
-  if (detail.value?.id === id) detail.value = null
-  await loadBatches()
+async function deleteBatch(batchId: number) {
+  try {
+    await deleteBenchmarkBatch(batchId)
+    message.success("批次已删除")
+    if (selectedBatch.value?.id === batchId) selectedBatch.value = null
+    await loadBatches()
+  } catch (err: any) {
+    showErrMsg(err, "删除失败")
+  }
 }
 
-function selectAllAlgorithms() {
-  algorithms.value = [...allAlgorithmValues.value]
+async function runBenchmark() {
+  if (!runDatasetId.value) return message.warning("请选择数据集")
+  let algorithmsPayload: any[] = []
+  try {
+    algorithmsPayload = algoConfigs.value.map((cfg) => ({
+      algorithm: cfg.algorithm,
+      params: cfg.paramsText ? JSON.parse(cfg.paramsText) : {},
+    }))
+  } catch {
+    return message.warning("算法参数必须是有效 JSON")
+  }
+
+  runLoading.value = true
+  try {
+    const batch = await runBenchmarkApi({
+      dataset_id: runDatasetId.value,
+      label: runLabel.value,
+      algorithms: algorithmsPayload,
+      k: runK.value,
+      n_queries: runQueries.value,
+      seed: runSeed.value,
+    })
+    message.success("评测任务完成")
+    selectedBatch.value = batch
+    await loadBatches()
+  } catch (err: any) {
+    showErrMsg(err, "评测失败")
+  } finally {
+    runLoading.value = false
+  }
 }
 
-function selectRecommendedAlgorithms() {
-  algorithms.value = ["hnsw", "ivf", "ivf_pq", "pq"].filter((item) => allAlgorithmValues.value.includes(item))
-}
-
-function speedScore(item: BenchmarkResult) {
-  if (!Number.isFinite(minAvgLatency.value) || item.avg_latency_ms <= 0) return 0
-  return Math.min(1, minAvgLatency.value / item.avg_latency_ms)
-}
-
-function memoryScore(item: BenchmarkResult) {
-  if (!Number.isFinite(minSize.value) || item.index_size_bytes <= 0) return 0
-  return Math.min(1, minSize.value / item.index_size_bytes)
-}
-
-function scoreResult(item: BenchmarkResult) {
-  const recall = Math.max(0, Math.min(1, item.recall_at_k))
-  const score = recall * 0.62 + speedScore(item) * 0.23 + memoryScore(item) * 0.15
-  return recall < 0.75 ? score * 0.65 : score
-}
-
-function pct(value: number) {
-  return `${(value * 100).toFixed(1)}%`
-}
-
-function ms(value: number) {
-  if (value >= 1000) return `${(value / 1000).toFixed(2)}s`
-  return `${value.toFixed(2)}ms`
-}
-
-function bytes(value: number) {
-  if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)}MB`
-  if (value >= 1024) return `${(value / 1024).toFixed(1)}KB`
-  return `${value}B`
-}
-
-function shortDate(value: string) {
-  return value ? value.replace("T", " ").slice(0, 19) : "-"
-}
-
-onMounted(loadPageData)
+onMounted(async () => {
+  try {
+    await Promise.all([loadResources(true), loadBatches(true)])
+  } catch (err: any) {
+    showErrMsg(err, "加载失败")
+  }
+})
 </script>
 
 <style scoped>
-.bench-page {
-  min-height: 100%;
-  padding: 20px;
-  display: grid;
-  gap: 16px;
-  background: #f3f6fa;
-  overflow-x: hidden;
-}
-
-.bench-hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 22px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #0f172a, #1d4ed8 58%, #0f766e);
-  color: #fff;
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
-}
-
-.bench-hero__label {
-  color: #bfdbfe;
-  font-size: 0.78rem;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.bench-hero h1 {
-  margin: 6px 0 6px;
-  color: #fff;
-  font-size: 1.85rem;
-  line-height: 1.15;
-}
-
-.bench-hero p {
-  margin: 0;
-  color: rgba(239, 246, 255, 0.86);
-}
-
-.bench-hero__actions {
-  display: flex;
-  gap: 10px;
-}
-
-.bench-grid {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.4fr);
-  gap: 16px;
-}
-
-.control-panel,
-.comparison-card,
-.recommend-card,
-.tables-grid :deep(.ant-card) {
-  min-width: 0;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-}
-
-.control-panel :deep(.ant-input-number) {
-  width: 100%;
-}
-
-.algorithm-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 8px 0 10px;
-  color: #0f172a;
-  font-weight: 800;
-}
-
-.algorithm-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.algo-option {
-  min-height: 64px;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid #dbe5ef;
-  border-radius: 8px;
-  background: #fff;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.algo-option input {
-  margin-top: 3px;
-}
-
-.algo-option strong,
-.algo-option small {
-  display: block;
-}
-
-.algo-option strong {
-  color: #0f172a;
-  font-size: 0.9rem;
-}
-
-.algo-option small {
-  margin-top: 2px;
-  color: #64748b;
-  line-height: 1.35;
-}
-
-.algo-option--active {
-  border-color: #2563eb;
-  background: #eff6ff;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
-}
-
-.params-preview {
-  margin-top: 14px;
-  display: grid;
-  gap: 6px;
-}
-
-.param-row {
-  display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
-  font-size: 0.78rem;
-}
-
-.param-row span {
-  color: #334155;
-  font-weight: 800;
-}
-
-.param-row code {
-  min-width: 0;
+/* ── Page shell ────────────────────────────────────── */
+.benchmark-page {
+  height: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 4px 6px;
-  border-radius: 6px;
-  color: #1e293b;
-  background: #f1f5f9;
-}
-
-.result-panel {
-  min-width: 0;
-  display: grid;
-  gap: 16px;
-  align-content: start;
-}
-
-.recommend-card :deep(.ant-card-body) {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.recommend-card__main {
-  display: grid;
-  gap: 3px;
-}
-
-.recommend-card__label {
-  color: #2563eb;
-  font-size: 0.76rem;
-  font-weight: 850;
-}
-
-.recommend-card__main strong {
-  color: #0f172a;
-  font-size: 1.7rem;
-}
-
-.recommend-card__main span:last-child {
-  color: #64748b;
-  font-weight: 750;
-}
-
-.recommend-card__metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(86px, 1fr));
-  gap: 10px;
-}
-
-.recommend-card__metrics div {
-  padding: 10px;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-.recommend-card__metrics small,
-.recommend-card__metrics b {
-  display: block;
-}
-
-.recommend-card__metrics small {
-  color: #64748b;
-  font-weight: 750;
-}
-
-.recommend-card__metrics b {
-  margin-top: 4px;
-  color: #0f172a;
-}
-
-.metric-list {
-  display: grid;
+  flex-direction: column;
+  padding: 18px;
   gap: 12px;
+  background: #ffffff;
+  border: 1px solid var(--bio-line);
 }
 
-.metric-row {
-  padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fff;
+.workbench-page__title, .benchmark-page__header h2, .page-header h2 { margin: 3px 0 0; font-size: 1.3rem; font-weight: 800; color: var(--bio-navy); }
+
+/* ── Grid ────────────────────────────────────────────── */
+.benchmark-grid {
+  flex: 1; min-height: 0;
+  display: grid !important;
+  grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+  gap: 14px; align-items: stretch;
 }
+.benchmark-grid :deep(.ant-col) { width: auto; max-width: none; flex: none; display: flex; flex-direction: column; }
 
-.metric-row__head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+/* ── Cards ───────────────────────────────────────────── */
+.panel-card { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.panel-card :deep(.ant-card-body) { flex: 1; min-height: 0; overflow-y: auto; }
+
+.detail-card { flex: 0 0 auto; margin-top: 14px; }
+
+/* ── Algo config ─────────────────────────────────────── */
+.algo-section { margin-bottom: 14px; }
+.algo-section__title {
+  font-size: 11px; font-weight: 700; color: var(--bio-muted);
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em;
 }
-
-.metric-row__head strong {
-  color: #0f172a;
+.algo-card-list {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;
+  max-height: 280px; overflow-y: auto;
 }
+.algo-card { padding: 12px 14px; border-radius: 9px; background: var(--bio-panel-muted); border: 1px solid var(--bio-line); }
 
-.metric-row__head span {
-  color: #64748b;
-  font-weight: 700;
+/* ── Toolbar / meta ──────────────────────────────────── */
+.table-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+.detail-meta {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  padding: 8px 12px; border-radius: 9px;
+  background: var(--bio-panel-muted); border: 1px solid var(--bio-line);
+  font-weight: 600; color: var(--bio-muted); font-size: 13px; margin-bottom: 12px;
 }
+.control-number { width: 100%; }
 
-.metric-bars {
-  display: grid;
-  gap: 7px;
-}
-
-.metric-bar {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 82px;
-  gap: 10px;
-  align-items: center;
-  color: #475569;
-  font-size: 0.78rem;
-  font-weight: 750;
-}
-
-.metric-bar b {
-  color: #0f172a;
-  text-align: right;
-}
-
-.tables-grid {
-  display: grid;
-  grid-template-columns: minmax(360px, 0.9fr) minmax(0, 1.5fr);
-  gap: 16px;
-  min-width: 0;
-}
-
-.tables-grid code {
-  display: block;
-  max-width: 280px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #334155;
-}
-
-@media (max-width: 1120px) {
-  .bench-grid,
-  .tables-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .bench-page {
-    padding: 12px;
-  }
-
-  .bench-hero,
-  .recommend-card :deep(.ant-card-body) {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .bench-hero__actions {
-    width: 100%;
-  }
-
-  .bench-hero__actions :deep(.ant-btn) {
-    flex: 1;
-  }
-
-  .algorithm-list,
-  .recommend-card__metrics {
-    grid-template-columns: 1fr;
-  }
-
-  .metric-bar {
-    grid-template-columns: 54px minmax(0, 1fr) 72px;
-  }
-}
+@media (max-width: 992px) { .benchmark-grid { grid-template-columns: 1fr; } }
 </style>

@@ -1,17 +1,26 @@
 <template>
   <AppLayout>
-    <div class="combined-search">
-      <section class="combined-header">
-        <div>
-          <div class="combined-header__label">Combined Index</div>
-          <h1>严格联合大索引检索</h1>
-          <p>多个数据集向量拼接为一个物理 ANN 索引，查询时返回全局行号和原始数据集映射。</p>
+    <div class="combined-search-page workbench-page workbench-page--grid">
+      <section class="page-header workbench-page__header">
+        <div class="page-title">
+          <span class="page-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M4 6c0-1.66 3.58-3 8-3s8 1.34 8 3-3.58 3-8 3-8-1.34-8-3z" />
+              <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6" />
+              <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
+            </svg>
+          </span>
+          <div>
+            <div class="page-crumb workbench-page__eyebrow">Combined Index</div>
+            <h2 class="workbench-page__title">严格联合大索引检索</h2>
+            <p class="workbench-page__meta">多个数据集向量拼接为一个物理 ANN 索引，查询时返回全局行号和原始数据集映射。</p>
+          </div>
         </div>
         <a-button :loading="loading" @click="loadResources">刷新</a-button>
       </section>
 
       <section class="combined-layout">
-        <a-card :bordered="false" class="query-card">
+        <a-card :bordered="false" class="query-card workbench-panel">
           <template #title>查询</template>
           <a-form layout="vertical">
             <a-form-item label="联合索引">
@@ -66,7 +75,7 @@
         </a-card>
 
         <div class="result-stack">
-          <a-card :bordered="false" class="summary-card">
+          <a-card :bordered="false" class="summary-card workbench-panel">
             <div class="summary-item">
               <span>Combined</span>
               <strong>{{ activeCombinedIndex ? `#${activeCombinedIndex.id}` : "-" }}</strong>
@@ -85,7 +94,7 @@
             </div>
           </a-card>
 
-          <a-card :bordered="false" title="结果">
+          <a-card :bordered="false" title="结果" class="result-card workbench-panel">
             <a-alert
               v-if="!combinedIndexes.length"
               type="warning"
@@ -238,57 +247,21 @@ onMounted(loadResources)
 </script>
 
 <style scoped>
-.combined-search {
-  min-height: 100%;
-  padding: 20px;
+.combined-layout {
   display: grid;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
   gap: 16px;
-  background: #f3f6fa;
+  min-width: 0;
+}
+
+.combined-search-page {
+  min-width: 0;
   overflow-x: hidden;
 }
 
-.combined-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 22px;
-  border-radius: 8px;
-  color: #fff;
-  background: linear-gradient(135deg, #111827, #1d4ed8 56%, #0f766e);
-}
-
-.combined-header__label {
-  color: #bfdbfe;
-  font-size: 0.78rem;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.combined-header h1 {
-  margin: 6px 0;
-  color: #fff;
-  font-size: 1.75rem;
-}
-
-.combined-header p {
-  margin: 0;
-  color: rgba(239, 246, 255, 0.86);
-}
-
-.combined-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.75fr) minmax(0, 1.5fr);
-  gap: 16px;
+.combined-layout :deep(.ant-card),
+.combined-layout :deep(.ant-card-body) {
   min-width: 0;
-}
-
-.combined-search :deep(.ant-card) {
-  min-width: 0;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
 .query-card :deep(.ant-input-number) {
@@ -304,15 +277,15 @@ onMounted(loadResources)
 
 .summary-card :deep(.ant-card-body) {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
 }
 
 .summary-item {
   padding: 12px;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: var(--bio-panel-muted);
+  border: 1px solid var(--bio-line);
 }
 
 .summary-item span,
@@ -336,21 +309,34 @@ onMounted(loadResources)
   margin-bottom: 12px;
 }
 
+.result-card :deep(.ant-table-wrapper),
+.result-card :deep(.ant-table),
+.result-card :deep(.ant-table-container),
+.result-card :deep(.ant-table-content) {
+  max-width: 100%;
+}
+
+.result-card :deep(.ant-table-content) {
+  overflow-x: auto;
+}
+
 @media (max-width: 1040px) {
-  .combined-layout,
-  .summary-card :deep(.ant-card-body) {
+  .combined-layout {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 720px) {
-  .combined-search {
-    padding: 12px;
+  .combined-layout {
+    gap: 12px;
   }
 
-  .combined-header {
-    align-items: stretch;
-    flex-direction: column;
+  .combined-search-page {
+    padding-inline: 0;
+  }
+
+  .summary-card :deep(.ant-card-body) {
+    grid-template-columns: 1fr;
   }
 }
 </style>
