@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.ann.hnsw import HNSWIndex
 from app.ann.metrics import l2_normalize
+from app.core import filters as obs_filters
 from app.datasets import service as ds_service
 from app.index import service as idx_service
 from app.search import strategies as strat
@@ -24,13 +25,20 @@ from app.search.schemas import (
     BatchHit,
     BatchSearchRequest,
     BatchSearchResponse,
+    CombinedIndexHit,
+    CombinedIndexSearchRequest,
+    CombinedIndexSearchResponse,
     CompareStrategiesRequest,
     CompareStrategiesResponse,
+    MultiDatasetHit,
+    MultiDatasetSearchRequest,
+    MultiDatasetSearchResponse,
     SearchByCellRequest,
     SearchByVectorRequest,
     SearchFilter,
     SearchHit,
     SearchResponse,
+    SkippedIndex,
     StrategyResult,
 )
 
@@ -39,13 +47,13 @@ def search_by_cell(db: Session, req: SearchByCellRequest, *, cache_for: int | No
     idx_obj = idx_service.get_ready(db, req.index_id)
     ds = ds_service.get_ready(db, idx_obj.dataset_id)
     vectors = ds_service.load_vectors(ds)
+    metric = _index_metric(idx_obj)
 
     try:
         row = ds_service.find_cell_row(ds, req.cell_id)
     except ValueError as e:
         raise CellNotFound(req.cell_id, ds.id) from e
 
-    metric = _index_metric(idx_obj)
     query_vec = _apply_metric(vectors[row], metric)
     oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
     result = _execute_search(
@@ -68,12 +76,12 @@ def search_by_cell(db: Session, req: SearchByCellRequest, *, cache_for: int | No
 def search_by_vector(db: Session, req: SearchByVectorRequest, *, cache_for: int | None = None) -> SearchResponse:
     idx_obj = idx_service.get_ready(db, req.index_id)
     ds = ds_service.get_ready(db, idx_obj.dataset_id)
+    metric = _index_metric(idx_obj)
 
     query_vec = np.asarray(req.vector, dtype=np.float32)
     if query_vec.shape[0] != ds.vector_dim:
         raise InvalidQueryVector(query_vec.shape[0], ds.vector_dim)
 
-    metric = _index_metric(idx_obj)
     query_vec = _apply_metric(query_vec, metric)
     oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
     result = _execute_search(
@@ -97,19 +105,14 @@ def search_by_vector(db: Session, req: SearchByVectorRequest, *, cache_for: int 
 def _auto_oversample(ds, filters: SearchFilter | None, k: int) -> int:
     """根据过滤条件在数据集中的选择率估算 oversample。
 
-    仅对 equals 字段做统计（gte/lte 无法从 value_counts 推断），
+    选择率由统一 FilterPlan 计算，覆盖 equals/gte/lte。
     估算结果保守偏大，上限 500，下限 2。
     """
-    if filters is None or not filters.equals:
+    if not obs_filters.has_filters(filters):
         return 2  # 无过滤条件，稍微多取一点用于剔除查询自身
 
-    stats = ds_service.value_counts(ds)
-    selectivity = 1.0
-    for col, allowed in filters.equals.items():
-        col_counts = stats.get(col, {})
-        total = sum(col_counts.values()) or 1
-        hit = sum(col_counts.get(v, 0) for v in allowed)
-        selectivity *= hit / total
+    plan = obs_filters.build_filter_plan(ds_service.load_obs(ds), filters)
+    selectivity = plan.selectivity
 
     selectivity = max(selectivity, 0.005)  # 防止极端稀疏条件导致 oversample 爆炸
     needed = math.ceil(1.0 / selectivity)  # 期望命中 k 个有效 hit 需要多取 1/selectivity 倍
@@ -117,21 +120,15 @@ def _auto_oversample(ds, filters: SearchFilter | None, k: int) -> int:
 
 
 def _apply_metric(vec: np.ndarray, metric: str) -> np.ndarray:
-    """cosine 模式下对查询向量做 L2 归一化。
-
-    必须与索引构建时一致：cosine 索引在构建时已对库向量归一化，查询也归一化后，
-    L2 距离的排序才等价于余弦相似度。l2 模式原样返回。
-    """
-    return l2_normalize(vec) if metric == "cosine" else vec
+    """cosine 模式下对查询向量做 L2 归一化，使索引的 L2 距离等价于余弦距离。"""
+    if metric == "cosine":
+        return l2_normalize(vec)
+    return vec
 
 
 def _index_metric(index_obj) -> str:
-    """距离度量在索引【构建时】固定（存于 params['metric']，默认 l2）。
-
-    检索一律以索引为准，不再用请求里的 metric 决定——避免"L2 索引被当成余弦查"
-    这类静默错误。
-    """
-    return str((getattr(index_obj, "params", None) or {}).get("metric", "l2")).lower()
+    metric = str((getattr(index_obj, "params", None) or {}).get("metric", "l2")).lower()
+    return "cosine" if metric == "cosine" else "l2"
 
 
 # ---------- 核心 ----------
@@ -151,7 +148,7 @@ def _execute_search(
     obs = ds_service.load_obs(dataset)
     cell_ids = ds_service.load_cell_ids(dataset)
 
-    has_filter = filters is not None and bool(filters.equals or filters.gte or filters.lte)
+    has_filter = obs_filters.has_filters(filters)
     fetch_k = min(k * oversample if has_filter else k + (1 if exclude_row is not None else 0),
                   index_obj.n_vectors)
 
@@ -196,7 +193,7 @@ def _postprocess(
     for row, dist in zip(rows, dists):
         if exclude_row is not None and row == exclude_row:
             continue
-        if filters is not None and not _matches(obs.iloc[row], filters):
+        if not obs_filters.matches_row(obs.iloc[row], filters):
             continue
         rank += 1
         hits.append(SearchHit(
@@ -209,31 +206,6 @@ def _postprocess(
         if rank >= k:
             break
     return hits
-
-
-def _matches(row: pd.Series, filters: SearchFilter) -> bool:
-    for col, allowed in filters.equals.items():
-        if col not in row.index:
-            return False
-        if str(row[col]) not in allowed:
-            return False
-    for col, threshold in filters.gte.items():
-        if col not in row.index:
-            return False
-        try:
-            if float(row[col]) < threshold:
-                return False
-        except (TypeError, ValueError):
-            return False
-    for col, threshold in filters.lte.items():
-        if col not in row.index:
-            return False
-        try:
-            if float(row[col]) > threshold:
-                return False
-        except (TypeError, ValueError):
-            return False
-    return True
 
 
 def _jsonable(v: Any) -> Any:
@@ -259,8 +231,8 @@ def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
     obs = ds_service.load_obs(ds)
     cell_ids_arr = ds_service.load_cell_ids(ds)
     instance = idx_service.load_index_instance(idx_obj)
-
     metric = _index_metric(idx_obj)
+
     oversample = _auto_oversample(ds, req.filters, req.k)
     fetch_k = min(req.k * oversample, idx_obj.n_vectors)
 
@@ -279,7 +251,7 @@ def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
         for r, d in zip(rows, dists):
             if r == row:
                 continue  # 排除查询自身
-            if req.filters and not _matches(obs.iloc[r], req.filters):
+            if not obs_filters.matches_row(obs.iloc[r], req.filters):
                 continue
             accum[r].append(d)
     total_ms = (time.perf_counter() - t0) * 1000.0
@@ -324,6 +296,195 @@ def search_batch(db: Session, req: BatchSearchRequest) -> BatchSearchResponse:
     )
 
 
+# ---------- 多数据集查询 ----------
+
+def search_multi_dataset(db: Session, req: MultiDatasetSearchRequest) -> MultiDatasetSearchResponse:
+    """Run one query against multiple target indexes and globally merge hits."""
+    idx_objs = [idx_service.get_ready(db, index_id) for index_id in req.index_ids]
+    datasets = {idx.dataset_id: ds_service.get_ready(db, idx.dataset_id) for idx in idx_objs}
+
+    query_vec, source_dataset_id, source_row = _resolve_multi_dataset_query(db, req, idx_objs, datasets)
+    response_metrics = sorted({_index_metric(idx_obj) for idx_obj in idx_objs})
+
+    skipped: list[SkippedIndex] = []
+    candidates: list[MultiDatasetHit] = []
+    has_filter = obs_filters.has_filters(req.filters)
+
+    t0 = time.perf_counter()
+    for idx_obj in idx_objs:
+        ds = datasets[idx_obj.dataset_id]
+        if ds.vector_dim != int(query_vec.shape[0]):
+            skipped.append(SkippedIndex(
+                index_id=idx_obj.id,
+                dataset_id=ds.id,
+                reason=f"查询向量维度 {query_vec.shape[0]} 与数据集向量维度 {ds.vector_dim} 不一致",
+            ))
+            continue
+
+        metric = _index_metric(idx_obj)
+        target_query_vec = _apply_metric(query_vec, metric)
+        oversample = req.oversample or _auto_oversample(ds, req.filters, req.k)
+        exclude_row = source_row if ds.id == source_dataset_id else None
+        result = _execute_search(
+            db=db,
+            index_obj=idx_obj,
+            dataset=ds,
+            query_vec=target_query_vec,
+            k=req.k,
+            filters=req.filters,
+            oversample=oversample,
+            exclude_row=exclude_row,
+            metric=metric,
+        )
+        for hit in result.hits:
+            candidates.append(MultiDatasetHit(
+                **hit.model_dump(),
+                index_id=idx_obj.id,
+                dataset_id=ds.id,
+                algorithm=idx_obj.algorithm,
+            ))
+
+    candidates.sort(key=lambda hit: hit.distance)
+    hits: list[MultiDatasetHit] = []
+    for rank, hit in enumerate(candidates[: req.k], start=1):
+        data = hit.model_dump()
+        data["rank"] = rank
+        hits.append(MultiDatasetHit(**data))
+    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+
+    return MultiDatasetSearchResponse(
+        index_ids=[idx.id for idx in idx_objs],
+        dataset_ids=[idx.dataset_id for idx in idx_objs],
+        metric=response_metrics[0] if len(response_metrics) == 1 else "mixed",
+        k=req.k,
+        n_returned=len(hits),
+        total_latency_ms=elapsed_ms,
+        filter_applied=has_filter,
+        hits=hits,
+        skipped=skipped,
+    )
+
+
+def _resolve_multi_dataset_query(
+    db: Session,
+    req: MultiDatasetSearchRequest,
+    idx_objs,
+    datasets,
+) -> tuple[np.ndarray, int | None, int | None]:
+    if req.vector is not None:
+        return np.asarray(req.vector, dtype=np.float32), None, None
+
+    assert req.cell_id is not None
+    candidate_indexes = idx_objs
+    if req.source_index_id is not None:
+        candidate_indexes = [idx_service.get_ready(db, req.source_index_id)]
+
+    for idx_obj in candidate_indexes:
+        ds = datasets.get(idx_obj.dataset_id) or ds_service.get_ready(db, idx_obj.dataset_id)
+        vectors = ds_service.load_vectors(ds)
+        try:
+            row = ds_service.find_cell_row(ds, req.cell_id)
+        except ValueError:
+            continue
+        return vectors[row], ds.id, row
+
+    raise CellNotFound(req.cell_id, candidate_indexes[0].dataset_id if candidate_indexes else 0)
+
+
+# ---------- 严格联合索引查询 ----------
+
+def search_combined_index(db: Session, req: CombinedIndexSearchRequest) -> CombinedIndexSearchResponse:
+    """Run a query against one physical combined index."""
+    combined = idx_service.get_combined_ready(db, req.combined_index_id)
+    mapping = idx_service.load_combined_mapping(combined)
+    dataset_ids = [int(item) for item in (combined.dataset_ids or [])]
+    datasets = {dataset_id: ds_service.get_ready(db, dataset_id) for dataset_id in dataset_ids}
+
+    query_vec, source_dataset_id, source_row = _resolve_combined_query(req, combined, datasets)
+    if query_vec.shape[0] != combined.vector_dim:
+        raise InvalidQueryVector(int(query_vec.shape[0]), combined.vector_dim)
+    query_vec = _apply_metric(query_vec, req.metric)
+
+    instance = idx_service.load_combined_index_instance(combined)
+    has_filter = obs_filters.has_filters(req.filters)
+    oversample = req.oversample or (10 if has_filter else 2)
+    fetch_k = min(req.k * oversample if has_filter else req.k + (1 if source_row is not None else 0), combined.n_vectors)
+
+    t0 = time.perf_counter()
+    rows, dists = instance.search(query_vec, k=fetch_k)
+    latency_ms = (time.perf_counter() - t0) * 1000.0
+
+    obs_by_dataset: dict[int, pd.DataFrame] = {}
+    hits: list[CombinedIndexHit] = []
+    rank = 0
+    for global_row, dist in zip(rows, dists):
+        global_row_int = int(global_row)
+        dataset_id = int(mapping["dataset_ids"][global_row_int])
+        row_index = int(mapping["row_indices"][global_row_int])
+        cell_id = str(mapping["cell_ids"][global_row_int])
+
+        if source_dataset_id == dataset_id and source_row == row_index:
+            continue
+        if dataset_id not in obs_by_dataset:
+            obs_by_dataset[dataset_id] = ds_service.load_obs(datasets[dataset_id])
+        obs = obs_by_dataset[dataset_id]
+        cell_row = obs.iloc[row_index]
+        if not obs_filters.matches_row(cell_row, req.filters):
+            continue
+
+        rank += 1
+        hits.append(CombinedIndexHit(
+            rank=rank,
+            cell_id=cell_id,
+            row_index=row_index,
+            global_row_index=global_row_int,
+            distance=float(dist),
+            obs={col: _jsonable(cell_row[col]) for col in obs.columns},
+            combined_index_id=combined.id,
+            dataset_id=dataset_id,
+            algorithm=combined.algorithm,
+        ))
+        if rank >= req.k:
+            break
+
+    return CombinedIndexSearchResponse(
+        combined_index_id=combined.id,
+        dataset_ids=dataset_ids,
+        algorithm=combined.algorithm,
+        metric=req.metric,
+        k=req.k,
+        n_returned=len(hits),
+        latency_ms=latency_ms,
+        filter_applied=has_filter,
+        hits=hits,
+    )
+
+
+def _resolve_combined_query(
+    req: CombinedIndexSearchRequest,
+    combined,
+    datasets: dict[int, object],
+) -> tuple[np.ndarray, int | None, int | None]:
+    if req.vector is not None:
+        return np.asarray(req.vector, dtype=np.float32), None, None
+
+    assert req.cell_id is not None
+    candidate_dataset_ids = [req.source_dataset_id] if req.source_dataset_id is not None else list(combined.dataset_ids or [])
+    for dataset_id in candidate_dataset_ids:
+        if dataset_id not in datasets:
+            continue
+        ds = datasets[int(dataset_id)]
+        vectors = ds_service.load_vectors(ds)
+        try:
+            row = ds_service.find_cell_row(ds, req.cell_id)
+        except ValueError:
+            continue
+        return vectors[row], int(dataset_id), row
+
+    fallback_dataset_id = int(candidate_dataset_ids[0] or 0) if candidate_dataset_ids else 0
+    raise CellNotFound(req.cell_id, fallback_dataset_id)
+
+
 # ---------- 过滤策略对比 ----------
 
 def compare_strategies(db: Session, req: CompareStrategiesRequest) -> CompareStrategiesResponse:
@@ -353,21 +514,20 @@ def compare_strategies(db: Session, req: CompareStrategiesRequest) -> CompareStr
         if query_vec.shape[0] != ds.vector_dim:
             raise InvalidQueryVector(query_vec.shape[0], ds.vector_dim)
     query_vec = _apply_metric(query_vec, metric)
-    # cosine 索引下，pre（ground truth）也要在归一化空间里算，才能与 post/hybrid 可比
-    pre_vectors = l2_normalize(vectors) if metric == "cosine" else vectors
+    strategy_vectors = l2_normalize(vectors) if metric == "cosine" else vectors
 
     # 选择度（决定后面 post 策略会不会"召回不足"）
     n_total = int(vectors.shape[0])
-    allowed = strat.compute_allowed_rows(obs, req.filters)
+    filter_plan = obs_filters.build_filter_plan(obs, req.filters)
     if exclude_row is not None:
-        allowed_count = int((allowed != exclude_row).sum())
+        allowed_count = int((filter_plan.allowed_rows != exclude_row).sum())
     else:
-        allowed_count = int(allowed.size)
+        allowed_count = filter_plan.n_matching
     selectivity = allowed_count / n_total if n_total > 0 else 0.0
 
     # 跑 pre 先得到 ground truth（不算在它自己的 recall 里，永远是 1.0）
     pre_out = strat.pre_filter_search(
-        vectors=pre_vectors,
+        vectors=strategy_vectors,
         obs=obs,
         query_vec=query_vec,
         k=req.k,

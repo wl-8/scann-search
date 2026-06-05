@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from app.ann.hnsw import HNSWIndex
+from app.core import filters as obs_filters
 from app.search.schemas import SearchFilter
 
 if TYPE_CHECKING:
@@ -38,27 +39,7 @@ class StrategyOutput:
 # ---------- 工具 ----------
 
 def _row_matches(row: pd.Series, filters: SearchFilter) -> bool:
-    """与 service._matches 等价，复制到这里避免循环依赖。"""
-    for col, allowed in filters.equals.items():
-        if col not in row.index or str(row[col]) not in allowed:
-            return False
-    for col, threshold in filters.gte.items():
-        if col not in row.index:
-            return False
-        try:
-            if float(row[col]) < threshold:
-                return False
-        except (TypeError, ValueError):
-            return False
-    for col, threshold in filters.lte.items():
-        if col not in row.index:
-            return False
-        try:
-            if float(row[col]) > threshold:
-                return False
-        except (TypeError, ValueError):
-            return False
-    return True
+    return obs_filters.matches_row(row, filters)
 
 
 def compute_allowed_rows(obs: pd.DataFrame, filters: SearchFilter) -> np.ndarray:
@@ -66,28 +47,7 @@ def compute_allowed_rows(obs: pd.DataFrame, filters: SearchFilter) -> np.ndarray
 
     比 row-by-row 的 _row_matches 快 1-2 个数量级，但功能等价。
     """
-    n = len(obs)
-    mask = np.ones(n, dtype=bool)
-
-    for col, allowed in filters.equals.items():
-        if col not in obs.columns:
-            return np.array([], dtype=np.int64)
-        col_str = obs[col].astype(str).to_numpy()
-        mask &= np.isin(col_str, allowed)
-
-    for col, threshold in filters.gte.items():
-        if col not in obs.columns:
-            return np.array([], dtype=np.int64)
-        col_num = pd.to_numeric(obs[col], errors="coerce").to_numpy()
-        mask &= (col_num >= threshold) & ~np.isnan(col_num)
-
-    for col, threshold in filters.lte.items():
-        if col not in obs.columns:
-            return np.array([], dtype=np.int64)
-        col_num = pd.to_numeric(obs[col], errors="coerce").to_numpy()
-        mask &= (col_num <= threshold) & ~np.isnan(col_num)
-
-    return np.where(mask)[0].astype(np.int64)
+    return obs_filters.compute_allowed_rows(obs, filters)
 
 
 # ---------- 策略 1：post-filter ----------

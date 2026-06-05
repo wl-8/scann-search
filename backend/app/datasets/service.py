@@ -11,6 +11,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import filters as obs_filters
 from app.core.config import settings
 from app.datasets import constants as ds_const
 from app.datasets import preprocessing
@@ -311,32 +312,15 @@ def filter_cells(
     obs = load_obs(ds)
     cell_ids = load_cell_ids(ds)
 
-    mask = pd.Series([True] * len(obs), index=obs.index)
-    for col, allowed in filters.equals.items():
-        if col in obs.columns:
-            mask &= obs[col].astype(str).isin(allowed)
-        else:
-            mask &= False
-    for col, threshold in filters.gte.items():
-        if col in obs.columns:
-            mask &= pd.to_numeric(obs[col], errors="coerce") >= threshold
-        else:
-            mask &= False
-    for col, threshold in filters.lte.items():
-        if col in obs.columns:
-            mask &= pd.to_numeric(obs[col], errors="coerce") <= threshold
-        else:
-            mask &= False
-
-    matched_indices = mask[mask].index
-    total = len(matched_indices)
+    plan = obs_filters.build_filter_plan(obs, filters)
+    total = plan.n_matching
 
     items = []
-    for idx in matched_indices[offset: offset + limit]:
-        row_index = obs.index.get_loc(idx)
-        obs_row = {col: _to_jsonable_val(obs.loc[idx, col]) for col in obs.columns}
+    for row_index in plan.page(offset, limit):
+        cell_row = obs.iloc[int(row_index)]
+        obs_row = {col: _to_jsonable_val(cell_row[col]) for col in obs.columns}
         items.append({
-            "cell_id": str(cell_ids[row_index]),
+            "cell_id": str(cell_ids[int(row_index)]),
             "row_index": int(row_index),
             "obs": obs_row,
         })

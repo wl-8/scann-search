@@ -29,6 +29,7 @@ def isolated_settings(tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setattr(cfg.settings, "UPLOAD_DIR", str(upload))
     monkeypatch.setattr(cfg.settings, "INDEX_DIR", str(indexes))
     monkeypatch.setattr(cfg.settings, "DATABASE_URL", f"sqlite:///{tmp_path / 'test.db'}")
+    monkeypatch.setattr(cfg.settings, "AUTO_BOOTSTRAP_DATA", False)
 
     from importlib import reload
 

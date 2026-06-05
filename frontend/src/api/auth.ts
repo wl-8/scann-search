@@ -4,10 +4,11 @@ import request from "./request"
 export type LoginPayload = { username: string; password: string }
 
 export type TokenResponse = { access_token: string; token_type?: string }
+export type CurrentUser = { id: number; username: string; role: string; email?: string }
 
 export function login(payload: LoginPayload) {
 	// calls backend /auth/login which returns TokenResponse
-	return request.post<TokenResponse>("/auth/login", payload)
+	return request.post("/auth/login", payload) as Promise<TokenResponse>
 }
 
 export function logout() {
@@ -16,7 +17,7 @@ export function logout() {
 }
 
 export function me() {
-	return request.get("/auth/me")
+	return request.get("/auth/me") as Promise<CurrentUser>
 }
 
 export function register(payload: { username: string; email: string; password: string }) {

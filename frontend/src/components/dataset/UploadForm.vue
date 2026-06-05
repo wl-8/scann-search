@@ -90,7 +90,7 @@ async function beforeUpload(file: File) {
 
 	try {
 		// 用 XMLHttpRequest 获取上传进度
-		const result = await new Promise<{ path: string; filename: string }>((resolve, reject) => {
+		const result = await new Promise<{ path: string; filename: string; embedding_keys?: string[] }>((resolve, reject) => {
 			const xhr = new XMLHttpRequest()
 			xhr.open("POST", `${import.meta.env.VITE_API_BASE ?? "/api"}/datasets/upload-file`)
 			const token = localStorage.getItem("token")

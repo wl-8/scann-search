@@ -3,6 +3,8 @@
 POST /api/search/by-cell             给 cell_id，返回相似细胞
 POST /api/search/by-vector           给原始向量，返回相似细胞
 POST /api/search/batch               给多个 cell_id，聚合检索结果
+POST /api/search/multi-dataset       跨多个索引/数据集联合检索
+POST /api/search/combined-index      在一个严格联合大索引上检索
 POST /api/search/compare-strategies  对同一查询跑 post/pre/hybrid 三种过滤策略并对比
 前 3 个接口都支持 obs 字段过滤和 cosine/l2 距离选择。
 """
@@ -15,8 +17,12 @@ from app.search import service
 from app.search.schemas import (
     BatchSearchRequest,
     BatchSearchResponse,
+    CombinedIndexSearchRequest,
+    CombinedIndexSearchResponse,
     CompareStrategiesRequest,
     CompareStrategiesResponse,
+    MultiDatasetSearchRequest,
+    MultiDatasetSearchResponse,
     SearchByCellRequest,
     SearchByVectorRequest,
     SearchResponse,
@@ -50,6 +56,24 @@ def search_batch(
     _: User = Depends(require_researcher),
 ) -> BatchSearchResponse:
     return service.search_batch(db, req)
+
+
+@router.post("/multi-dataset", response_model=MultiDatasetSearchResponse)
+def search_multi_dataset(
+    req: MultiDatasetSearchRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> MultiDatasetSearchResponse:
+    return service.search_multi_dataset(db, req)
+
+
+@router.post("/combined-index", response_model=CombinedIndexSearchResponse)
+def search_combined_index(
+    req: CombinedIndexSearchRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> CombinedIndexSearchResponse:
+    return service.search_combined_index(db, req)
 
 
 @router.post("/compare-strategies", response_model=CompareStrategiesResponse)

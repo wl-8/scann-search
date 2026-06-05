@@ -9,10 +9,11 @@ import visualizeRoutes from "./modules/visualize"
 import benchmarkRoutes from "./modules/benchmark"
 import adminRoutes from "./modules/admin"
 import exportRoutes from "./modules/export"
+import ragRoutes from "./modules/rag"
 
 const router = createRouter({
   history: createWebHistory(),
-  routes: [...authRoutes, ...dashboardRoutes, ...datasetRoutes, ...indexRoutes, ...searchRoutes, ...visualizeRoutes, ...benchmarkRoutes, ...adminRoutes, ...exportRoutes],
+  routes: [...authRoutes, ...dashboardRoutes, ...datasetRoutes, ...indexRoutes, ...searchRoutes, ...visualizeRoutes, ...benchmarkRoutes, ...ragRoutes, ...adminRoutes, ...exportRoutes],
 })
 
 router.beforeEach(async (to) => {

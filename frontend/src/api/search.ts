@@ -5,6 +5,10 @@ export interface SearchPayload {
   query?: string
   datasetId?: number
   indexId?: number
+  indexIds?: number[]
+  combinedIndexId?: number
+  sourceDatasetId?: number
+  sourceIndexId?: number
   indexType?: string
   metric?: string
   k?: number
@@ -15,15 +19,9 @@ export interface SearchPayload {
   page?: number
   pageSize?: number
   datasets?: string[]
+  cell_ids?: string[]
   colorBy?: string
-  embeddingKey?: string
-  dimension?: 2 | 3
-}
-
-export type SearchFilter = {
-  equals?: Record<string, string[]>
-  gte?: Record<string, number>
-  lte?: Record<string, number>
+  dimension?: number
 }
 
 export interface DatasetItem {
@@ -33,7 +31,8 @@ export interface DatasetItem {
   n_cells: number
   n_genes?: number
   vector_dim: number
-  embedding_key?: string
+  source_path?: string
+  created_at?: string
 }
 
 export interface IndexItem {
@@ -43,112 +42,20 @@ export interface IndexItem {
   status: string
   n_vectors: number
   vector_dim: number
-  build_time_ms?: number
-  index_size_bytes?: number
 }
 
-export type ApiListOptions = {
-  mockFallback?: boolean
-}
-
-export type DatasetStatsResponse = {
-  dataset_id: number
-  obs_columns: string[]
-  value_counts: Record<string, Record<string, number>>
-  numeric_summary?: Record<string, { count: number; mean: number; median: number; min: number; max: number }>
-}
-
-export type VisualizeModesResponse = {
-  dataset_id: number
-  embedding_key: string
-  embedding_options: string[]
-  vector_dim: number
-  available_modes: string[]
-  color_options: string[]
-}
-
-export type EmbeddingPoint = {
-  cell_id: string
-  x: number
-  y: number
-  z?: number | null
-  label: string
-  obs: Record<string, any>
-}
-
-export type EmbeddingResponse = {
-  dataset_id: number
-  embedding_key: string
-  mode: "2d" | "3d"
-  color_by: string
-  color_options: string[]
-  n_total: number
-  n_returned: number
-  points: EmbeddingPoint[]
-}
-
-export type BatchSearchRequest = {
-  indexId: number
-  cellIds: string[]
-  k?: number
-  filters?: SearchFilter
-  metric?: "l2" | "cosine"
-  aggregate?: "ranked" | "union" | "intersection"
-}
-
-export type BatchSearchHit = {
-  rank: number
+export interface CellItem {
   cell_id: string
   row_index: number
-  hit_count: number
-  avg_distance: number
   obs: Record<string, any>
 }
 
-export type BatchSearchResponse = {
-  index_id: number
+export interface CellPageResponse {
   dataset_id: number
-  algorithm: string
-  metric: string
-  aggregate: string
-  n_queries: number
-  k: number
-  n_returned: number
-  total_latency_ms: number
-  hits: BatchSearchHit[]
-}
-
-export type CompareStrategiesRequest = {
-  indexId: number
-  cellId?: string
-  vector?: number[]
-  k?: number
-  filters: SearchFilter
-  metric?: "l2" | "cosine"
-  strategies?: Array<"post" | "pre" | "hybrid">
-  oversample?: number
-}
-
-export type StrategyResult = {
-  strategy: string
-  n_returned: number
-  requested_k: number
-  latency_ms: number
-  recall_at_k: number
-  extra: Record<string, any>
-  hits: Array<{ rank: number; cell_id: string; row_index: number; distance: number; obs: Record<string, any> }>
-}
-
-export type CompareStrategiesResponse = {
-  index_id: number
-  dataset_id: number
-  algorithm: string
-  metric: string
-  k: number
-  n_total_cells: number
-  n_matching_filter: number
-  filter_selectivity: number
-  results: StrategyResult[]
+  total: number
+  offset: number
+  limit: number
+  items: CellItem[]
 }
 
 function buildSearchFilter(payload: SearchPayload) {
@@ -168,12 +75,16 @@ function parseVector(raw: string | undefined) {
     .map(Number)
 }
 
-export async function listDatasets(_options: ApiListOptions = {}) {
+export async function listDatasets() {
   return (await request.get("/datasets")) as DatasetItem[]
 }
 
-export async function listIndexes(datasetId?: number, _options: ApiListOptions = {}) {
+export async function listIndexes(datasetId?: number) {
   return (await request.get("/index", { params: datasetId ? { dataset_id: datasetId } : undefined })) as IndexItem[]
+}
+
+export async function getDatasetCells(datasetId: number, offset = 0, limit = 1) {
+  return (await request.get(`/datasets/${datasetId}/cells`, { params: { offset, limit } })) as CellPageResponse
 }
 
 // 调用 sjq 后端检索接口：POST /search/by-cell 或 /search/by-vector
@@ -217,19 +128,70 @@ export async function conditionalSearch(payload: SearchPayload) {
 }
 
 export async function multiDatasetSearch(payload: SearchPayload) {
-  // Backend exposes a batch endpoint for multiple cell ids: /search/batch
-  // If caller provided `cell_ids` in filters, use batch; otherwise raise.
-  const cellIds = (payload as any).cell_ids ?? (payload.query ? [payload.query] : undefined)
-  if (Array.isArray(cellIds) && cellIds.length > 0) {
-    return request.post("/search/batch", {
-      index_id: payload.indexId,
-      cell_ids: cellIds,
-      k: payload.k ?? 10,
-      filters: buildSearchFilter(payload),
-      metric: payload.metric ?? "l2",
-    }) as Promise<any>
+  const indexIds = payload.indexIds ?? (payload.indexId ? [payload.indexId] : [])
+  if (!indexIds.length) throw new Error("multiDatasetSearch: 请至少选择一个索引")
+
+  const base = {
+    index_ids: indexIds,
+    source_index_id: payload.sourceIndexId ?? payload.indexId,
+    k: payload.k ?? 10,
+    filters: buildSearchFilter(payload),
+    metric: payload.metric ?? "l2",
+    oversample: payload.oversample,
   }
-  throw new Error("multiDatasetSearch: 请提供 cell_ids 或使用单次 search 接口")
+  if (payload.queryType === "vector") {
+    return request.post("/search/multi-dataset", { ...base, vector: parseVector(payload.query) }) as Promise<any>
+  }
+  return request.post("/search/multi-dataset", { ...base, cell_id: payload.query }) as Promise<any>
+}
+
+export async function combinedIndexSearch(payload: SearchPayload) {
+  if (!payload.combinedIndexId) throw new Error("请先选择联合索引")
+  const base = {
+    combined_index_id: payload.combinedIndexId,
+    source_dataset_id: payload.sourceDatasetId,
+    k: payload.k ?? 10,
+    filters: buildSearchFilter(payload),
+    metric: payload.metric ?? "l2",
+    oversample: payload.oversample,
+  }
+  if (payload.queryType === "vector") {
+    return request.post("/search/combined-index", { ...base, vector: parseVector(payload.query) }) as Promise<any>
+  }
+  return request.post("/search/combined-index", { ...base, cell_id: payload.query }) as Promise<any>
+}
+
+export async function batchSearch(payload: SearchPayload & { aggregate?: "ranked" | "union" | "intersection" }) {
+  if (!payload.indexId) throw new Error("请先选择索引")
+  const cellIds = String(payload.query ?? "")
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return request.post("/search/batch", {
+    index_id: payload.indexId,
+    cell_ids: cellIds,
+    k: payload.k ?? 10,
+    filters: buildSearchFilter(payload),
+    metric: payload.metric ?? "l2",
+    aggregate: payload.aggregate ?? "ranked",
+  }) as Promise<any>
+}
+
+export async function compareStrategies(payload: SearchPayload) {
+  if (!payload.indexId) throw new Error("请先选择索引")
+  const filter = buildSearchFilter(payload)
+  if (!filter) throw new Error("请填写过滤字段和过滤值")
+  const base = {
+    index_id: payload.indexId,
+    k: payload.k ?? 10,
+    filters: filter,
+    metric: payload.metric ?? "l2",
+    oversample: payload.oversample ?? 10,
+  }
+  if (payload.queryType === "vector") {
+    return request.post("/search/compare-strategies", { ...base, vector: parseVector(payload.query) }) as Promise<any>
+  }
+  return request.post("/search/compare-strategies", { ...base, cell_id: payload.query }) as Promise<any>
 }
 
 export async function browseSearch(payload: SearchPayload) {
@@ -241,52 +203,11 @@ export async function browseSearch(payload: SearchPayload) {
       color_by: payload.colorBy ?? "cell_type",
       max_points: payload.pageSize ?? 5000,
     }
-    if (payload.embeddingKey) params.embedding_key = payload.embeddingKey
     return request.get(`/visualize/${payload.datasetId}/embedding`, { params }) as Promise<any>
   }
 
-  throw new Error("browseSearch: 必须提供 datasetId")
+  // Fallback to legacy mock endpoint if no dataset specified
+  return request.post("/search/browse", payload) as Promise<any>
 }
 
-export async function getDatasetStats(datasetId: number) {
-  return request.get(`/datasets/${datasetId}/stats`) as Promise<DatasetStatsResponse>
-}
-
-export async function getVisualizeModes(datasetId: number) {
-  return request.get(`/visualize/${datasetId}/modes`) as Promise<VisualizeModesResponse>
-}
-
-export async function batchSearch(payload: BatchSearchRequest) {
-  return request.post("/search/batch", {
-    index_id: payload.indexId,
-    cell_ids: payload.cellIds,
-    k: payload.k ?? 10,
-    filters: payload.filters,
-    metric: payload.metric ?? "l2",
-    aggregate: payload.aggregate ?? "ranked",
-  }) as Promise<BatchSearchResponse>
-}
-
-export async function compareStrategies(payload: CompareStrategiesRequest) {
-  return request.post("/search/compare-strategies", {
-    index_id: payload.indexId,
-    cell_id: payload.cellId,
-    vector: payload.vector,
-    k: payload.k ?? 10,
-    filters: payload.filters,
-    metric: payload.metric ?? "l2",
-    strategies: payload.strategies,
-    oversample: payload.oversample ?? 10,
-  }) as Promise<CompareStrategiesResponse>
-}
-
-export default {
-  search,
-  conditionalSearch,
-  multiDatasetSearch,
-  browseSearch,
-  batchSearch,
-  compareStrategies,
-  getDatasetStats,
-  getVisualizeModes,
-}
+export default { search, conditionalSearch, multiDatasetSearch, combinedIndexSearch, batchSearch, compareStrategies, browseSearch }

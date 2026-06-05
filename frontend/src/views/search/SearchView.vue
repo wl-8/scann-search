@@ -1,69 +1,84 @@
 <template>
-  <AppLayout>
-    <div class="search-page workbench-page workbench-page--grid">
-      <div class="page-header workbench-page__header">
-        <div class="page-title">
-          <span class="page-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M11 4a7 7 0 105.196 11.688L20 20.5" />
-            </svg>
-          </span>
-          <div>
-            <div class="page-crumb workbench-page__eyebrow">ANN Search</div>
-            <h2 class="workbench-page__title">单细胞 ANN 检索</h2>
-          </div>
-        </div>
-        <div class="workbench-page__pill">
-          <span v-if="loading">检索中...</span>
-          <span v-else-if="lastElapsed !== null">后端耗时：{{ Number(lastElapsed).toFixed(2) }} ms，返回 {{ results.length }} 条</span>
-          <span v-else>选择数据集和索引后开始检索</span>
+  <div class="search-page">
+    <div class="page-header">
+      <div class="page-title">
+        <span class="page-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M11 4a7 7 0 105.196 11.688L20 20.5" />
+          </svg>
+        </span>
+        <div>
+          <div class="page-crumb">检索 / Search</div>
+          <h2>单细胞 ANN 检索页面</h2>
         </div>
       </div>
-
-      <a-card class="resource-card workbench-panel" :bordered="false">
-        <a-form layout="vertical">
-          <a-row :gutter="16">
-            <a-col :xs="24" :md="8">
-              <a-form-item label="数据集">
-                <a-select
-                  v-model:value="selectedDatasetId"
-                  :options="datasetOptions"
-                  placeholder="选择 ready 数据集"
-                  :loading="resourceLoading"
-                  @change="onDatasetChange"
-                />
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :md="8">
-              <a-form-item label="索引">
-                <a-select
-                  v-model:value="selectedIndexId"
-                  :options="indexOptions"
-                  placeholder="选择 ready 索引"
-                  :loading="resourceLoading"
-                />
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :md="8" class="resource-actions">
-              <a-button block type="primary" @click="loadResources" :loading="resourceLoading">刷新资源</a-button>
-            </a-col>
-          </a-row>
-        </a-form>
-      </a-card>
+      <div class="page-meta">
+        <span v-if="loading">检索中...</span>
+        <span v-else-if="lastElapsed !== null">后端耗时：{{ lastElapsed }} ms，返回 {{ results.length }} 条</span>
+        <span v-else>选择数据集和索引后开始检索</span>
+      </div>
+    </div>
 
     <div class="search-layout">
       <div class="search-column search-column--form">
-        <SearchForm v-model:modelValue="formData" :obsStats="obsStats" @submit="onSearch" />
+        <a-card class="resource-card" :bordered="false">
+          <div class="resource-card__title">后端资源</div>
+          <a-form layout="vertical">
+            <a-form-item label="数据集">
+              <a-select
+                v-model:value="selectedDatasetId"
+                :options="datasetOptions"
+                placeholder="选择 ready 数据集"
+                :loading="resourceLoading"
+                @change="onDatasetChange"
+              />
+            </a-form-item>
+            <a-form-item label="索引">
+              <a-select
+                v-model:value="selectedIndexId"
+                :options="indexOptions"
+                placeholder="选择 ready 索引"
+                :loading="resourceLoading"
+              />
+            </a-form-item>
+            <a-button block @click="loadResources" :loading="resourceLoading">刷新数据集/索引</a-button>
+          </a-form>
+        </a-card>
+        <SearchForm v-model:modelValue="formData" @submit="onSearch" />
+        <a-card class="resource-card" :bordered="false">
+          <div class="resource-card__title">批量与策略对比</div>
+          <a-tabs v-model:activeKey="advancedTab">
+            <a-tab-pane key="batch" tab="批量检索">
+              <a-form layout="vertical">
+                <a-form-item label="Cell IDs（逗号或换行分隔）">
+                  <a-textarea v-model:value="batchCellIds" :auto-size="{ minRows: 3, maxRows: 6 }" />
+                </a-form-item>
+                <a-form-item label="聚合策略">
+                  <a-select v-model:value="batchAggregate">
+                    <a-select-option value="ranked">ranked</a-select-option>
+                    <a-select-option value="union">union</a-select-option>
+                    <a-select-option value="intersection">intersection</a-select-option>
+                  </a-select>
+                </a-form-item>
+                <a-button block :loading="advancedLoading" @click="runBatchSearch">运行批量检索</a-button>
+              </a-form>
+            </a-tab-pane>
+            <a-tab-pane key="compare" tab="过滤策略对比">
+              <a-alert type="info" show-icon message="使用检索控制台中的查询内容、过滤字段和过滤值，对比 post / pre / hybrid 策略。" style="margin-bottom: 12px" />
+              <a-button block type="primary" :loading="advancedLoading" @click="runCompareStrategies">运行策略对比</a-button>
+            </a-tab-pane>
+          </a-tabs>
+        </a-card>
       </div>
 
       <div class="search-column search-column--results">
-        <a-card class="results-card workbench-panel" :bordered="false">
+        <a-card class="results-card" :bordered="false">
           <div class="results-card__toolbar">
-            <div class="toolbar-band workbench-control-band">
+            <div class="toolbar-band">
               <div class="toolbar-band__group toolbar-band__group--meta">
-                <span class="toolbar-label">当前索引</span>
-                <span v-if="selectedIndexId" class="toolbar-value">#{{ selectedIndexId }}</span>
-                <span v-else class="toolbar-value toolbar-value--empty">未选择</span>
+                <span class="toolbar-label">真实后端检索</span>
+                <span v-if="selectedIndexId" class="toolbar-value">索引 #{{ selectedIndexId }}</span>
+                <span v-else class="toolbar-value">未选择索引</span>
               </div>
             </div>
           </div>
@@ -73,7 +88,7 @@
               v-if="!selectedIndexId"
               type="info"
               show-icon
-              message="请先选择一个索引后再执行检索。"
+              message="请先选择已构建完成的索引；如列表为空，请先通过后端脚本或索引接口构建索引。"
               style="margin: 8px 0 12px"
             />
             <a-table
@@ -103,22 +118,29 @@
             </div>
           </div>
         </a-card>
+
+        <a-card v-if="batchResults.length || compareResults.length" class="results-card" :bordered="false" style="margin-top: 16px">
+          <a-tabs>
+            <a-tab-pane key="batch" tab="批量检索结果">
+              <a-table :columns="batchColumns" :data-source="batchResults" row-key="rank" :pagination="false" size="small" />
+            </a-tab-pane>
+            <a-tab-pane key="compare" tab="策略对比结果">
+              <a-table :columns="compareColumns" :data-source="compareResults" row-key="strategy" :pagination="false" size="small" />
+            </a-tab-pane>
+          </a-tabs>
+        </a-card>
       </div>
     </div>
   </div>
-  </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue"
 import { message } from "ant-design-vue"
-import AppLayout from "@/components/layout/AppLayout.vue"
 import SearchForm from "@/components/search/SearchForm.vue"
-import { listDatasets, listIndexes } from "@/api/search"
-import request from "@/api/request"
+import { batchSearch, compareStrategies, getDatasetCells, listDatasets, listIndexes } from "@/api/search"
 import { useSearch } from "@/composables/useSearch"
 import type { DatasetItem, IndexItem, SearchPayload } from "@/api/search"
-import { showErrMsg } from "@/utils/error"
 
 const { loading, search } = useSearch()
 const results = ref<Array<any>>([])
@@ -128,24 +150,44 @@ const datasets = ref<DatasetItem[]>([])
 const indexes = ref<IndexItem[]>([])
 const selectedDatasetId = ref<number | undefined>()
 const selectedIndexId = ref<number | undefined>()
-const obsStats = ref<{ obs_columns: string[]; value_counts: Record<string, Record<string, number>> } | null>(null)
+const advancedTab = ref("batch")
+const advancedLoading = ref(false)
+const batchCellIds = ref("")
+const batchAggregate = ref<"ranked" | "union" | "intersection">("ranked")
+const batchResults = ref<any[]>([])
+const compareResults = ref<any[]>([])
 
 const formData = ref<SearchPayload & { filters: { cell_type: string } }>({
   queryType: "id",
   query: "",
   k: 10,
   oversample: 10,
-  filterColumn: undefined,
-  filterValue: undefined,
+  filterColumn: "",
+  filterValue: "",
   filters: { cell_type: "" },
 })
 
 const columns = [
-  { title: "排名", dataIndex: "rank", key: "rank", width: 80 },
-  { title: "细胞 ID", dataIndex: "id", key: "id" },
-  { title: "距离", dataIndex: "distance", key: "distance", width: 120 },
-  { title: "细胞类型", dataIndex: "cell_type", key: "cell_type", width: 140 },
-  { title: "行号", dataIndex: "row_index", key: "row_index", width: 100 },
+  { title: "Rank", dataIndex: "rank", key: "rank", width: 80 },
+  { title: "Cell ID", dataIndex: "id", key: "id" },
+  { title: "Distance", dataIndex: "distance", key: "distance", width: 120 },
+  { title: "Cell Type", dataIndex: "cell_type", key: "cell_type", width: 140 },
+  { title: "Row", dataIndex: "row_index", key: "row_index", width: 100 },
+]
+
+const batchColumns = [
+  { title: "Rank", dataIndex: "rank", key: "rank", width: 70 },
+  { title: "Cell ID", dataIndex: "cell_id", key: "cell_id" },
+  { title: "Hit Count", dataIndex: "hit_count", key: "hit_count", width: 100 },
+  { title: "Avg Distance", dataIndex: "avg_distance", key: "avg_distance", width: 130 },
+  { title: "cell_type", key: "cell_type", customRender: ({ record }: any) => record.obs?.cell_type ?? "-" },
+]
+
+const compareColumns = [
+  { title: "Strategy", dataIndex: "strategy", key: "strategy" },
+  { title: "Returned", dataIndex: "n_returned", key: "n_returned" },
+  { title: "Latency ms", dataIndex: "latency_ms", key: "latency_ms" },
+  { title: "Recall@K", dataIndex: "recall_at_k", key: "recall_at_k" },
 ]
 
 const readyDatasets = computed(() => datasets.value.filter((item) => item.status === "ready"))
@@ -177,7 +219,7 @@ async function onSearch(payload: any) {
     results.value = res.results
     lastElapsed.value = res.elapsed
   } catch (err: any) {
-    showErrMsg(err, "检索失败")
+    message.error(err?.response?.data?.detail ?? err?.message ?? "真实后端检索失败")
   }
 }
 
@@ -185,77 +227,475 @@ async function loadResources() {
   resourceLoading.value = true
   try {
     datasets.value = await listDatasets()
-    if (selectedDatasetId.value) {
-      indexes.value = await listIndexes(selectedDatasetId.value)
-      await fetchObsStats(selectedDatasetId.value)
-    }
-  } catch (err: any) {
-    showErrMsg(err, "加载资源失败")
+    const initialDatasetId = selectedDatasetId.value ?? readyDatasets.value[0]?.id
+    selectedDatasetId.value = initialDatasetId
+    indexes.value = await listIndexes(initialDatasetId)
+    selectedIndexId.value = readyIndexes.value[0]?.id
+    await loadSampleCell(initialDatasetId)
+    await loadSampleBatchCells(initialDatasetId)
+  } catch (err) {
+    message.warning("后端资源加载失败，请确认 FastAPI 服务已启动")
   } finally {
     resourceLoading.value = false
-  }
-}
-
-async function fetchObsStats(datasetId: number) {
-  try {
-    obsStats.value = await request.get(`/datasets/${datasetId}/stats`) as any
-  } catch {
-    obsStats.value = null
   }
 }
 
 async function onDatasetChange(datasetId: number) {
   indexes.value = await listIndexes(datasetId)
   selectedIndexId.value = readyIndexes.value[0]?.id
-  await fetchObsStats(datasetId)
+  await loadSampleCell(datasetId)
+  await loadSampleBatchCells(datasetId)
+}
+
+async function loadSampleCell(datasetId?: number) {
+  if (!datasetId || formData.value.queryType !== "id") return
+  try {
+    const page = await getDatasetCells(datasetId, 0, 1)
+    const cellId = page.items[0]?.cell_id
+    if (cellId) {
+      formData.value = { ...formData.value, query: cellId }
+    }
+  } catch (err) {
+    message.warning("无法加载真实示例细胞 ID")
+  }
+}
+
+async function loadSampleBatchCells(datasetId?: number) {
+  if (!datasetId) return
+  try {
+    const page = await getDatasetCells(datasetId, 0, 3)
+    batchCellIds.value = page.items.map((item) => item.cell_id).join("\n")
+    if (!formData.value.filterColumn && !formData.value.filterValue) {
+      const firstType = page.items[0]?.obs?.cell_type
+      if (firstType) {
+        formData.value = { ...formData.value, filterColumn: "cell_type", filterValue: String(firstType) }
+      }
+    }
+  } catch (err) {
+    // sample IDs are a convenience; leave manual entry available.
+  }
+}
+
+async function runBatchSearch() {
+  if (!selectedIndexId.value) return message.warning("请先选择索引")
+  advancedLoading.value = true
+  try {
+    const res = await batchSearch({
+      indexId: selectedIndexId.value,
+      query: batchCellIds.value,
+      k: formData.value.k,
+      filterColumn: formData.value.filterColumn,
+      filterValue: formData.value.filterValue,
+      aggregate: batchAggregate.value,
+    })
+    batchResults.value = res.hits ?? []
+    message.success(`批量检索返回 ${res.n_returned ?? batchResults.value.length} 条`)
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "批量检索失败")
+  } finally {
+    advancedLoading.value = false
+  }
+}
+
+async function runCompareStrategies() {
+  if (!selectedIndexId.value) return message.warning("请先选择索引")
+  advancedLoading.value = true
+  try {
+    const res = await compareStrategies({
+      ...formData.value,
+      indexId: selectedIndexId.value,
+    })
+    compareResults.value = res.results ?? []
+    message.success("策略对比完成")
+  } catch (err: any) {
+    message.error(err?.response?.data?.detail ?? err?.message ?? "策略对比失败")
+  } finally {
+    advancedLoading.value = false
+  }
 }
 
 onMounted(loadResources)
 </script>
 
 <style scoped>
-/* ── Page shell ────────────────────────────────────── */
 .search-page {
+  position: relative;
+  isolation: isolate;
   min-height: 100%;
-  padding: 18px;
-  background: #ffffff;
-  border: 1px solid var(--bio-line);
+  padding: 24px;
+  background:
+    radial-gradient(circle at 14% 12%, rgba(224, 242, 254, 0.9) 0, rgba(224, 242, 254, 0.62) 20%, rgba(224, 242, 254, 0.16) 38%, transparent 62%),
+    radial-gradient(circle at 86% 88%, rgba(243, 232, 255, 0.88) 0, rgba(243, 232, 255, 0.58) 20%, rgba(243, 232, 255, 0.16) 38%, transparent 62%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 52%, #f3f7fb 100%);
+  color: #0f172a;
 }
 
-/* ── Layout ──────────────────────────────────────────── */
-.search-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
+.search-page::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(224, 242, 254, 0.42) 0 11%, transparent 44%),
+    radial-gradient(circle at 82% 84%, rgba(243, 232, 255, 0.38) 0 12%, transparent 46%),
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.24) 0 9%, transparent 34%),
+    linear-gradient(135deg, rgba(0, 123, 255, 0.03), rgba(38, 166, 154, 0.015), rgba(243, 232, 255, 0.03));
+  filter: blur(32px);
+  opacity: 0.9;
+  animation: searchGlowDrift 26s ease-in-out infinite alternate;
+}
+
+.search-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+.page-header {
+  width: min(100%, 1280px);
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  align-items: stretch;
 }
-.search-column { min-width: 0; display: flex; flex-direction: column; }
 
-/* ── Cards ───────────────────────────────────────────── */
-.results-card { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.results-card :deep(.ant-card-body) { flex: 1; min-height: 0; overflow-y: auto; padding: 0; }
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
 
-/* ── Results card toolbar ────────────────────────────── */
-.results-card__toolbar { padding: 12px 16px; border-bottom: 1px solid var(--bio-line); }
-.toolbar-band { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: 9px; background: var(--bio-panel-muted); border: 1px solid var(--bio-line); }
-.toolbar-band__group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.toolbar-label { color: var(--bio-muted); font-size: 12px; font-weight: 700; }
-.toolbar-value { color: var(--bio-navy); font-size: 13px; font-weight: 700; }
+.page-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 123, 255, 0.1);
+  color: #007bff;
+}
 
-/* ── Results body ────────────────────────────────────── */
-.results-card__body { padding: 12px 16px 16px; }
-.results-table :deep(.ant-table) { background: transparent; }
-.results-table :deep(.ant-table-thead > tr > th) { background: var(--bio-panel-muted) !important; color: var(--bio-navy); font-weight: 700; font-size: 12px; border-bottom: 1px solid var(--bio-line); }
-.results-table :deep(.ant-table-thead > tr > th::before) { display: none; }
-.results-table :deep(.ant-table-tbody > tr > td) { border-bottom: 1px solid var(--bio-line); }
-.results-table :deep(.ant-table-tbody > tr:hover > td) { background: #f0f5fb !important; }
-.details-pre { margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--bio-muted); font-size: 12px; }
-.result-details :deep(.ant-descriptions-item-label) { color: var(--bio-muted); font-weight: 700; }
+.page-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
-/* ── Empty / misc ────────────────────────────────────── */
-.empty-state { min-height: 240px; display: grid; place-items: center; color: var(--bio-muted); }
-.empty-state :deep(.ant-empty-description) { color: var(--bio-muted); }
+.page-crumb {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  text-transform: uppercase;
+}
 
-@media (max-width: 1100px) { .search-layout { grid-template-columns: 1fr; } }
-@media (max-width: 720px) { .search-page { padding: 12px; } }
+.page-header h2 {
+  margin: 4px 0 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.page-meta {
+  color: #64748b;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.search-layout {
+  width: min(100%, 1280px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.search-column {
+  min-width: 0;
+}
+
+.search-column--form {
+  position: sticky;
+  top: 24px;
+}
+
+.resource-card {
+  margin-bottom: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 18px 42px rgba(15, 23, 42, 0.05),
+    0 5px 14px rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.resource-card__title {
+  margin-bottom: 12px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.results-card {
+  min-height: calc(100% - 140px);
+  border-radius: 20px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow:
+    0 24px 56px rgba(15, 23, 42, 0.06),
+    0 6px 18px rgba(15, 23, 42, 0.04);
+}
+
+.results-card__toolbar {
+  padding: 16px 16px 12px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f3f6fa 100%);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.toolbar-band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.toolbar-band__group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.toolbar-label {
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.toolbar-value {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.toolbar-input {
+  width: 240px;
+}
+
+.toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 123, 255, 0.14);
+  background: #fff;
+  color: #334155;
+  box-shadow: none;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.toolbar-button:hover {
+  transform: translateY(-1px) scale(1.02);
+  border-color: rgba(0, 123, 255, 0.24);
+  box-shadow: 0 12px 22px rgba(0, 123, 255, 0.08);
+  color: #007bff;
+}
+
+.toolbar-button__icon {
+  display: inline-flex;
+  color: currentColor;
+}
+
+.toolbar-button__icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.results-card__body {
+  position: relative;
+  min-height: calc(100vh - 220px);
+  padding: 8px 12px 16px;
+}
+
+.results-table {
+  width: 100%;
+}
+
+.results-table :deep(.ant-table) {
+  background: transparent;
+}
+
+.results-table :deep(.ant-table-thead > tr > th) {
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 800;
+  border-color: rgba(226, 232, 240, 0.9);
+}
+
+.results-table :deep(.ant-table-thead > tr > th::before) {
+  display: none;
+}
+
+.results-table :deep(.ant-table-tbody > tr > td) {
+  border-color: rgba(226, 232, 240, 0.9);
+}
+
+.results-table :deep(.ant-table-cell) {
+  border-left: 0;
+  border-right: 0;
+}
+
+.results-table :deep(.ant-table-container) {
+  border-color: rgba(226, 232, 240, 0.9);
+}
+
+.results-table :deep(.ant-table-expanded-row .ant-descriptions) {
+  background: #f8fafc;
+}
+
+.result-details :deep(.ant-descriptions-item-label) {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.details-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #475569;
+}
+
+.gene-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gene-item {
+  min-width: 120px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  color: #334155;
+}
+
+.empty-state {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+}
+
+.empty-state :deep(.ant-empty-image) {
+  opacity: 0.42;
+}
+
+.empty-state :deep(.ant-empty-description) {
+  color: #94a3b8;
+}
+
+.facets-panel {
+  margin-top: 14px;
+  padding: 14px 8px 4px;
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.facets-panel h4 {
+  margin: 0 0 10px;
+  color: #334155;
+}
+
+.facets-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.facet-group {
+  min-width: 160px;
+}
+
+.facet-group ul {
+  margin: 6px 0 0 16px;
+  color: #475569;
+}
+
+.meta {
+  margin-bottom: 0;
+}
+
+@media (max-width: 1100px) {
+  .search-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .search-column--form {
+    position: static;
+  }
+
+  .results-card {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .search-page {
+    padding: 16px;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .toolbar-band {
+    padding: 10px;
+  }
+
+  .toolbar-input {
+    width: 100%;
+  }
+
+  .toolbar-band__group--actions {
+    width: 100%;
+  }
+
+  .toolbar-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@keyframes searchGlowDrift {
+  from {
+    transform: translate3d(-1%, -0.8%, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(1%, 0.8%, 0) scale(1.02);
+  }
+}
 </style>

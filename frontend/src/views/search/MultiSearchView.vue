@@ -1,451 +1,261 @@
 <template>
-  <AppLayout>
-    <div class="multi-search-page workbench-page workbench-page--grid">
-      <div class="page-header workbench-page__header">
-        <div class="page-title">
-          <span class="page-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M11 4a7 7 0 105.196 11.688L20 20.5" />
-              <path d="M7 4a7 7 0 105.196 11.688" opacity="0.4" />
-            </svg>
-          </span>
-          <div>
-            <div class="page-crumb workbench-page__eyebrow">Multi Search</div>
-            <h2 class="workbench-page__title">批量检索与过滤策略对比</h2>
-          </div>
-        </div>
-        <div class="workbench-page__pill">
-          <span v-if="resourceLoading">资源加载中...</span>
-          <span v-else>选择数据集与索引后开始批量检索</span>
-        </div>
+  <div class="multi-search-view">
+    <div class="page-header">
+      <div>
+        <div class="page-crumb">检索 / Multi Dataset</div>
+        <h2>多数据集联合检索</h2>
       </div>
+      <div class="page-meta">
+        <span v-if="loading">检索中...</span>
+        <span v-else-if="lastResponse">返回 {{ lastResponse.n_returned }} 条，跳过 {{ lastResponse.skipped.length }} 个索引</span>
+        <span v-else>选择多个 ready 索引后开始检索</span>
+      </div>
+    </div>
 
-      <a-card class="resource-card workbench-panel" :bordered="false">
+    <div class="multi-layout">
+      <a-card class="query-panel" :bordered="false">
+        <div class="panel-title">查询配置</div>
         <a-form layout="vertical">
-          <a-row :gutter="16">
-            <a-col :xs="24" :md="8">
-              <a-form-item label="数据集">
-                <a-select
-                  v-model:value="selectedDatasetId"
-                  :options="datasetOptions"
-                  placeholder="选择 ready 数据集"
-                  :loading="resourceLoading"
-                  @change="onDatasetChange"
-                />
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :md="8">
-              <a-form-item label="索引">
-                <a-select
-                  v-model:value="selectedIndexId"
-                  :options="indexOptions"
-                  placeholder="选择 ready 索引"
-                  :loading="resourceLoading"
-                />
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :md="8" class="resource-actions">
-              <a-button block type="primary" :loading="resourceLoading" @click="loadResources">刷新资源</a-button>
-            </a-col>
-          </a-row>
+          <a-form-item label="目标索引">
+            <a-select
+              v-model:value="selectedIndexIds"
+              mode="multiple"
+              :options="indexOptions"
+              :loading="resourceLoading"
+              placeholder="选择一个或多个 ready 索引"
+              @change="syncSourceIndex"
+            />
+          </a-form-item>
+
+          <a-form-item label="查询类型">
+            <a-segmented
+              v-model:value="queryType"
+              :options="[
+                { label: 'Cell ID', value: 'id' },
+                { label: 'Vector', value: 'vector' },
+              ]"
+            />
+          </a-form-item>
+
+          <a-form-item v-if="queryType === 'id'" label="Source Index">
+            <a-select
+              v-model:value="sourceIndexId"
+              :options="selectedIndexOptions"
+              placeholder="用于解析 cell_id 的源索引"
+            />
+          </a-form-item>
+
+          <a-form-item :label="queryType === 'vector' ? '查询向量' : 'Cell ID'">
+            <a-textarea
+              v-if="queryType === 'vector'"
+              v-model:value="query"
+              :auto-size="{ minRows: 4, maxRows: 8 }"
+              placeholder="0.12, -0.03, 1.25 ..."
+            />
+            <a-input v-else v-model:value="query" placeholder="cell_0042" />
+          </a-form-item>
+
+          <div class="form-grid">
+            <a-form-item label="Top-K">
+              <a-input-number v-model:value="k" :min="1" :max="100" style="width: 100%" />
+            </a-form-item>
+            <a-form-item label="Oversample">
+              <a-input-number v-model:value="oversample" :min="1" :max="500" style="width: 100%" />
+            </a-form-item>
+            <a-form-item label="Metric">
+              <a-select
+                v-model:value="metric"
+                :options="[
+                  { label: 'L2', value: 'l2' },
+                  { label: 'Cosine', value: 'cosine' },
+                ]"
+              />
+            </a-form-item>
+          </div>
+
+          <div class="form-grid form-grid--filter">
+            <a-form-item label="过滤字段">
+              <a-input v-model:value="filterColumn" placeholder="cell_type" />
+            </a-form-item>
+            <a-form-item label="过滤值">
+              <a-input v-model:value="filterValue" placeholder="Type0" />
+            </a-form-item>
+          </div>
+
+          <div class="actions">
+            <a-button @click="loadResources" :loading="resourceLoading">刷新索引</a-button>
+            <a-button type="primary" @click="runSearch" :loading="loading">联合检索</a-button>
+          </div>
         </a-form>
       </a-card>
 
-      <a-tabs v-model:activeKey="activeTab" class="multi-tabs">
-        <a-tab-pane key="batch" tab="批量检索">
-          <a-row :gutter="16">
-            <a-col :xs="24" :lg="10">
-              <a-card class="panel-card workbench-panel" :bordered="false">
-                <div class="panel-title workbench-section-title">批量检索设置</div>
-                <a-form layout="vertical">
-                  <a-form-item label="Cell IDs（逗号或换行分隔）">
-                    <a-textarea v-model:value="batchCellIds" :auto-size="{ minRows: 4, maxRows: 8 }" placeholder="cell_0001, cell_0002, ..." />
-                  </a-form-item>
-                  <a-form-item label="聚合策略">
-                    <a-select v-model:value="batchAggregate" :options="aggregateOptions" />
-                  </a-form-item>
-                  <a-form-item label="Metric">
-                    <a-select v-model:value="batchMetric" :options="metricOptions" />
-                  </a-form-item>
-                  <a-form-item label="Top-K">
-                    <a-input-number v-model:value="batchK" :min="1" :max="100" class="control-number" />
-                  </a-form-item>
-                  <a-divider />
-                  <a-form-item label="过滤字段">
-                    <a-select
-                      v-model:value="batchFilterColumn"
-                      :options="columnOptions"
-                      allow-clear
-                      placeholder="例如: cell_type"
-                      @change="batchFilterValues = []; batchFilterValuesText = ''"
-                    />
-                  </a-form-item>
-                  <a-form-item label="过滤值（可多个）">
-                    <a-select
-                      v-if="batchValueOptions.length"
-                      v-model:value="batchFilterValues"
-                      mode="multiple"
-                      :options="batchValueOptions"
-                      placeholder="选择过滤值"
-                      style="width: 100%"
-                    />
-                    <a-input v-else v-model:value="batchFilterValuesText" placeholder="例如: Type0, Type1" />
-                  </a-form-item>
-                  <a-button type="primary" block :loading="batchLoading" @click="runBatchSearch">开始批量检索</a-button>
-                </a-form>
-              </a-card>
-            </a-col>
-            <a-col :xs="24" :lg="14">
-              <a-card class="panel-card result-card workbench-panel" :bordered="false">
-                <div class="panel-title workbench-section-title">批量检索结果</div>
-                <div v-if="batchResult" class="summary-bar">
-                  <span>查询数：{{ batchResult.n_queries }}</span>
-                  <span>返回：{{ batchResult.n_returned }}</span>
-                  <span>总耗时：{{ Number(batchResult.total_latency_ms).toFixed(2) }} ms</span>
-                </div>
-                <a-table
-                  :columns="batchColumns"
-                  :data-source="batchRows"
-                  row-key="cell_id"
-                  :loading="batchLoading"
-                  :pagination="false"
-                />
-                <div v-if="!batchRows.length && !batchLoading" class="empty-state">
-                  <a-empty description="尚无结果" />
-                </div>
-              </a-card>
-            </a-col>
-          </a-row>
-        </a-tab-pane>
+      <a-card class="result-panel" :bordered="false">
+        <div class="result-toolbar">
+          <div class="panel-title">检索结果</div>
+          <span v-if="lastResponse" class="result-meta">{{ lastResponse.total_latency_ms.toFixed(2) }} ms</span>
+        </div>
 
-        <a-tab-pane key="compare" tab="过滤策略对比">
-          <a-row :gutter="16">
-            <a-col :xs="24" :lg="10">
-              <a-card class="panel-card workbench-panel" :bordered="false">
-                <div class="panel-title workbench-section-title">策略对比设置</div>
-                <a-form layout="vertical">
-                  <a-form-item label="查询类型">
-                    <a-radio-group v-model:value="compareQueryType">
-                      <a-radio value="id">细胞ID</a-radio>
-                      <a-radio value="vector">向量</a-radio>
-                    </a-radio-group>
-                  </a-form-item>
-                  <a-form-item :label="compareQueryType === 'id' ? '细胞ID' : '向量（逗号分隔）'">
-                    <a-textarea
-                      v-if="compareQueryType === 'vector'"
-                      v-model:value="compareQuery"
-                      :auto-size="{ minRows: 3, maxRows: 5 }"
-                      placeholder="例如: 0.12, -0.03, ..."
-                    />
-                    <a-input v-else v-model:value="compareQuery" placeholder="例如: cell_0042" />
-                  </a-form-item>
-                  <a-form-item label="过滤字段">
-                    <a-select v-model:value="compareFilterColumn" :options="columnOptions" @change="compareFilterValues = []; compareFilterValuesText = ''" />
-                  </a-form-item>
-                  <a-form-item label="过滤值（必填，可多个）">
-                    <a-select
-                      v-if="compareValueOptions.length"
-                      v-model:value="compareFilterValues"
-                      mode="multiple"
-                      :options="compareValueOptions"
-                      placeholder="选择过滤值"
-                      style="width: 100%"
-                    />
-                    <a-input v-else v-model:value="compareFilterValuesText" placeholder="例如: Type0" />
-                  </a-form-item>
-                  <a-form-item label="Metric">
-                    <a-select v-model:value="compareMetric" :options="metricOptions" />
-                  </a-form-item>
-                  <a-form-item label="Top-K">
-                    <a-input-number v-model:value="compareK" :min="1" :max="100" class="control-number" />
-                  </a-form-item>
-                  <a-form-item label="Oversample">
-                    <a-input-number v-model:value="compareOversample" :min="1" :max="100" class="control-number" />
-                  </a-form-item>
-                  <a-form-item label="策略">
-                    <a-select v-model:value="compareStrategies" mode="multiple" :options="strategyOptions" />
-                  </a-form-item>
-                  <a-button type="primary" block :loading="compareLoading" @click="runCompare">开始对比</a-button>
-                </a-form>
-              </a-card>
-            </a-col>
-            <a-col :xs="24" :lg="14">
-              <a-card class="panel-card result-card workbench-panel" :bordered="false">
-                <div class="panel-title workbench-section-title">策略对比结果</div>
-                <div v-if="compareResult" class="summary-bar">
-                  <span>总细胞：{{ compareResult.n_total_cells }}</span>
-                  <span>匹配数：{{ compareResult.n_matching_filter }}</span>
-                  <span>选择率：{{ (compareResult.filter_selectivity * 100).toFixed(2) }}%</span>
-                </div>
-                <a-table
-                  :columns="strategyColumns"
-                  :data-source="strategyRows"
-                  row-key="strategy"
-                  :pagination="false"
-                  :loading="compareLoading"
-                />
-                <div v-if="!compareResult" class="empty-state">
-                  <a-empty description="尚无策略结果" />
-                </div>
-                <div class="strategy-detail" v-if="selectedStrategyHits.length">
-                  <div class="strategy-detail__head">
-                    <span>命中详情</span>
-                    <a-select v-model:value="selectedStrategy" :options="strategySelectOptions" size="small" style="min-width: 160px" />
-                  </div>
-                  <a-table
-                    :columns="strategyHitColumns"
-                    :data-source="selectedStrategyHits"
-                    row-key="cell_id"
-                    size="small"
-                    :pagination="false"
-                  />
-                </div>
-              </a-card>
-            </a-col>
-          </a-row>
-        </a-tab-pane>
-      </a-tabs>
+        <a-alert
+          v-if="lastResponse?.skipped.length"
+          type="warning"
+          show-icon
+          :message="skippedMessage"
+          style="margin-bottom: 12px"
+        />
+
+        <a-table
+          class="result-table"
+          :columns="columns"
+          :data-source="hits"
+          :loading="loading"
+          :pagination="{ pageSize: 10 }"
+          :locale="tableLocale"
+          row-key="rowKey"
+          bordered
+        >
+          <template #expandedRowRender="{ record }">
+            <a-descriptions bordered column="2" size="small">
+              <a-descriptions-item label="Cell ID">{{ record.cell_id }}</a-descriptions-item>
+              <a-descriptions-item label="Row Index">{{ record.row_index }}</a-descriptions-item>
+              <a-descriptions-item label="Dataset">{{ record.datasetLabel }}</a-descriptions-item>
+              <a-descriptions-item label="Index">{{ record.indexLabel }}</a-descriptions-item>
+              <a-descriptions-item label="Obs" :span="2">
+                <pre class="details-pre">{{ JSON.stringify(record.obs, null, 2) }}</pre>
+              </a-descriptions-item>
+            </a-descriptions>
+          </template>
+        </a-table>
+      </a-card>
     </div>
-  </AppLayout>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue"
 import { message } from "ant-design-vue"
-import AppLayout from "@/components/layout/AppLayout.vue"
-import { batchSearch, compareStrategies as compareStrategiesApi, listDatasets, listIndexes, type CompareStrategiesResponse } from "@/api/search"
-import request from "@/api/request"
-import type { BatchSearchResponse, SearchFilter } from "@/api/search"
-import { showErrMsg } from "@/utils/error"
+import { getDatasetCells, listDatasets, listIndexes, multiDatasetSearch } from "@/api/search"
+import type { DatasetItem, IndexItem } from "@/api/search"
 
-const activeTab = ref("batch")
 const resourceLoading = ref(false)
-const datasets = ref<any[]>([])
-const indexes = ref<any[]>([])
-const selectedDatasetId = ref<number | undefined>()
-const selectedIndexId = ref<number | undefined>()
-const obsStats = ref<{ obs_columns: string[]; value_counts: Record<string, Record<string, number>> } | null>(null)
+const loading = ref(false)
+const datasets = ref<DatasetItem[]>([])
+const indexes = ref<IndexItem[]>([])
+const selectedIndexIds = ref<number[]>([])
+const sourceIndexId = ref<number | undefined>()
+const queryType = ref<"id" | "vector">("id")
+const query = ref("cell_0042")
+const k = ref(10)
+const oversample = ref<number | undefined>(10)
+const metric = ref<"l2" | "cosine">("l2")
+const filterColumn = ref("")
+const filterValue = ref("")
+const lastResponse = ref<any>(null)
 
-const batchCellIds = ref("")
-const batchAggregate = ref("ranked")
-const batchMetric = ref("l2")
-const batchK = ref(10)
-const batchFilterColumn = ref<string | undefined>()
-const batchFilterValues = ref<string[]>([])
-const batchFilterValuesText = ref("")
-const batchResult = ref<BatchSearchResponse | null>(null)
-const batchLoading = ref(false)
-
-const compareQueryType = ref<"id" | "vector">("id")
-const compareQuery = ref("")
-const compareFilterColumn = ref<string | undefined>()
-const compareFilterValues = ref<string[]>([])
-const compareFilterValuesText = ref("")
-const compareMetric = ref("l2")
-const compareK = ref(10)
-const compareOversample = ref(10)
-const compareStrategies = ref<Array<"post" | "pre" | "hybrid">>(["post", "pre", "hybrid"])
-const compareResult = ref<CompareStrategiesResponse | null>(null)
-const compareLoading = ref(false)
-const selectedStrategy = ref("post")
-
-const readyDatasets = computed(() => datasets.value.filter((item) => item.status === "ready"))
+const datasetNameById = computed(() => new Map(datasets.value.map((item) => [item.id, item.name])))
 const readyIndexes = computed(() => indexes.value.filter((item) => item.status === "ready"))
-const datasetOptions = computed(() =>
-  readyDatasets.value.map((item: any) => ({
-    value: item.id,
-    label: `${item.name} (#${item.id}, ${item.n_cells} cells)`
-  }))
-)
 const indexOptions = computed(() =>
-  readyIndexes.value.map((item: any) => ({
+  readyIndexes.value.map((item) => ({
     value: item.id,
-    label: `#${item.id} ${item.algorithm}`
+    label: `#${item.id} ${item.algorithm} · ${datasetNameById.value.get(item.dataset_id) ?? `dataset_${item.dataset_id}`} · dim=${item.vector_dim}`,
   }))
 )
+const selectedIndexOptions = computed(() =>
+  indexOptions.value.filter((option) => selectedIndexIds.value.includes(option.value))
+)
 
-const columnOptions = computed(() => (obsStats.value?.obs_columns ?? []).map((c) => ({ label: c, value: c })))
-const batchValueOptions = computed(() => {
-  if (!batchFilterColumn.value || !obsStats.value?.value_counts[batchFilterColumn.value]) return []
-  return Object.keys(obsStats.value.value_counts[batchFilterColumn.value]).map((v) => ({ label: v, value: v }))
-})
-const compareValueOptions = computed(() => {
-  if (!compareFilterColumn.value || !obsStats.value?.value_counts[compareFilterColumn.value]) return []
-  return Object.keys(obsStats.value.value_counts[compareFilterColumn.value]).map((v) => ({ label: v, value: v }))
-})
-const aggregateOptions = [
-  { label: "ranked", value: "ranked" },
-  { label: "union", value: "union" },
-  { label: "intersection", value: "intersection" },
-]
-const metricOptions = [
-  { label: "l2", value: "l2" },
-  { label: "cosine", value: "cosine" },
-]
-const strategyOptions = [
-  { label: "post", value: "post" },
-  { label: "pre", value: "pre" },
-  { label: "hybrid", value: "hybrid" },
-]
-
-const batchColumns = [
-  { title: "排名", dataIndex: "rank", key: "rank", width: 80 },
-  { title: "细胞 ID", dataIndex: "cell_id", key: "cell_id" },
-  { title: "平均距离", dataIndex: "avg_distance", key: "avg_distance", width: 120 },
-  { title: "命中数", dataIndex: "hit_count", key: "hit_count", width: 110 },
-  { title: "行号", dataIndex: "row_index", key: "row_index", width: 90 },
-  { title: "细胞类型", dataIndex: "cell_type", key: "cell_type", width: 120 },
-]
-
-const strategyColumns = [
-  { title: "策略", dataIndex: "strategy", key: "strategy", width: 90 },
-  { title: "返回数", dataIndex: "n_returned", key: "n_returned", width: 90 },
-  { title: "耗时(ms)", dataIndex: "latency_ms", key: "latency_ms", width: 120 },
-  { title: "Recall@K", dataIndex: "recall_at_k", key: "recall_at_k", width: 110 },
-]
-
-const strategyHitColumns = [
-  { title: "排名", dataIndex: "rank", key: "rank", width: 70 },
-  { title: "细胞 ID", dataIndex: "cell_id", key: "cell_id" },
-  { title: "距离", dataIndex: "distance", key: "distance", width: 120 },
-  { title: "行号", dataIndex: "row_index", key: "row_index", width: 90 },
-  { title: "细胞类型", dataIndex: "cell_type", key: "cell_type", width: 120 },
-]
-
-const batchRows = computed(() =>
-  (batchResult.value?.hits ?? []).map((hit: any) => ({
+const hits = computed(() =>
+  (lastResponse.value?.hits ?? []).map((hit: any) => ({
     ...hit,
-    cell_type: hit.obs?.cell_type ?? "-",
+    rowKey: `${hit.dataset_id}:${hit.index_id}:${hit.row_index}:${hit.rank}`,
+    datasetLabel: datasetNameById.value.get(hit.dataset_id) ?? `dataset_${hit.dataset_id}`,
+    indexLabel: `#${hit.index_id} ${hit.algorithm}`,
+    cellType: hit.obs?.cell_type ?? hit.obs?.CellType ?? "-",
   }))
 )
 
-const strategyRows = computed(() =>
-  (compareResult.value?.results ?? []).map((item) => ({
-    ...item,
-  }))
+const skippedMessage = computed(() =>
+  (lastResponse.value?.skipped ?? [])
+    .map((item: any) => `#${item.index_id}: ${item.reason}`)
+    .join("；")
 )
 
-const strategySelectOptions = computed(() =>
-  (compareResult.value?.results ?? []).map((r) => ({ label: r.strategy, value: r.strategy }))
-)
+const columns = [
+  { title: "Rank", dataIndex: "rank", key: "rank", width: 70 },
+  { title: "Cell ID", dataIndex: "cell_id", key: "cell_id" },
+  { title: "Dataset", dataIndex: "datasetLabel", key: "datasetLabel", width: 160 },
+  { title: "Index", dataIndex: "indexLabel", key: "indexLabel", width: 150 },
+  { title: "Distance", dataIndex: "distance", key: "distance", width: 120 },
+  { title: "Type", dataIndex: "cellType", key: "cellType", width: 120 },
+]
 
-const selectedStrategyHits = computed(() => {
-  const result = compareResult.value?.results.find((r) => r.strategy === selectedStrategy.value)
-  return (result?.hits ?? []).map((hit: any) => ({
-    ...hit,
-    cell_type: hit.obs?.cell_type ?? "-",
-  }))
-})
+const tableLocale = { emptyText: "暂无联合检索结果" }
+
+function syncSourceIndex() {
+  if (!selectedIndexIds.value.length) {
+    sourceIndexId.value = undefined
+    return
+  }
+  if (!sourceIndexId.value || !selectedIndexIds.value.includes(sourceIndexId.value)) {
+    sourceIndexId.value = selectedIndexIds.value[0]
+  }
+}
 
 async function loadResources() {
   resourceLoading.value = true
   try {
     datasets.value = await listDatasets()
-    if (selectedDatasetId.value) {
-      indexes.value = await listIndexes(selectedDatasetId.value)
-      await fetchObsStats(selectedDatasetId.value)
+    indexes.value = await listIndexes()
+    if (!selectedIndexIds.value.length) {
+      selectedIndexIds.value = readyIndexes.value.slice(0, 2).map((item) => item.id)
     }
-  } catch (err: any) {
-    showErrMsg(err, "加载资源失败")
+    syncSourceIndex()
+    await loadSampleQuery()
+  } catch (err) {
+    message.warning("后端资源加载失败")
   } finally {
     resourceLoading.value = false
   }
 }
 
-async function fetchObsStats(datasetId: number) {
+async function loadSampleQuery() {
+  if (queryType.value !== "id" || !sourceIndexId.value) return
+  const sourceIndex = indexes.value.find((item) => item.id === sourceIndexId.value)
+  if (!sourceIndex?.dataset_id) return
   try {
-    obsStats.value = await request.get(`/datasets/${datasetId}/stats`) as any
-  } catch {
-    obsStats.value = null
+    const page = await getDatasetCells(sourceIndex.dataset_id, 0, 1)
+    query.value = page.items[0]?.cell_id ?? query.value
+  } catch (err) {
+    // Keep manual input if sample lookup fails.
   }
 }
 
-async function onDatasetChange(datasetId: number) {
-  indexes.value = await listIndexes(datasetId)
-  selectedIndexId.value = readyIndexes.value[0]?.id
-  await fetchObsStats(datasetId)
-}
+async function runSearch() {
+  if (!selectedIndexIds.value.length) {
+    message.warning("请至少选择一个索引")
+    return
+  }
+  if (!query.value.trim()) {
+    message.warning(queryType.value === "vector" ? "请输入查询向量" : "请输入 Cell ID")
+    return
+  }
 
-function parseCellIds(raw: string) {
-  return raw
-    .split(/[\n,]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function buildEqualsFilter(column?: string, values?: string[]): SearchFilter | undefined {
-  if (!column || !values?.length) return undefined
-  return { equals: { [column]: values } }
-}
-
-function parseVector(raw: string) {
-  return raw
-    .split(/[\s,]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map(Number)
-    .filter((num) => Number.isFinite(num))
-}
-
-async function runBatchSearch() {
-  if (!selectedIndexId.value) return message.warning("请先选择索引")
-  const cellIds = parseCellIds(batchCellIds.value)
-  if (!cellIds.length) return message.warning("请输入至少一个 Cell ID")
-
-  batchLoading.value = true
+  loading.value = true
   try {
-    const batchVals = batchValueOptions.value.length ? batchFilterValues.value : batchFilterValuesText.value.split(/[\s,]+/).map(s => s.trim()).filter(Boolean)
-    const filters = buildEqualsFilter(batchFilterColumn.value, batchVals)
-    batchResult.value = await batchSearch({
-      indexId: selectedIndexId.value,
-      cellIds,
-      k: batchK.value,
-      metric: batchMetric.value as any,
-      aggregate: batchAggregate.value as any,
-      filters,
+    lastResponse.value = await multiDatasetSearch({
+      queryType: queryType.value,
+      query: query.value,
+      indexIds: selectedIndexIds.value,
+      sourceIndexId: queryType.value === "id" ? sourceIndexId.value : undefined,
+      k: k.value,
+      oversample: oversample.value,
+      metric: metric.value,
+      filterColumn: filterColumn.value,
+      filterValue: filterValue.value,
     })
   } catch (err: any) {
-    showErrMsg(err, "批量检索失败")
+    message.error(err?.response?.data?.detail ?? err?.message ?? "联合检索失败")
   } finally {
-    batchLoading.value = false
-  }
-}
-
-async function runCompare() {
-  if (!selectedIndexId.value) return message.warning("请先选择索引")
-  const compareVals = compareValueOptions.value.length ? compareFilterValues.value : compareFilterValuesText.value.split(/[\s,]+/).map(s => s.trim()).filter(Boolean)
-  if (!compareFilterColumn.value || !compareVals.length) {
-    return message.warning("过滤条件不能为空")
-  }
-
-  const filters = buildEqualsFilter(compareFilterColumn.value, compareVals)
-  if (!filters) return message.warning("过滤条件不能为空")
-
-  compareLoading.value = true
-  try {
-    const payload: any = {
-      indexId: selectedIndexId.value,
-      k: compareK.value,
-      filters,
-      metric: compareMetric.value,
-      strategies: compareStrategies.value,
-      oversample: compareOversample.value,
-    }
-    if (compareQueryType.value === "vector") {
-      payload.vector = parseVector(compareQuery.value)
-    } else {
-      payload.cellId = compareQuery.value.trim()
-    }
-    if (!payload.cellId && (!payload.vector || payload.vector.length === 0)) {
-      return message.warning("请输入查询内容")
-    }
-
-    compareResult.value = await compareStrategiesApi(payload)
-    selectedStrategy.value = compareResult.value.results[0]?.strategy ?? "post"
-  } catch (err: any) {
-    showErrMsg(err, "策略对比失败")
-  } finally {
-    compareLoading.value = false
+    loading.value = false
   }
 }
 
@@ -453,62 +263,117 @@ onMounted(loadResources)
 </script>
 
 <style scoped>
-/* ── Page shell ────────────────────────────────────── */
-.multi-search-page {
-  height: 100%;
-  overflow: hidden;
+.multi-search-view {
+  min-height: 100%;
+  padding: 24px;
+  background: #f7fafc;
+  color: #0f172a;
+}
+
+.page-header {
   display: flex;
-  flex-direction: column;
-  padding: 18px;
+  align-items: flex-end;
+  justify-content: space-between;
   gap: 16px;
-  background: #ffffff;
-  border: 1px solid var(--bio-line);
+  margin-bottom: 20px;
 }
 
-/* ── Resource card ───────────────────────────────────── */
-.resource-card { flex-shrink: 0; }
-.resource-actions { display: flex; align-items: flex-end; padding-bottom: 24px; }
+.page-crumb {
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 13px;
+}
 
-/* ── Tabs ────────────────────────────────────────────── */
-.multi-tabs {
-  flex: 1; min-height: 0;
-  display: flex; flex-direction: column;
+.page-header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
 }
-.multi-tabs :deep(.ant-tabs-content-holder) { flex: 1; min-height: 0; }
-.multi-tabs :deep(.ant-tabs-content) { height: 100%; }
-.multi-tabs :deep(.ant-tabs-tabpane) { height: 100%; overflow: hidden; }
-.multi-tabs :deep(.ant-tabs-nav) { margin-bottom: 12px; border-bottom: 1px solid var(--bio-line); }
-.multi-tabs :deep(.ant-tabs-tabpane > .ant-row) {
-  display: grid !important;
-  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
-  gap: 14px;
-  align-items: stretch;
-  height: 100%;
-}
-.multi-tabs :deep(.ant-tabs-tabpane > .ant-row > .ant-col) {
-  width: auto; max-width: none; flex: none; display: flex; flex-direction: column;
-}
-/* ── Panel cards ─────────────────────────────────────── */
-.panel-card { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-.panel-card :deep(.ant-card-body) { flex: 1; min-height: 0; overflow-y: auto; }
-/* 结果面板：和左边等高，内部 padding 紧凑 */
-.result-card :deep(.ant-card-body) { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px; }
 
-/* ── Result areas ────────────────────────────────────── */
-.summary-bar {
-  display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px;
-  padding: 8px 12px; border-radius: 9px; background: var(--bio-panel-muted);
-  border: 1px solid var(--bio-line); font-weight: 600; color: var(--bio-muted); font-size: 13px;
+.page-meta {
+  color: #475569;
+  font-size: 13px;
 }
-.strategy-detail { margin-top: 14px; }
-.strategy-detail__head {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 8px; font-weight: 700; color: var(--bio-navy); font-size: 13px;
-}
-.empty-state { margin-top: 12px; }
-.control-number { width: 100%; }
 
-@media (max-width: 992px) {
-  .multi-tabs :deep(.ant-tabs-tabpane > .ant-row) { grid-template-columns: 1fr; }
+.multi-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.query-panel,
+.result-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.panel-title {
+  margin-bottom: 14px;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.form-grid--filter {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.result-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.result-meta {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.details-pre {
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+
+@media (max-width: 980px) {
+  .multi-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .multi-search-view {
+    padding: 16px;
+  }
+
+  .page-header,
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .form-grid,
+  .form-grid--filter {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

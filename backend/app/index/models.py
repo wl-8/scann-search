@@ -28,3 +28,33 @@ class Index(Base):
     vector_dim: Mapped[int] = mapped_column(Integer, default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CombinedIndex(Base):
+    """A physical ANN index built from multiple datasets.
+
+    Each vector is addressed by a global row id. The sidecar mapping file maps
+    that global id back to (dataset_id, row_index, cell_id).
+    """
+
+    __tablename__ = "combined_indexes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    dataset_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+
+    algorithm: Mapped[str] = mapped_column(String(32), index=True)
+    params: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    file_path: Mapped[str] = mapped_column(String(512), default="")
+    mapping_path: Mapped[str] = mapped_column(String(512), default="")
+    status: Mapped[str] = mapped_column(String(16), default=STATUS_BUILDING, index=True)
+    error_msg: Mapped[str] = mapped_column(Text, default="")
+
+    build_time_ms: Mapped[float] = mapped_column(default=0.0)
+    index_size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    n_vectors: Mapped[int] = mapped_column(Integer, default=0)
+    vector_dim: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -32,6 +32,11 @@ export default defineConfig(({ mode }) => {
               configureServer(server) {
                 server.middlewares.use(async (req: any, res: any, next: any) => {
                   // Simple mock endpoints for /api/search variants to allow frontend development without backend
+                  if (!req.url || req.method !== "POST" || !req.url.startsWith("/api/search")) {
+                    next()
+                    return
+                  }
+
                   if (req.url && req.method === "POST") {
                     const body = await jsonBody(req)
 
@@ -123,6 +128,6 @@ export default defineConfig(({ mode }) => {
         : []),
     ],
     resolve: { alias: { "@": resolve(__dirname, "src") } },
-    server: { proxy: { "/api": "http://localhost:8000" } },
+    server: { proxy: { "/api": "http://127.0.0.1:8000" } },
   }
 })

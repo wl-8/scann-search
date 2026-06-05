@@ -17,7 +17,6 @@ from app.datasets import constants as ds_const
 from app.datasets import service as dataset_service
 from app.datasets.models import Dataset
 from app.datasets.schemas import DatasetRegisterRequest
-from app.db.session import SessionLocal
 from app.index import constants as index_const
 from app.index import service as index_service
 from app.index.models import Index
@@ -42,6 +41,8 @@ def bootstrap_default_dataset() -> None:
     if not dataset_path.exists():
         logger.info("default dataset not found at %s, skip bootstrap", dataset_path)
         return
+
+    from app.db.session import SessionLocal
 
     db = SessionLocal()
     try:
