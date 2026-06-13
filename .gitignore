@@ -76,6 +76,9 @@ temp/
 .pptx_extract/
 *.pptx
 
+# Slide source materials (PPT decks and exported assets)
+slide/
+
 # OS and IDE files
 .DS_Store
 Thumbs.db
